@@ -30,6 +30,8 @@ impl<P> Mul for Cfloat<P> where P: Mul<Output = P> + Add<Output = P> {
     }
 }
 
+
+// Define in these implementations the exp(), tanh(), and is_sign_positive() methods
 impl Cfloat<f32>  {
     
 }
