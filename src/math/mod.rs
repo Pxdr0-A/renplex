@@ -2,9 +2,41 @@
 
 */
 
+use std::ops::{Add, Mul};
+
 pub mod backpropagation;
 
-use std::f64::consts::PI;
+#[derive(Debug)]
+pub struct Cfloat<P> {
+    q: P,
+    p: P
+}
+
+impl<P> Cfloat<P> {
+    pub fn new(q: P, p: P) -> Cfloat<P> {
+        Cfloat {q, p}
+    }
+}
+
+// Generic multiplication for Cfloat
+impl<P> Mul for Cfloat<P> where P: Mul<Output = P> + Add<Output = P> {
+    type Output = Cfloat<P>;
+
+    fn mul(self, rhs: Cfloat<P>) -> Cfloat<P> {
+        Cfloat { 
+            q: self.q * rhs.q, 
+            p: self.p + rhs.p 
+        }
+    }
+}
+
+impl Cfloat<f32>  {
+    
+}
+
+impl Cfloat<f64>  {
+    
+}
 
 #[derive(Debug, Clone)]
 pub struct Matrix<T> {
