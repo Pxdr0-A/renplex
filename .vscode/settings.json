@@ -4,5 +4,5 @@
   "editor.fontWeight": "500",
   "editor.fontSize": 18,
   "editor.detectIndentation": true,
-  "editor.tabSize": 2,
+  "editor.tabSize": 4,
 }
