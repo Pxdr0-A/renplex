@@ -2,34 +2,53 @@
 
 */
 
-use std::ops::{Add, Mul};
+use std::ops::{Add, Sub, Mul};
 
 pub mod backpropagation;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Cfloat<P> {
-    q: P,
-    p: P
+    x: P,
+    y: P
 }
 
 impl<P> Cfloat<P> {
-    pub fn new(q: P, p: P) -> Cfloat<P> {
-        Cfloat {q, p}
+    pub fn new(x: P, y: P) -> Cfloat<P> {
+        Cfloat {x, y}
     }
 }
 
-// Generic multiplication for Cfloat
-impl<P> Mul for Cfloat<P> where P: Mul<Output = P> + Add<Output = P> {
+// Generic addition for Cfloat
+impl<P> Add for Cfloat<P> where P: Add<Output = P> {
     type Output = Cfloat<P>;
 
-    fn mul(self, rhs: Cfloat<P>) -> Cfloat<P> {
+    fn add(self, rhs: Cfloat<P>) -> Cfloat<P> {
         Cfloat { 
-            q: self.q * rhs.q, 
-            p: self.p + rhs.p 
+            x: self.x + rhs.x,
+            y: self.y + rhs.y
         }
     }
 }
 
+// Generic multiplication for Cfloat
+impl<P> Mul for Cfloat<P> where 
+    P: Mul<Output = P> + Add<Output = P> + Sub<Output = P>, 
+    P: Copy {
+    
+    type Output = Cfloat<P>;
+
+    fn mul(self, rhs: Cfloat<P>) -> Cfloat<P> {
+
+        Cfloat { 
+            x: self.x * rhs.x - self.y * rhs.y, 
+            y: self.x * rhs.y + self.y * rhs.x
+        }
+    }
+}
+
+// Minus trait (negative value) for Cfloat
+
+// You may need to implement these ops for &Cfloat
 
 // Define in these implementations the exp(), tanh(), and is_sign_positive() methods
 impl Cfloat<f32>  {
@@ -39,6 +58,7 @@ impl Cfloat<f32>  {
 impl Cfloat<f64>  {
     
 }
+
 
 #[derive(Debug, Clone)]
 pub struct Matrix<T> {
