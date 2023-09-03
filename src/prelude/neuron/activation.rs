@@ -1,44 +1,42 @@
 pub enum ActivationFunction {
-  SIGMOID,
-  TANH,
-  RELU
+    SIGMOID,
+    TANH,
+    RELU,
 }
 
 pub trait Activation {
-  fn activation(&self, func: ActivationFunction) -> Self;
+    fn activation(&self, func: ActivationFunction) -> Self;
 }
 
 macro_rules! activate_me {
-  ($value:ident, $func:ident) => {
-    match $func {
-      ActivationFunction::SIGMOID => {
-        1.0 / (1.0 + (-$value).exp())
-      },
-      ActivationFunction::TANH => {
-        $value.tanh()
-      },
-      ActivationFunction::RELU => {
-        if $value.is_sign_positive() { *$value } else { 0.0 }
-      }
-    } 
-  };
+    ($value:ident, $func:ident) => {
+        match $func {
+            ActivationFunction::SIGMOID => 1.0 / (1.0 + (-$value).exp()),
+            ActivationFunction::TANH => $value.tanh(),
+            ActivationFunction::RELU => {
+                if $value.is_sign_positive() {
+                    *$value
+                } else {
+                    0.0
+                }
+            }
+        }
+    };
 }
 
-// To implement Activation to a custom type, those types need to have
-// minus trait (negative value)
-// exp(), tanh(), is_sign_positive() methods.
+// To implement Activation to a custom type, it needs to have
 
-// UPDATE THIS CODE TO USE A MACRO!
+// UPDATE THIS CODE TO USE A MACRO (maybe)!
 impl Activation for f32 {
-  fn activation(&self, func: ActivationFunction) -> f32 {
-    activate_me!(self, func)
-  }
+    fn activation(&self, func: ActivationFunction) -> f32 {
+        activate_me!(self, func)
+    }
 }
 
 impl Activation for f64 {
-  fn activation(&self, func: ActivationFunction) -> f64 {
-    activate_me!(self, func)
-  }
+    fn activation(&self, func: ActivationFunction) -> f64 {
+        activate_me!(self, func)
+    }
 }
 
-// Activation implementation for Cfloat (for f32 and f64)
+// Activation implementation for Cfloat
