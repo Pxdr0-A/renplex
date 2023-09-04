@@ -16,6 +16,8 @@ impl<P> Cfloat<P> {
     pub fn new(x: P, y: P) -> Cfloat<P> {
         Cfloat {x, y}
     }
+
+    // try to find a way to create a generic phase calc
 }
 
 // Generic addition for Cfloat
@@ -26,6 +28,20 @@ impl<P> Add for Cfloat<P> where P: Add<Output = P> {
         Cfloat { 
             x: self.x + rhs.x,
             y: self.y + rhs.y
+        }
+    }
+}
+
+// Minus trait (negative value) for Cfloat
+impl<P> Sub for Cfloat<P> where 
+    P: Mul<Output = P> + Add<Output = P> + Sub<Output = P> {
+    
+    type Output = Cfloat<P>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Cfloat {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y
         }
     }
 }
@@ -45,8 +61,6 @@ impl<P> Mul for Cfloat<P> where
         }
     }
 }
-
-// Minus trait (negative value) for Cfloat
 
 // You may need to implement these ops for &Cfloat
 
