@@ -51,5 +51,8 @@ mod tests {
 
         println!("{:?}", a + a_rhs);
         println!("{:?}", b + b_rhs);
+
+        println!("{:?}", a - a_rhs);
+        println!("{:?}", b - b_rhs);
     }
 }
