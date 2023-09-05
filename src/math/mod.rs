@@ -2,7 +2,7 @@
 
 */
 
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Sub, Mul, Div};
 
 pub mod backpropagation;
 
@@ -12,12 +12,10 @@ pub struct Cfloat<P> {
     y: P
 }
 
-impl<P> Cfloat<P> {
+impl<P : Div> Cfloat<P> {
     pub fn new(x: P, y: P) -> Cfloat<P> {
         Cfloat {x, y}
     }
-
-    // try to find a way to create a generic phase calc
 }
 
 // Generic addition for Cfloat
@@ -61,10 +59,12 @@ impl<P> Mul for Cfloat<P> where
         }
     }
 }
-
 // You may need to implement these ops for &Cfloat
 
+
 // Define in these implementations the exp(), tanh(), and is_sign_positive() methods
+// Also basic operations like norm(), phase(), etc.
+// PLease build this with a macro
 impl Cfloat<f32>  {
     
 }
