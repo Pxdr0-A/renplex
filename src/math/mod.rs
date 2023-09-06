@@ -44,14 +44,14 @@ impl<P> Sub for Cfloat<P> where
     }
 }
 
-// Generic multiplication for Cfloat
+// Generic division
 impl<P> Mul for Cfloat<P> where 
     P: Mul<Output = P> + Add<Output = P> + Sub<Output = P>, 
     P: Copy {
     
     type Output = Cfloat<P>;
 
-    fn mul(self, rhs: Cfloat<P>) -> Cfloat<P> {
+    fn mul(self, rhs: Self) -> Cfloat<P> {
 
         Cfloat { 
             x: self.x * rhs.x - self.y * rhs.y, 
@@ -59,6 +59,24 @@ impl<P> Mul for Cfloat<P> where
         }
     }
 }
+
+// Generic multiplication for Cfloat
+impl<P> Div for Cfloat<P> where 
+    P: Mul<Output = P> + Div<Output = P> + Add<Output = P> + Sub<Output = P>, 
+    P: Copy {
+    
+    type Output = Cfloat<P>;
+
+    fn div(self, rhs: Cfloat<P>) -> Cfloat<P> {
+
+        Cfloat { 
+            x: (self.x * rhs.x + self.y * rhs.y) / (rhs.x * rhs.x - rhs.y * rhs.y), 
+            y: (self.y * rhs.x - self.x * rhs.y) / (rhs.x * rhs.x - rhs.y * rhs.y)
+        }
+    }
+}
+
+
 // You may need to implement these ops for &Cfloat
 
 
