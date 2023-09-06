@@ -19,7 +19,9 @@ impl<P : Div> Cfloat<P> {
 }
 
 // Generic addition for Cfloat
-impl<P> Add for Cfloat<P> where P: Add<Output = P> {
+impl<P> Add for Cfloat<P> where 
+    P: Add<Output = P> {
+    
     type Output = Cfloat<P>;
 
     fn add(self, rhs: Cfloat<P>) -> Cfloat<P> {
@@ -30,9 +32,9 @@ impl<P> Add for Cfloat<P> where P: Add<Output = P> {
     }
 }
 
-// Minus trait (negative value) for Cfloat
+// Generic subtraction for Cfloat
 impl<P> Sub for Cfloat<P> where 
-    P: Mul<Output = P> + Add<Output = P> + Sub<Output = P> {
+    P: Sub<Output = P> {
     
     type Output = Cfloat<P>;
 
@@ -44,7 +46,7 @@ impl<P> Sub for Cfloat<P> where
     }
 }
 
-// Generic division
+// Generic multiplication
 impl<P> Mul for Cfloat<P> where 
     P: Mul<Output = P> + Add<Output = P> + Sub<Output = P>, 
     P: Copy {
@@ -60,7 +62,7 @@ impl<P> Mul for Cfloat<P> where
     }
 }
 
-// Generic multiplication for Cfloat
+// Generic division
 impl<P> Div for Cfloat<P> where 
     P: Mul<Output = P> + Div<Output = P> + Add<Output = P> + Sub<Output = P>, 
     P: Copy {
@@ -88,7 +90,28 @@ impl Cfloat<f32>  {
 }
 
 impl Cfloat<f64>  {
-    
+    pub fn phase(&self) {
+
+    }
+
+    pub fn norm(&self) {
+        
+    }
+
+    pub fn exp(&self) -> Cfloat<f64> {
+        Cfloat { 
+            x: self.x.exp() * self.y.cos(), 
+            y: self.x.exp() * self.y.sin()
+        }
+    }
+
+    pub fn tanh(&self) {
+
+    }
+
+    pub fn is_sign_positive(&self) {
+
+    }
 }
 
 
