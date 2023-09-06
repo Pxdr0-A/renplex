@@ -15,26 +15,22 @@ mod tests {
         let a: f32 = 0.34;
         let func1 = ActivationFunction::SIGMOID;
 
-        let result1 = a.activation(func1);
-        println!("{}", result1);
+        let _result1 = a.activation(func1);
 
         let b: f64 = 0.34;
         let func2 = ActivationFunction::TANH;
 
-        let result2 = b.activation(func2);
-        println!("{}", result2);
+        let _result2 = b.activation(func2);
 
         let c: f32 = 4.0;
         let func3 = ActivationFunction::RELU;
 
-        let result3 = c.activation(func3);
-        println!("{}", result3);
+        let _result3 = c.activation(func3);
 
         let d: f32 = -0.23;
         let func4 = ActivationFunction::RELU;
 
-        let result4 = d.activation(func4);
-        println!("{}", result4);
+        let _result4 = d.activation(func4);
     }
 
     #[test]
@@ -46,13 +42,16 @@ mod tests {
         let b = Cfloat::new(0.81f32, 2.75f32);
         let b_rhs = Cfloat::new(0.12f32, -1.0f32);
 
-        println!("{:?}", a * a_rhs);
-        println!("{:?}", b * b_rhs);
+        let _res1 = a * a_rhs;
+        let _res2 = b * b_rhs;
 
-        println!("{:?}", a + a_rhs);
-        println!("{:?}", b + b_rhs);
+        let _res3 = a / a_rhs;
+        let _res4 = b / b_rhs;
 
-        println!("{:?}", a - a_rhs);
-        println!("{:?}", b - b_rhs);
+        let _res5 = a + a_rhs;
+        let _res6 = b + b_rhs;
+
+        let _res7 = a - a_rhs;
+        let _res8 = b - b_rhs;
     }
 }
