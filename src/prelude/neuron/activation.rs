@@ -8,7 +8,7 @@ pub trait Activation {
     fn activation(&self, func: ActivationFunction) -> Self;
 }
 
-macro_rules! activate_me {
+macro_rules! activate_float {
     ($value:ident, $func:ident) => {
         match $func {
             ActivationFunction::SIGMOID => 1.0 / (1.0 + (-$value).exp()),
@@ -24,19 +24,18 @@ macro_rules! activate_me {
     };
 }
 
-// To implement Activation to a custom type, it needs to have
-
 // UPDATE THIS CODE TO USE A MACRO (maybe)!
 impl Activation for f32 {
     fn activation(&self, func: ActivationFunction) -> f32 {
-        activate_me!(self, func)
+        activate_float!(self, func)
     }
 }
 
 impl Activation for f64 {
     fn activation(&self, func: ActivationFunction) -> f64 {
-        activate_me!(self, func)
+        activate_float!(self, func)
     }
 }
 
 // Activation implementation for Cfloat
+// you may need to write a new macro for the activation functions
