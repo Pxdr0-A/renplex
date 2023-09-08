@@ -2,9 +2,14 @@
 
 */
 
+// std
 use std::ops::{Add, Sub, Mul, Div};
 
+// local
+pub mod matrix;
+pub mod random;
 pub mod backpropagation;
+
 
 #[derive(Debug, Clone, Copy)]
 pub struct Cfloat<P> {
@@ -12,7 +17,7 @@ pub struct Cfloat<P> {
     y: P
 }
 
-impl<P : Div> Cfloat<P> {
+impl<P> Cfloat<P> {
     pub fn new(x: P, y: P) -> Cfloat<P> {
         Cfloat {x, y}
     }
@@ -70,32 +75,46 @@ impl<P> Div for Cfloat<P> where
     type Output = Cfloat<P>;
 
     fn div(self, rhs: Cfloat<P>) -> Cfloat<P> {
+        let den = rhs.x * rhs.x - rhs.y * rhs.y;
 
         Cfloat { 
-            x: (self.x * rhs.x + self.y * rhs.y) / (rhs.x * rhs.x - rhs.y * rhs.y), 
-            y: (self.y * rhs.x - self.x * rhs.y) / (rhs.x * rhs.x - rhs.y * rhs.y)
+            x: (self.x * rhs.x + self.y * rhs.y) / den, 
+            y: (self.y * rhs.x - self.x * rhs.y) / den
         }
     }
 }
 
 
 // You may need to implement these ops for &Cfloat
+// Generic addition for &Cfloat
+// Review this!!
+impl<P> Add for &Cfloat<P> where 
+    P: Add<Output = P>,
+    P: Copy {
+    
+    type Output = Cfloat<P>;
+
+    fn add(self, rhs: &Cfloat<P>) -> Cfloat<P> {
+        Cfloat { 
+            x: self.x + rhs.x,
+            y: self.y + rhs.y
+        }
+    }
+}
 
 
-// Define in these implementations the exp(), tanh(), and is_sign_positive() methods
-// Also basic operations like norm(), phase(), etc.
-// PLease build this with a macro
+// Please build this with a macro
 impl Cfloat<f32>  {
     
 }
 
 impl Cfloat<f64>  {
-    pub fn phase(&self) {
-
+    pub fn phase(&self) -> f64 {
+        (self.y / self.x).atan()
     }
 
-    pub fn norm(&self) {
-        
+    pub fn norm(&self) -> f64 {
+        self.x.powi(2) + self.y.powi(2)
     }
 
     pub fn exp(&self) -> Cfloat<f64> {
@@ -105,118 +124,18 @@ impl Cfloat<f64>  {
         }
     }
 
-    pub fn tanh(&self) {
+    pub fn tanh(&self) -> Cfloat<f64> {
+        let den = 
+            self.y.cos().powi(2) * self.x.cosh().powi(2) - 
+            self.y.sin().powi(2) * self.x.sinh().powi(2);
 
-    }
-
-    pub fn is_sign_positive(&self) {
-
-    }
-}
-
-
-#[derive(Debug, Clone)]
-pub struct Matrix<T> {
-    body: Vec<T>,
-    shape: [usize; 2],
-    capacity: [usize; 2],
-}
-
-impl<T> Matrix<T> {
-    pub fn new(capacity: [usize; 2]) -> Matrix<T> {
-        // allocates enough memory
-        let body = Vec::with_capacity(capacity[0] * capacity[1]);
-        let shape = [0, 0];
-
-        Matrix { body, shape, capacity}
-    }
-
-    pub fn elm(&self, i: &usize, j: &usize) -> &T {
-        // i - lines; j - columns
-        assert!(
-            i < &self.shape[0] && j < &self.shape[1],
-            "Index Error: Some axis is out of bounds."
-        );
-
-        &self.body[i * self.shape[1] + j]
-    }
-
-    pub fn row(&self, i: &usize) -> &[T] {
-        assert!(
-            i < &self.shape[0],
-            "Index Error: Row index is out of bounds."
-        );
-
-        let init = i * self.shape[1];
-        let end = i * self.shape[1] + self.shape[1];
-
-        &self.body[init..end]
-    }
-
-    pub fn column(&self, j: &usize) -> Vec<&T> {
-        assert!(
-            j < &self.shape[1],
-            "Index Error. Column index is out of bounds."
-        );
-
-        let mut column: Vec<&T> = Vec::with_capacity(self.shape[0]);
-        for i in 0..self.shape[0] {
-            column.push(&self.body[i * self.shape[1] + j]);
-        }
-
-        column
-    }
-
-    pub fn add_row(&mut self, row: &mut Vec<T>) {
-        assert!(
-            (row.len() == self.shape[1]) || self.shape[1] == 0,
-            "Invalid Addition: Inconsistent row length."
-        );
-
-        assert!(
-            self.capacity[0] > self.shape[0],
-            "Invalid Addition: Attempting to exceed allocated memory."
-        );
-
-        self.shape[0] += 1;
-        self.shape[1] = row.len();
-        self.body.append(row);
-    }
-
-    pub fn add_col(&mut self, col: &mut Vec<T>) {
-        // a row must first be added
-        assert!(
-            (col.len() == self.shape[0]),
-            "Invalid Addition: Inconsistent column length."
-        );
-
-        assert!(
-            self.capacity[1] > self.shape[1],
-            "Invalid Addition: Attempting to exceed allocated memory."
-        );
-
-        self.shape[1] += 1;
-        self.shape[0] = col.len();
-
-        col.reverse();
-        let mut last_row_elm: usize;
-        for i in 0..self.shape[0] {
-            last_row_elm = i * self.shape[1] + self.shape[1] - 1;
-            self.body.splice(last_row_elm..last_row_elm, col.pop());
+        Cfloat {
+            x: self.x.sinh() * self.x.cosh() / den,
+            y: self.y.sin() * self.y.cos() / den
         }
     }
-}
 
-pub mod random {
-    pub fn lcg(seed: &mut u128) -> f64 {
-        // IBM C/C++ convention params
-        let a: u128 = 1103515245;
-        let b: u128 = 12345;
-        let m: u128 = 2u128.pow(31);
-
-        *seed = (a * *seed + b) % (m - 1);
-        let rand = (*seed as f64) / (m as f64);
-
-        rand
+    pub fn is_sign_positive(&self) -> bool {
+        if self.phase().is_sign_positive() { true } else { false }
     }
 }
