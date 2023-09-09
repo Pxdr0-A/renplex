@@ -53,5 +53,29 @@ mod tests {
 
         let _res7 = a - a_rhs;
         let _res8 = b - b_rhs;
+
+        
+        let _res9 = &a + &a_rhs;
+        let _res10 = &b * &b_rhs;
+        let _res11 = &b / &b_rhs;
+    }
+
+    #[test]
+    fn advanced_ops() {
+        use math::Cfloat;
+
+        let c1 = Cfloat::new(1.23f32, 3.33f32);
+        let _res1 = c1.phase();
+        let _res2 = c1.norm();
+        let _res3 = c1.exp();
+        let _res4 = c1.tanh();
+        let _res5 = c1.is_sign_positive();
+
+        let c2 = Cfloat::new(5.93f64, 2.65f64);
+        let _res6 = c2.phase();
+        let _res7 = c2.norm();
+        let _res8 = c2.exp();
+        let _res9 = c2.tanh();
+        let _res10 = c2.is_sign_positive();
     }
 }

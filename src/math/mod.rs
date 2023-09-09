@@ -23,13 +23,14 @@ impl<P> Cfloat<P> {
     }
 }
 
+// UPDATE THIS TO A MACRO, SOMEDAY!
 // Generic addition for Cfloat
 impl<P> Add for Cfloat<P> where 
     P: Add<Output = P> {
     
     type Output = Cfloat<P>;
 
-    fn add(self, rhs: Cfloat<P>) -> Cfloat<P> {
+    fn add(self, rhs: Self) -> Cfloat<P> {
         Cfloat { 
             x: self.x + rhs.x,
             y: self.y + rhs.y
@@ -74,7 +75,70 @@ impl<P> Div for Cfloat<P> where
     
     type Output = Cfloat<P>;
 
-    fn div(self, rhs: Cfloat<P>) -> Cfloat<P> {
+    fn div(self, rhs: Self) -> Cfloat<P> {
+        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+
+        Cfloat { 
+            x: (self.x * rhs.x + self.y * rhs.y) / den, 
+            y: (self.y * rhs.x - self.x * rhs.y) / den
+        }
+    }
+}
+
+// Generic addition for &Cfloat
+impl<'a, 'b, P> Add<&'b Cfloat<P>> for &'a Cfloat<P> where 
+    P: Add<Output = P>,
+    P: Copy {
+
+    type Output = Cfloat<P>;
+
+    fn add(self, rhs: &'b Cfloat<P>) -> Cfloat<P> {
+        Cfloat {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+// Generic addition for &Cfloat
+impl<'a, 'b, P> Sub<&'b Cfloat<P>> for &'a Cfloat<P> where 
+    P: Sub<Output = P>,
+    P: Copy {
+
+    type Output = Cfloat<P>;
+
+    fn sub(self, rhs: &'b Cfloat<P>) -> Cfloat<P> {
+        Cfloat {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+// Generic multiplication &Cfloat
+impl<'a, 'b, P> Mul<&'b Cfloat<P>> for &'a Cfloat<P> where 
+    P: Mul<Output = P> + Add<Output = P> + Sub<Output = P>, 
+    P: Copy {
+    
+    type Output = Cfloat<P>;
+
+    fn mul(self, rhs: &'b Cfloat<P>) -> Cfloat<P> {
+
+        Cfloat { 
+            x: self.x * rhs.x - self.y * rhs.y, 
+            y: self.x * rhs.y + self.y * rhs.x
+        }
+    }
+}
+
+// Generic division &Cfloat
+impl<'a, 'b, P> Div<&'b Cfloat<P>> for &'a Cfloat<P> where 
+    P: Div<Output = P> + Mul<Output = P> + Add<Output = P> + Sub<Output = P>, 
+    P: Copy {
+    
+    type Output = Cfloat<P>;
+
+    fn div(self, rhs: &'b Cfloat<P>) -> Cfloat<P> {
         let den = rhs.x * rhs.x - rhs.y * rhs.y;
 
         Cfloat { 
@@ -85,57 +149,46 @@ impl<P> Div for Cfloat<P> where
 }
 
 
-// You may need to implement these ops for &Cfloat
-// Generic addition for &Cfloat
-// Review this!!
-impl<P> Add for &Cfloat<P> where 
-    P: Add<Output = P>,
-    P: Copy {
-    
-    type Output = Cfloat<P>;
 
-    fn add(self, rhs: &Cfloat<P>) -> Cfloat<P> {
-        Cfloat { 
-            x: self.x + rhs.x,
-            y: self.y + rhs.y
-        }
-    }
-}
-
+// Operations for each usable type
 
 // Please build this with a macro
-impl Cfloat<f32>  {
-    
+macro_rules! build_methods {
+    ( $( $t:ty ),* ) => {
+        $(
+            impl Cfloat<$t>  {
+                pub fn phase(&self) -> $t {
+                    (self.y / self.x).atan()
+                }
+            
+                pub fn norm(&self) -> $t {
+                    self.x.powi(2) + self.y.powi(2)
+                }
+            
+                pub fn exp(&self) -> Cfloat<$t> {
+                    Cfloat { 
+                        x: self.x.exp() * self.y.cos(), 
+                        y: self.x.exp() * self.y.sin()
+                    }
+                }
+            
+                pub fn tanh(&self) -> Cfloat<$t> {
+                    let den = 
+                        self.y.cos().powi(2) * self.x.cosh().powi(2) - 
+                        self.y.sin().powi(2) * self.x.sinh().powi(2);
+            
+                    Cfloat {
+                        x: self.x.sinh() * self.x.cosh() / den,
+                        y: self.y.sin() * self.y.cos() / den
+                    }
+                }
+            
+                pub fn is_sign_positive(&self) -> bool {
+                    if self.phase().is_sign_positive() { true } else { false }
+                }
+            }
+        )*
+    };
 }
 
-impl Cfloat<f64>  {
-    pub fn phase(&self) -> f64 {
-        (self.y / self.x).atan()
-    }
-
-    pub fn norm(&self) -> f64 {
-        self.x.powi(2) + self.y.powi(2)
-    }
-
-    pub fn exp(&self) -> Cfloat<f64> {
-        Cfloat { 
-            x: self.x.exp() * self.y.cos(), 
-            y: self.x.exp() * self.y.sin()
-        }
-    }
-
-    pub fn tanh(&self) -> Cfloat<f64> {
-        let den = 
-            self.y.cos().powi(2) * self.x.cosh().powi(2) - 
-            self.y.sin().powi(2) * self.x.sinh().powi(2);
-
-        Cfloat {
-            x: self.x.sinh() * self.x.cosh() / den,
-            y: self.y.sin() * self.y.cos() / den
-        }
-    }
-
-    pub fn is_sign_positive(&self) -> bool {
-        if self.phase().is_sign_positive() { true } else { false }
-    }
-}
+build_methods!{f32, f64}
