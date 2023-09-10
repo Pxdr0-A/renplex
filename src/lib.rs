@@ -35,7 +35,7 @@ mod tests {
 
     #[test]
     fn cplex_num_ops() {
-        use math::Cfloat;
+        use math::complex::Cfloat;
 
         let a = Cfloat::new(0.34, 0.75);
         let a_rhs = Cfloat::new(0.45, 0.05);
@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn advanced_ops() {
-        use math::Cfloat;
+        use math::complex::Cfloat;
 
         let c1 = Cfloat::new(1.23f32, 3.33f32);
         let _res1 = c1.phase();
