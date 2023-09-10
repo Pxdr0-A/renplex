@@ -1,5 +1,5 @@
 // std
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Sub, Mul, Div, AddAssign};
 
 
 #[derive(Debug, Clone, Copy)]
@@ -137,6 +137,15 @@ impl<'a, 'b, P> Div<&'b Cfloat<P>> for &'a Cfloat<P> where
     }
 }
 
+// Generic Assign Addition for Cfloat
+impl<P> AddAssign for Cfloat<P> where 
+    P: AddAssign {
+
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
 
 
 // Operations for each usable type
