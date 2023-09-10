@@ -8,7 +8,7 @@ pub enum ActivationFunction {
 }
 
 pub trait Activation {
-    fn activation(&self, func: ActivationFunction) -> Self;
+    fn activation(&self, func: &ActivationFunction) -> Self;
 }
 
 macro_rules! activate_float {
@@ -57,13 +57,13 @@ macro_rules! activate_all {
     ($( $t:ty ),*) => {
         $(
             impl Activation for $t {
-                fn activation(&self, func: ActivationFunction) -> $t {
+                fn activation(&self, func: &ActivationFunction) -> $t {
                     activate_float!(self, func, $t)
                 }
             }  
 
             impl Activation for Cfloat<$t> {
-                fn activation(&self, func: ActivationFunction) -> Cfloat<$t> {
+                fn activation(&self, func: &ActivationFunction) -> Cfloat<$t> {
                     activate_complex!(self, func, $t)
                 }
             }
