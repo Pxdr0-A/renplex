@@ -2,7 +2,7 @@ pub mod math;
 pub mod prelude;
 
 #[cfg(test)]
-mod tests {
+mod base_tests {
     use super::*;
 
     #[test]
@@ -11,6 +11,7 @@ mod tests {
         // afterwards change vars to private
         use prelude::neuron::activation::Activation;
         use prelude::neuron::activation::ActivationFunction;
+        use math::complex::Cfloat;
 
         let a: f32 = 0.34;
         let func1 = ActivationFunction::SIGMOID;
@@ -29,8 +30,12 @@ mod tests {
 
         let d: f32 = -0.23;
         let func4 = ActivationFunction::RELU;
-
         let _result4 = d.activation(func4);
+
+        let e = Cfloat::new(2.3, 7.12);
+        let func5 = ActivationFunction::TANH;
+        let _result5 = e.activation(func5);
+        
     }
 
     #[test]
