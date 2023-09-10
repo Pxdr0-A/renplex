@@ -2,7 +2,7 @@ pub mod math;
 pub mod prelude;
 
 #[cfg(test)]
-mod base_tests {
+mod calcs {
     use super::*;
 
     #[test]
@@ -16,25 +16,25 @@ mod base_tests {
         let a: f32 = 0.34;
         let func1 = ActivationFunction::SIGMOID;
 
-        let _result1 = a.activation(func1);
+        let _result1 = a.activation(&func1);
 
         let b: f64 = 0.34;
         let func2 = ActivationFunction::TANH;
 
-        let _result2 = b.activation(func2);
+        let _result2 = b.activation(&func2);
 
         let c: f32 = 4.0;
         let func3 = ActivationFunction::RELU;
 
-        let _result3 = c.activation(func3);
+        let _result3 = c.activation(&func3);
 
         let d: f32 = -0.23;
         let func4 = ActivationFunction::RELU;
-        let _result4 = d.activation(func4);
+        let _result4 = d.activation(&func4);
 
         let e = Cfloat::new(2.3, 7.12);
         let func5 = ActivationFunction::TANH;
-        let _result5 = e.activation(func5);
+        let _result5 = e.activation(&func5);
         
     }
 
@@ -57,12 +57,13 @@ mod base_tests {
         let _res6 = b + b_rhs;
 
         let _res7 = a - a_rhs;
-        let _res8 = b - b_rhs;
-
+        let mut _res8 = b - b_rhs;
+        _res8 += _res7;
         
         let _res9 = &a + &a_rhs;
         let _res10 = &b * &b_rhs;
         let _res11 = &b / &b_rhs;
+
     }
 
     #[test]
@@ -82,5 +83,40 @@ mod base_tests {
         let _res8 = c2.exp();
         let _res9 = c2.tanh();
         let _res10 = c2.is_sign_positive();
+    }
+}
+
+#[cfg(test)]
+mod neuron {
+    use super::*;
+
+    use math::complex::Cfloat;
+    use prelude::neuron::Neuron;
+    use prelude::neuron::activation::ActivationFunction;
+
+    #[test]
+    fn signal() {
+        let _n1 = Neuron::new(
+            1, 
+            vec![2.34, 5.4, 1.2], 
+            1.0, 
+            ActivationFunction::SIGMOID
+        ).signal(&vec![4.0, 3.0, 2.0]);
+
+        let _n2 = Neuron::new(
+            2, 
+            vec![
+                Cfloat::new(5.0f32, 1.0f32),
+                Cfloat::new(1.0f32, 1.0f32)
+            ], 
+            Cfloat::new(-1.0f32, -1.0f32), 
+            ActivationFunction::RELU
+        );
+        let _output = _n2.signal(
+            &vec![
+                Cfloat::new(1.0, 1.0),
+                Cfloat::new(1.0, 1.0)
+            ]
+        );
     }
 }
