@@ -14,7 +14,6 @@ impl<P> Cfloat<P> {
     }
 }
 
-// UPDATE THIS TO A MACRO, SOMEDAY!
 // Generic addition for Cfloat
 impl<P> Add for Cfloat<P> where 
     P: Add<Output = P> {
@@ -51,7 +50,6 @@ impl<P> Mul for Cfloat<P> where
     type Output = Cfloat<P>;
 
     fn mul(self, rhs: Self) -> Cfloat<P> {
-
         Cfloat { 
             x: self.x * rhs.x - self.y * rhs.y, 
             y: self.x * rhs.y + self.y * rhs.x
@@ -142,8 +140,6 @@ impl<'a, 'b, P> Div<&'b Cfloat<P>> for &'a Cfloat<P> where
 
 
 // Operations for each usable type
-
-// Please build this with a macro
 macro_rules! make_complex_ops {
     ( $( $t:ty ),* ) => {
         $(
@@ -154,6 +150,20 @@ macro_rules! make_complex_ops {
             
                 pub fn norm(&self) -> $t {
                     self.x.powi(2) + self.y.powi(2)
+                }
+
+                pub fn conj(&self) -> Cfloat<$t> {
+                    Cfloat {
+                        x: self.x,
+                        y: -self.y
+                    }
+                }
+
+                pub fn inv(&self) -> Cfloat<$t> {
+                    Cfloat {
+                        x: -self.x,
+                        y: -self.y
+                    }
                 }
             
                 pub fn exp(&self) -> Cfloat<$t> {
