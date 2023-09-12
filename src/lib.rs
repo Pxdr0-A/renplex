@@ -92,6 +92,7 @@ mod neuron {
 
     use math::complex::Cfloat;
     use prelude::neuron::Neuron;
+    use prelude::layer::Layer;
     use prelude::neuron::activation::ActivationFunction;
 
     #[test]
@@ -118,5 +119,34 @@ mod neuron {
                 Cfloat::new(1.0, 1.0)
             ]
         );
+        
+        let _n3 = Neuron::new(
+            2, 
+            vec![
+                Cfloat::new(3.0f32, 1.5f32),
+                Cfloat::new(1.0f32, 2.0f32)
+            ], 
+            Cfloat::new(-0.5f32, -0.5f32), 
+            ActivationFunction::RELU
+        );
+
+        let _n4 = Neuron::new(
+            2, 
+            vec![
+                Cfloat::new(1.0f32, 1.0f32),
+                Cfloat::new(3.0f32, 2.0f32)
+            ], 
+            Cfloat::new(-1.5f32, -2.5f32), 
+            ActivationFunction::SIGMOID
+        );
+
+        let l = Layer::new(
+            1, 
+            vec![_n2, _n3, _n4]
+        );
+        let _out_layer = l.signal(&vec![
+            Cfloat::new(1.0, 1.0),
+            Cfloat::new(1.0, 1.0)
+        ]);
     }
 }
