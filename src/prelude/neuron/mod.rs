@@ -32,7 +32,9 @@ impl<W> Neuron<W> {
     }
 
     pub fn signal(&self, input: &[W]) -> W 
-        where W: AddAssign + Mul<Output = W> + Activation, W: Copy {
+        where 
+            W: AddAssign + Mul<Output = W> + Activation, 
+            W: Copy {
         
         assert_eq!(self.weights.len(), input.len(),
                    "Input length must match the number of neuron inputs."
