@@ -5,14 +5,12 @@ use super::neuron::activation::Activation;
 
 
 pub struct Layer<W> {
-    pub id: usize,
     pub units: Vec<Neuron<W>>
 }
 
 impl<W> Layer<W> {
-    pub fn new(id: usize, units: Vec<Neuron<W>>) -> Layer<W> {
+    pub fn new(units: Vec<Neuron<W>>) -> Layer<W> {
         Layer {
-            id,
             units
         }
     }

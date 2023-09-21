@@ -9,7 +9,6 @@ use self::activation::{ActivationFunction, Activation};
 
 
 pub struct Neuron<W> {
-    pub id: usize,
     pub weights: Vec<W>,
     pub bias: W,
     pub activation: ActivationFunction,
@@ -17,14 +16,12 @@ pub struct Neuron<W> {
 
 impl<W> Neuron<W> {
     pub fn new(
-        id: usize, 
         weights: Vec<W>,
         bias: W, 
         activation: ActivationFunction
     ) -> Neuron<W> {
         
         Neuron { 
-            id, 
             weights, 
             bias, 
             activation 
