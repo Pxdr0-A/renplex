@@ -90,22 +90,20 @@ mod calcs {
 mod neuron {
     use super::*;
 
-    use math::complex::Cfloat;
-    use prelude::neuron::Neuron;
-    use prelude::layer::Layer;
-    use prelude::neuron::activation::ActivationFunction;
-
     #[test]
     fn signal() {
+        use math::complex::Cfloat;
+        use prelude::neuron::Neuron;
+        use prelude::layer::Layer;
+        use prelude::neuron::activation::ActivationFunction;
+        
         let _n1 = Neuron::new(
-            1, 
             vec![2.34, 5.4, 1.2], 
             1.0, 
             ActivationFunction::SIGMOID
         ).signal(&vec![4.0, 3.0, 2.0]);
 
         let _n2 = Neuron::new(
-            2, 
             vec![
                 Cfloat::new(5.0f32, 1.0f32),
                 Cfloat::new(1.0f32, 1.0f32)
@@ -121,7 +119,6 @@ mod neuron {
         );
         
         let _n3 = Neuron::new(
-            2, 
             vec![
                 Cfloat::new(3.0f32, 1.5f32),
                 Cfloat::new(1.0f32, 2.0f32)
@@ -131,7 +128,6 @@ mod neuron {
         );
 
         let _n4 = Neuron::new(
-            2, 
             vec![
                 Cfloat::new(1.0f32, 1.0f32),
                 Cfloat::new(3.0f32, 2.0f32)
@@ -141,7 +137,6 @@ mod neuron {
         );
 
         let l = Layer::new(
-            1, 
             vec![_n2, _n3, _n4]
         );
         let _out_layer = l.signal(&vec![
