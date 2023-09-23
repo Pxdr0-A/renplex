@@ -94,7 +94,6 @@ mod neuron {
     fn signal() {
         use math::complex::Cfloat;
         use prelude::neuron::Neuron;
-        use prelude::layer::Layer;
         use prelude::neuron::activation::ActivationFunction;
         
         let _n1 = Neuron::new(
@@ -135,13 +134,56 @@ mod neuron {
             Cfloat::new(-1.5f32, -2.5f32), 
             ActivationFunction::SIGMOID
         );
+    }
+}
 
-        let l = Layer::new(
-            vec![_n2, _n3, _n4]
+#[cfg(test)]
+mod layer {
+    use super::*;
+
+    #[test]
+    fn signal() {
+        use prelude::neuron::activation::ActivationFunction;
+        use prelude::neuron::Neuron;
+        use prelude::layer::Layer;
+        use prelude::layer::HiddenLayer;
+        
+        let mut l: HiddenLayer<f64> = Layer::new(3);
+        l.add(
+            Neuron::new(
+                vec![1.2, 1.4], 
+                0.5, 
+                ActivationFunction::SIGMOID
+            )
         );
-        let _out_layer = l.signal(&vec![
-            Cfloat::new(1.0, 1.0),
-            Cfloat::new(1.0, 1.0)
-        ]);
+
+        l.add(
+            Neuron::new(
+                vec![3.2, 1.2], 
+                1.0, 
+                ActivationFunction::SIGMOID
+            )
+        );
+
+        l.add(
+            Neuron::new(
+                vec![0.2, 0.5], 
+                1.5, 
+                ActivationFunction::SIGMOID
+            )
+        );
+
+        let _out = l.signal(&vec![1.0, 0.5]);
+    }
+}
+
+#[cfg(test)]
+mod sandbox {
+
+    #[test]
+    fn slices() {
+        let slice1 = &vec![0,1,2,3,4,5,6,7,8,9];
+
+        println!("{:?}", &slice1[9..=9]);
     }
 }
