@@ -8,7 +8,7 @@ readme = "README.md"
 repository = "https://github.com/Pxdr0-A/renplex"
 license = "MIT"
 license-file = "LICENSE"
-keywords = ["neural-network-engine", "complexed-valued-neural-networks"]
+keywords = ["neural-networks", "engine", "nn-engine", "cvnn-engine"]
 categories = ["Library"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
