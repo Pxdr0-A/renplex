@@ -56,20 +56,26 @@ impl<W> Layer<W> for InputLayer<W> {
             W: Copy {
         
 
-        // try to implement concurrency if possible
+        // Try to implement concurrency if possible
         let mut output = Vec::with_capacity(self.units.len());
 
-        let mut demand: usize = 0;
+        let mut demand: usize;
         let mut position: usize = 0;
         for neuron in &self.units {
-            demand += neuron.weights.len();
-            assert!(demand <= input.len(), 
+            // The -1 is to work around index counts
+            demand = position + ( neuron.weights.len() - 1 );
+            assert!(
+                demand <= input.len(), 
                 "Input with inconsistent shape given to InputLayer."
             );
 
-            output.push(neuron.signal(&input[position..=demand]));
+            output.push(
+                neuron.signal(&input[position..=demand])
+            );
 
-            position += demand;
+            // The +1 is to move one place. 
+            // We do not want to repeat the last point
+            position = demand + 1;
         }
 
         output

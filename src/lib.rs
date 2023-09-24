@@ -146,10 +146,10 @@ mod layer {
         use prelude::neuron::activation::ActivationFunction;
         use prelude::neuron::Neuron;
         use prelude::layer::Layer;
-        use prelude::layer::HiddenLayer;
+        use prelude::layer::{InputLayer, HiddenLayer};
         
-        let mut l: HiddenLayer<f64> = Layer::new(3);
-        l.add(
+        let mut l_h: HiddenLayer<f64> = Layer::new(3);
+        l_h.add(
             Neuron::new(
                 vec![1.2, 1.4], 
                 0.5, 
@@ -157,7 +157,7 @@ mod layer {
             )
         );
 
-        l.add(
+        l_h.add(
             Neuron::new(
                 vec![3.2, 1.2], 
                 1.0, 
@@ -165,7 +165,7 @@ mod layer {
             )
         );
 
-        l.add(
+        l_h.add(
             Neuron::new(
                 vec![0.2, 0.5], 
                 1.5, 
@@ -173,7 +173,112 @@ mod layer {
             )
         );
 
-        let _out = l.signal(&vec![1.0, 0.5]);
+        let _out_h = l_h.signal(&vec![1.0, 0.5]);
+
+        let mut l_i: InputLayer<f64> = Layer::new(3);
+        l_i.add(
+            Neuron::new(
+                vec![1.2, 1.4], 
+                0.5, 
+                ActivationFunction::SIGMOID
+            )
+        );
+
+        l_i.add(
+            Neuron::new(
+                vec![3.2, 1.2], 
+                1.0, 
+                ActivationFunction::SIGMOID
+            )
+        );
+
+        l_i.add(
+            Neuron::new(
+                vec![0.2, 0.5], 
+                1.5, 
+                ActivationFunction::SIGMOID
+            )
+        );
+
+        let _out_i = l_i.signal(&vec![0.1, 0.5, 1.0, 1.5, 2.5, 0.5]);
+
+        println!("{:?}", _out_i);
+    }
+}
+
+#[cfg(test)]
+mod network {
+    use super::*;
+    
+    #[test]
+    fn foward() {
+        use prelude::neuron::activation::ActivationFunction;
+        use prelude::neuron::Neuron;
+        use prelude::layer::{Layer, HiddenLayer};
+        use prelude::network::Network;
+
+        let mut network: Network<f64> = Network::new(2);
+
+        let in1 = Neuron::new(
+            vec![0.2, 0.5, 0.5], 
+            -0.2, 
+            ActivationFunction::SIGMOID
+        );
+        let in2 = Neuron::new(
+            vec![0.2, 0.1, 0.5], 
+            -0.3, 
+            ActivationFunction::RELU
+        );
+
+        network.add_unit(0, in1);
+        network.add_unit(0, in2);
+
+        network.add(HiddenLayer::new(4));
+        network.add(HiddenLayer::new(2));
+
+        let hd11 = Neuron::new(
+            vec![1.3, 0.5], 
+            -1.0, 
+            ActivationFunction::SIGMOID
+        );
+        let hd12 = Neuron::new(
+            vec![0.2, 2.5], 
+            -0.1, 
+            ActivationFunction::SIGMOID
+        );
+        let hd13 = Neuron::new(
+            vec![1.1, 0.5], 
+            -1.0, 
+            ActivationFunction::SIGMOID
+        );
+        let hd14 = Neuron::new(
+            vec![0.6, 0.7], 
+            -0.2, 
+            ActivationFunction::SIGMOID
+        );
+        
+        network.add_unit(1, hd11);
+        network.add_unit(1, hd12);
+        network.add_unit(1, hd13);
+        network.add_unit(1, hd14);
+
+        let hd21 = Neuron::new(
+            vec![0.1, 0.5, 0.2, 0.1], 
+            -0.1, 
+            ActivationFunction::RELU
+        );
+        let hd22 = Neuron::new(
+            vec![0.1, 0.5, 0.2, 0.1], 
+            -0.2, 
+            ActivationFunction::RELU
+        );
+
+        network.add_unit(2, hd21);
+        network.add_unit(2, hd22);
+
+        let _out = network.foward(&vec![0.2, 0.3, 1.2, 4.3, 1.0, 0.9]);
+
+        println!("{:?}", _out);
     }
 }
 
