@@ -7,7 +7,6 @@ description = "A library capable of handling complexed valued neural network alt
 readme = "README.md"
 repository = "https://github.com/Pxdr0-A/renplex"
 license = "MIT"
-license-file = "LICENSE"
 keywords = ["neural-networks", "engine", "nn-engine", "cvnn-engine"]
 categories = ["lib"]
 
