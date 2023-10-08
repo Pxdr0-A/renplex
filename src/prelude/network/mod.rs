@@ -22,15 +22,21 @@ impl<W> Network<W> {
         }
     }
 
-    /// Updates the `Netowork<W>` object with an `HiddenLayer<W>`
+    /// Updates a `Netowork<W>` with an `HiddenLayer<W>`
     /// 
     /// # Arguments
     /// 
-    /// * `neuron` - Neuron to add to the respective layer.
+    /// * `layer` - Hidden layer of neurons to add to the network.
     pub fn add(&mut self, layer: HiddenLayer<W>) {
         self.hidden_layers.push(layer);
     }
 
+    /// Updates some layer of a `Netowork<W>` with a `Neuron<W>`
+    /// 
+    /// # Arguments
+    /// 
+    /// * `order` - Index of the layer to add the neuron. 
+    /// * `neuron` - Neuron to add to the respective layer.
     pub fn add_unit(&mut self, order: usize, neuron: Neuron<W>) {
         if order == 0 {
             self.input_layer.add(neuron);
@@ -43,6 +49,11 @@ impl<W> Network<W> {
         }
     }
 
+    /// Propagates a signal through a `Network<W>` given an input.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `input` - Slice with the input data. Must be in agreement with the input length.
     pub fn foward(&self, input: &[W]) -> Vec<W>
         where 
             W: AddAssign + Mul<Output = W> + Activation, 
