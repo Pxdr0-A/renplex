@@ -16,7 +16,7 @@
 ///     println!("Seed Update: {}", seed);
 /// }
 /// ```
-pub fn lcg(seed: &mut u128) -> f64 {
+pub fn lcgf64(seed: &mut u128) -> f64 {
     // IBM C/C++ convention params
     let a: u128 = 1103515245;
     let b: u128 = 12345;
@@ -28,3 +28,14 @@ pub fn lcg(seed: &mut u128) -> f64 {
     rand
 }
 
+pub fn lcgf32(seed: &mut u128) -> f32 {
+    // IBM C/C++ convention params
+    let a: u128 = 1103515245;
+    let b: u128 = 12345;
+    let m: u128 = 2u128.pow(31);
+
+    *seed = (a * *seed + b) % (m - 1);
+    let rand = (*seed as f32) / (m as f32);
+
+    rand
+}
