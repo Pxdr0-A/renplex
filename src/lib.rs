@@ -87,6 +87,22 @@ mod calcs {
 }
 
 #[cfg(test)]
+mod sample {
+    use super::*;
+
+    #[test]
+    fn gen_sample() {
+        use math::matrix::Matrix;
+
+        let _matrix_sample = Matrix::sample(
+            [10,2], 
+            2, 
+            &mut 855364u128
+        );
+    }
+}
+
+#[cfg(test)]
 mod neuron {
     use super::*;
 
