@@ -1,5 +1,7 @@
 use std::ops::{AddAssign, Mul};
 
+use crate::math::matrix::Matrix;
+
 use super::neuron::Neuron;
 use super::layer::{InputLayer, HiddenLayer, Layer};
 use super::neuron::activation::Activation;
@@ -65,5 +67,9 @@ impl<W> Network<W> {
         }
 
         out
+    }
+
+    pub fn fit<T>(&self, _data: Matrix<T>) {
+        todo!()
     }
 }
