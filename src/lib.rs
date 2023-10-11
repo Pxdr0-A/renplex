@@ -64,6 +64,9 @@ mod calcs {
         let _res10 = &b * &b_rhs;
         let _res11 = &b / &b_rhs;
 
+        let _res12: f32 = 1.3;
+        let _res13 = a * _res12;
+
     }
 
     #[test]
@@ -94,7 +97,9 @@ mod sample {
     fn gen_sample() {
         use math::matrix::Matrix;
 
-        let _matrix_sample = Matrix::sample(
+        let _matrix_sample: Matrix<f64>;
+        let _row_labels: Vec<f64>;
+        (_matrix_sample, _row_labels) = Matrix::<f64>::sample(
             [10,2], 
             2, 
             &mut 855364u128

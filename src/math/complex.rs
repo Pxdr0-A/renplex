@@ -147,6 +147,21 @@ impl<P> AddAssign for Cfloat<P> where
     }
 }
 
+// Cross-over operations
+impl<P> Mul<P> for Cfloat<P> where
+    P: Mul<Output = P>,
+    P: Copy {
+    
+    type Output = Cfloat<P>;
+    
+    fn mul(self, rhs: P) -> Self::Output {
+        Cfloat {
+            x: self.x * rhs,
+            y: self.y * rhs
+        }
+    }
+}
+
 
 // Operations for each usable type
 macro_rules! make_complex_ops {
