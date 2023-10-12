@@ -1,4 +1,4 @@
-pub mod sample;
+pub mod dataset;
 
 
 /// Simple matrix structure for basic utilities with minimal error handling. Only for 2D Matrices.
