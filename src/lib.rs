@@ -63,10 +63,6 @@ mod calcs {
         let _res9 = &a + &a_rhs;
         let _res10 = &b * &b_rhs;
         let _res11 = &b / &b_rhs;
-
-        let _res12: f32 = 1.3;
-        let _res13 = a * _res12;
-
     }
 
     #[test]
@@ -96,14 +92,17 @@ mod sample {
     #[test]
     fn gen_sample() {
         use math::matrix::Matrix;
+        use math::matrix::dataset::Dataset;
 
         let _matrix_sample: Matrix<f64>;
         let _row_labels: Vec<f64>;
-        (_matrix_sample, _row_labels) = Matrix::<f64>::sample(
+        let dataset_sample = Dataset::<f64>::sample(
             [10,2], 
             2, 
-            &mut 855364u128
+            &mut 564u128
         );
+
+        println!("{:?}", dataset_sample);
     }
 }
 
@@ -308,8 +307,9 @@ mod sandbox {
 
     #[test]
     fn slices() {
-        let slice1 = &vec![0,1,2,3,4,5,6,7,8,9];
+        let _slice1 = &vec![0,1,2,3,4,5,6,7,8,9];
 
-        println!("{:?}", &slice1[9..=9]);
+        let _u = (1.1 as usize) as f64;
+        let _v = (1.7 as usize) as f64;
     }
 }
