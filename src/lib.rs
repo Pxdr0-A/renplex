@@ -90,13 +90,46 @@ mod sample {
     use super::*;
 
     #[test]
+    fn matrix_ops() {
+        use math::matrix::Matrix;
+
+        let mut matrix_beispiel = Matrix::new([5, 2]);
+
+        matrix_beispiel.add_row(&mut vec![1.0, 1.2]);
+        matrix_beispiel.add_row(&mut vec![2.0, 2.2]);
+        matrix_beispiel.add_row(&mut vec![3.0, 3.2]);
+        matrix_beispiel.add_row(&mut vec![4.0, 4.2]);
+        matrix_beispiel.add_row(&mut vec![5.0, 5.2]);
+
+        let _poped_out = matrix_beispiel.del_row(&2);
+    }
+
+    #[test]
+    fn dataset_ops() {
+        use math::matrix::dataset::Dataset;
+
+        let mut dataset_beispiel = Dataset::<f32, f32>::sample(
+            [10, 2], 
+            3, 
+            &mut 2324545u128
+        );
+
+        println!("{:?}", dataset_beispiel);
+
+        let new_dataset = dataset_beispiel.to_complex();
+
+        println!("{:?}", dataset_beispiel);
+        println!("{:?}", new_dataset);
+    }
+
+    #[test]
     fn gen_sample() {
         use math::matrix::Matrix;
         use math::matrix::dataset::Dataset;
 
         let _matrix_sample: Matrix<f64>;
         let _row_labels: Vec<f64>;
-        let dataset_sample = Dataset::<f64>::sample(
+        let dataset_sample = Dataset::<f64,f64>::sample(
             [10,2], 
             2, 
             &mut 564u128
@@ -296,7 +329,7 @@ mod network {
         network.add_unit(2, hd21);
         network.add_unit(2, hd22);
 
-        let _out = network.foward(&vec![0.2, 0.3, 1.2, 4.3, 1.0, 0.9]);
+        let _out = network.forward(&vec![0.2, 0.3, 1.2, 4.3, 1.0, 0.9]);
 
         println!("{:?}", _out);
     }
