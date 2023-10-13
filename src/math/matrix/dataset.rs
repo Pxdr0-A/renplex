@@ -1,22 +1,22 @@
 use super::Matrix;
-use crate::math::random::{lcgf32, lcgf64};
+use crate::math::{random::{lcgf32, lcgf64}, complex::{Cfloat, casts::ComplexCast}};
 
 
 // CREATE A DATASET STRUCT!
 #[derive(Debug)]
-pub struct Dataset<T> {
-    pub body: Matrix<T>,
+pub struct Dataset<B, T> {
+    pub body: Matrix<B>,
     pub target: Vec<T>
 }
 
 
-impl Dataset<f32> {
+impl Dataset<f32, f32> {
     pub fn sample(
         dims: [usize; 2],
         degree: usize,
         seed: &mut u128
 
-    ) -> Dataset<f32> {
+    ) -> Dataset<f32, f32> {
 
         assert!(
             dims[0] > degree,
@@ -77,21 +77,43 @@ impl Dataset<f32> {
         }
     }
 
-    pub fn to_complex(&mut self) {
-        for _row in 0..self.body.shape[0] {
-            todo!()
-        }    
+    pub fn to_complex(&mut self) -> Dataset<Cfloat<f32>, f32> {
+        let mut complex_matrix: Matrix<Cfloat<f32>> = Matrix::new(self.body.shape);
+        
+        let mut dataset_row;
+        let mut added_row: Vec<Cfloat<f32>>;
+        for _ in 0..self.body.shape[0] {
+            // deletes, dealocates and returns the row.
+            dataset_row = self.body.del_row(&0);
+
+            added_row = dataset_row    
+                .into_iter()
+                .map(|x| x.to_complex())
+                .collect();
+
+            complex_matrix.add_row(&mut added_row);
+        }
+
+        let mut labels: Vec<f32> = Vec::with_capacity(self.body.shape[0]);
+        labels.append(&mut self.target);
+
+        self.target.shrink_to_fit();
+
+        Dataset { 
+            body: complex_matrix, 
+            target: labels
+        }
     }
 }
 
 // pass this to a macro for f64
-impl Dataset<f64> {
+impl Dataset<f64, f64> {
     pub fn sample(
         dims: [usize; 2],
         degree: usize,
         seed: &mut u128
 
-    ) -> Dataset<f64> {
+    ) -> Dataset<f64, f64> {
 
         assert!(
             dims[0] > degree,
