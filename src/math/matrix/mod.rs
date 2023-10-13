@@ -36,6 +36,12 @@ impl<T> Matrix<T> {
         Matrix { body, shape, capacity }
     }
 
+    pub fn dealloc(&mut self) {
+        self.body.shrink_to_fit();
+
+        self.capacity = self.shape;
+    }
+
     /// Returns a reference to the generic element in position i, j of a `Matrix<T>`.
     /// 
     /// # Arguments
@@ -67,6 +73,18 @@ impl<T> Matrix<T> {
         let end = i * self.shape[1] + self.shape[1];
 
         &self.body[init..end]
+    }
+
+    pub fn row_as_mut(&mut self, i: &usize) -> &mut [T] {
+        assert!(
+            i < &self.shape[0],
+            "Index Error: Row index is out of bounds."
+        );
+
+        let init = i * self.shape[1];
+        let end = i * self.shape[1] + self.shape[1];
+
+        &mut self.body[init..end]
     }
 
     /// Returns a `Vec` of references correspondent 
@@ -114,6 +132,34 @@ impl<T> Matrix<T> {
         self.shape[0] += 1;
         self.shape[1] = row.len();
         self.body.append(row);
+    }
+
+    pub fn del_row(&mut self, i: &usize) -> Vec<T> {
+        assert!(
+            i < &self.shape[0],
+            "Index Error: Row index is out of bounds."
+        );
+        assert!(
+            self.shape[0] > 0,
+            "Index Error: No rows to clear."
+        );
+
+        self.shape[0] -= 1;
+
+        let init = i * self.shape[1];
+        let end = i * self.shape[1] + self.shape[1];
+
+        let row: Vec<T> = self.body
+            .drain(init..end)
+            .collect();
+
+        if self.shape[0] == 0 {
+            self.shape[1] = 0;
+        }
+
+        self.dealloc();
+
+        row
     }
 
     /// Updates the body of a `Matrix<T>` by adding a 
