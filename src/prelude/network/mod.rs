@@ -56,7 +56,7 @@ impl<W> Network<W> {
     /// # Arguments
     /// 
     /// * `input` - Slice with the input data. Must be in agreement with the input length.
-    pub fn foward(&self, input: &[W]) -> Vec<W>
+    pub fn forward(&self, input: &[W]) -> Vec<W>
         where 
             W: AddAssign + Mul<Output = W> + Activation, 
             W: Copy {
