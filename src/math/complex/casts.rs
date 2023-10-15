@@ -4,6 +4,7 @@ pub trait ComplexCast<P> {
     fn to_complex(self) -> Cfloat<P>;
 }
 
+
 impl ComplexCast<f32> for f32 {
     fn to_complex(self) -> Cfloat<f32> {
         Cfloat {
