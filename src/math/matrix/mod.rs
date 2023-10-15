@@ -1,3 +1,4 @@
+pub mod ops;
 pub mod dataset;
 
 
@@ -5,16 +6,16 @@ pub mod dataset;
 #[derive(Debug, Clone)]
 pub struct Matrix<T> {
     /// 1D Vector with 2D mapping intention.
-    body: Vec<T>,
+    pub body: Vec<T>,
     /// Dynamic shape of the body.
-    shape: [usize; 2],
+    pub shape: [usize; 2],
     /// Static capacity (for now) of the matrix.
     /// 
     /// # Future Updates
     /// 
     /// Capacity is intended to be dynamic in case more memory 
     /// is needed to be allocated for the matrix
-    capacity: [usize; 2],
+    pub capacity: [usize; 2],
 }
 
 impl<T> Matrix<T> {
@@ -132,6 +133,8 @@ impl<T> Matrix<T> {
         self.shape[0] += 1;
         self.shape[1] = row.len();
         self.body.append(row);
+
+        row.shrink_to_fit();
     }
 
     pub fn del_row(&mut self, i: &usize) -> Vec<T> {

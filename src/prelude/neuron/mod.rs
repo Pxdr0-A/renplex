@@ -5,7 +5,7 @@ pub mod activation;
 use std::ops::{AddAssign, Mul};
 
 // local
-use self::activation::{ActivationFunction, Activation};
+use self::activation::{ActivationFunction, Activatable};
 
 
 pub struct Neuron<W> {
@@ -44,7 +44,7 @@ impl<W> Neuron<W> {
     ///             Needs to be in agreement with the number of weights.
     pub fn signal(&self, input: &[W]) -> W 
         where 
-            W: AddAssign + Mul<Output = W> + Activation, 
+            W: AddAssign + Mul<Output = W> + Activatable, 
             W: Copy {
         
         assert_eq!(

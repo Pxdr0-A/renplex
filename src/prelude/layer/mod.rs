@@ -1,7 +1,7 @@
 use std::ops::{AddAssign, Mul};
 
 use super::neuron::Neuron;
-use super::neuron::activation::Activation;
+use super::neuron::activation::Activatable;
 
 pub struct InputLayer<W> {
     pub units: Vec<Neuron<W>>
@@ -18,7 +18,7 @@ pub trait Layer<W> {
 
     fn signal(&self, input: &[W]) -> Vec<W>
         where 
-            W: AddAssign + Mul<Output = W> + Activation, 
+            W: AddAssign + Mul<Output = W> + Activatable, 
             W: Copy;
 }
 
@@ -52,7 +52,7 @@ impl<W> Layer<W> for InputLayer<W> {
     ///             Needs to be in agreement with the number of units and respective neuron inputs.
     fn signal(&self, input: &[W]) -> Vec<W> 
         where 
-            W: AddAssign + Mul<Output = W> + Activation, 
+            W: AddAssign + Mul<Output = W> + Activatable, 
             W: Copy {
         
 
@@ -112,7 +112,7 @@ impl<W> Layer<W> for HiddenLayer<W> {
     ///             Needs to be in agreement with the number of units and respective neuron inputs.
     fn signal(&self, input: &[W]) -> Vec<W> 
         where 
-            W: AddAssign + Mul<Output = W> + Activation, 
+            W: AddAssign + Mul<Output = W> + Activatable, 
             W: Copy {
 
         // try to implement concurrency if possible
