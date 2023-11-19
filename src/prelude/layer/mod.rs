@@ -3,10 +3,14 @@ use std::ops::{AddAssign, Mul};
 use super::neuron::Neuron;
 use super::neuron::activation::Activatable;
 
+// Conventional input layer for dense network for instance.
+#[derive(Debug)]
 pub struct InputLayer<W> {
     pub units: Vec<Neuron<W>>
 }
 
+/// Conventional dense hidden layer.
+#[derive(Debug)]
 pub struct HiddenLayer<W> {
     pub units: Vec<Neuron<W>>
 }

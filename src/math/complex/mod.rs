@@ -1,3 +1,10 @@
+//! Complex properties, operations and castings.
+//! 
+//! Provides simple tools to handle complex numbers with generic types. Nevertheless, 
+//! these tools are based on f32 and f64 which are the only primitives that implement
+//! the traits requested by the tools.
+
+
 pub mod ops;
 pub mod casts;
 
@@ -13,6 +20,9 @@ use super::ops::{
 
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+/// Generic structure for a complex number.
+/// 
+/// Complex numbers here were defined in their cartesian form.
 pub struct Cfloat<P> {
     pub x: P,
     pub y: P
