@@ -10,7 +10,7 @@ use crate::math::ops::{
     sign::Signable
 };
 
-
+#[derive(Debug, Clone)]
 pub enum ActivationFunction {
     SIGMOID,
     TANH,
@@ -27,7 +27,7 @@ impl<P> Activatable for P
     where
         P: Add<Output=P> + Sub<Output=P> + Mul<Output=P> + Div<Output=P> + Neg<Output=P>,
         P: PartialEq,
-        P: Exponentiable + Trignometricable + Signable,
+        P: Exponentiable + Trignometricable + Signable + Number,
         P: Copy {
 
     fn activation(self, act_func: &ActivationFunction) -> Self {
@@ -36,12 +36,9 @@ impl<P> Activatable for P
             "Division by zero encountered in primitives."
         );
 
-        let unit = self / self;
-        let null = self - self;
-
         match act_func {
-            ActivationFunction::SIGMOID => { self.exp() / (unit + self.exp()) },
-            ActivationFunction::RELU => { if self.is_sign_positive() { self } else { null } },
+            ActivationFunction::SIGMOID => { self.exp() / (self.unit() + self.exp()) },
+            ActivationFunction::RELU => { if self.is_sign_positive() { self } else { self.null() } },
             ActivationFunction::TANH => { self.tanh() }
         }
     }

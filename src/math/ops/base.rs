@@ -47,7 +47,7 @@ impl<P> Number for Cfloat<P>
     fn unit(self) -> Self {
         Cfloat { 
             x: self.x.unit(),
-            y: self.y.unit()
+            y: self.y.null()
         }
     }
 

@@ -7,7 +7,7 @@ use std::ops::{AddAssign, Mul};
 // local
 use self::activation::{ActivationFunction, Activatable};
 
-
+#[derive(Debug)]
 pub struct Neuron<W> {
     pub weights: Vec<W>,
     pub bias: W,

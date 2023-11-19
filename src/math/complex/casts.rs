@@ -1,5 +1,6 @@
 use super::Cfloat;
 
+
 pub trait ComplexCast<P> {
     fn to_complex(self) -> Cfloat<P>;
 }
