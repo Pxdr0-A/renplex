@@ -16,17 +16,20 @@ pub struct HiddenLayer<W> {
 }
 
 pub trait Layer<W> {
+    
     fn new(n_units: usize) -> Self;
 
     fn add(&mut self, neuron: Neuron<W>);
 
-    fn signal(&self, input: &[W]) -> Vec<W>
-        where 
-            W: AddAssign + Mul<Output = W> + Activatable, 
-            W: Copy;
+    fn signal(&self, input: &[W]) -> Vec<W>;
+
 }
 
-impl<W> Layer<W> for InputLayer<W> {
+impl<W> Layer<W> for InputLayer<W> 
+    where 
+        W: AddAssign + Mul<Output = W> + Activatable, 
+        W: Copy  {
+
     /// Returns an empty `InputLayer<W>`. Enough memory is allocated in the process.
     /// 
     /// # Arguments
@@ -54,11 +57,7 @@ impl<W> Layer<W> for InputLayer<W> {
     /// 
     /// * `input` - Slice of the input to foward to the layer. 
     ///             Needs to be in agreement with the number of units and respective neuron inputs.
-    fn signal(&self, input: &[W]) -> Vec<W> 
-        where 
-            W: AddAssign + Mul<Output = W> + Activatable, 
-            W: Copy {
-        
+    fn signal(&self, input: &[W]) -> Vec<W> {
 
         // Try to implement concurrency if possible
         let mut output = Vec::with_capacity(self.units.len());
@@ -86,7 +85,11 @@ impl<W> Layer<W> for InputLayer<W> {
     }
 }
 
-impl<W> Layer<W> for HiddenLayer<W> {
+impl<W> Layer<W> for HiddenLayer<W> 
+    where 
+        W: AddAssign + Mul<Output = W> + Activatable, 
+        W: Copy  {
+
     /// Returns an empty `HiddenLayer<W>`. Enough memory is allocated in the process.
     /// 
     /// # Arguments
@@ -114,10 +117,7 @@ impl<W> Layer<W> for HiddenLayer<W> {
     /// 
     /// * `input` - Slice of the input to foward to the layer. 
     ///             Needs to be in agreement with the number of units and respective neuron inputs.
-    fn signal(&self, input: &[W]) -> Vec<W> 
-        where 
-            W: AddAssign + Mul<Output = W> + Activatable, 
-            W: Copy {
+    fn signal(&self, input: &[W]) -> Vec<W> {
 
         // try to implement concurrency if possible
         let mut output = Vec::with_capacity(self.units.len());

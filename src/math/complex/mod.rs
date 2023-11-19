@@ -28,47 +28,38 @@ pub struct Cfloat<P> {
     pub y: P
 }
 
-impl<P> Cfloat<P> {
+impl<P> Cfloat<P> 
+    where 
+        P: Add<Output=P> + Mul<Output=P> + Div<Output=P> + Neg<Output=P>,
+        P: SquareRootable + Arcable,
+        P: Copy  {
+
     pub fn new(x: P, y: P) -> Cfloat<P> {
+
         Cfloat {x, y}
     }
 
-    pub fn re(&self) -> P 
-        where 
-            P: Copy {
+    pub fn re(&self) -> P {
 
         self.x
     }
 
-    pub fn im(&self) -> P 
-        where
-            P: Copy {
+    pub fn im(&self) -> P {
                 
         self.y
     }
 
-    pub fn norm(&self) -> P 
-        where 
-            P: Add<Output=P> + Mul<Output=P>,
-            P: SquareRootable,
-            P: Copy {
+    pub fn norm(&self) -> P {
         
         (self.x * self.x + self.y * self.y).sqrt()
     }
 
-    pub fn phase(&self) -> P
-        where 
-            P: Div<Output=P>,
-            P: Arcable,
-            P: Copy {
+    pub fn phase(&self) -> P {
 
         (self.y / self.x).atan()
     }
 
-    pub fn conj(&self) -> Cfloat<P> 
-        where 
-            P: Neg<Output=P>,
-            P: Copy {
+    pub fn conj(&self) -> Cfloat<P> {
         
         Cfloat {
             x: self.x,
@@ -76,10 +67,7 @@ impl<P> Cfloat<P> {
         }
     }
 
-    pub fn inv(&self) -> Cfloat<P> 
-        where 
-            P: Neg<Output = P>,
-            P: Copy {
+    pub fn inv(&self) -> Cfloat<P> {
 
         Cfloat {
             x: -self.x,
