@@ -127,9 +127,6 @@ impl<P> DenseNetwork<Cfloat<P>>
             [complex_data.body.shape[0], degree as usize]
         );
 
-        let val_ref = complex_data.body.elm(&0, &0);
-        let null_ref = val_ref.x - val_ref.x;
-        let unit_ref = val_ref.x / val_ref.x;
         let mut expectancy_model;
 
         // going through all data to collect predictions
@@ -176,12 +173,13 @@ impl<P> DenseNetwork<Cfloat<P>>
             );
 
             // consider adding gaussian for building this vector
+            // or some other stuff
             expectancy_model = vec![
-                null_ref; 
+                P::null(); 
                 degree as usize
             ];
             // procedure only valid for classification
-            expectancy_model[complex_data.target[row] as usize] += unit_ref;
+            expectancy_model[complex_data.target[row] as usize] += P::unit();
             expected_out.add_row(&mut expectancy_model);
         }
 

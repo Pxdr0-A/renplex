@@ -37,8 +37,8 @@ impl<P> Activatable for P
         );
 
         match act_func {
-            ActivationFunction::SIGMOID => { self.exp() / (self.unit() + self.exp()) },
-            ActivationFunction::RELU => { if self.is_sign_positive() { self } else { self.null() } },
+            ActivationFunction::SIGMOID => { self.exp() / (P::unit() + self.exp()) },
+            ActivationFunction::RELU => { if self.is_sign_positive() { self } else { P::null() } },
             ActivationFunction::TANH => { self.tanh() }
         }
     }
@@ -55,8 +55,8 @@ impl<P> Activatable for Cfloat<P>
     fn activation(self, act_func: &ActivationFunction) -> Self {
 
         match act_func {
-            ActivationFunction::SIGMOID => { self.exp() / (self.unit() + self.exp()) },
-            ActivationFunction::RELU => { if self.is_sign_positive() { self } else { self.null() } },
+            ActivationFunction::SIGMOID => { self.exp() / (Cfloat::unit() + self.exp()) },
+            ActivationFunction::RELU => { if self.is_sign_positive() { self } else { Cfloat::null() } },
             ActivationFunction::TANH => { self.tanh() }
         }
     }
