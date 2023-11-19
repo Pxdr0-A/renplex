@@ -49,22 +49,75 @@ mod test_network {
     use super::*;
 
     #[test]
+    fn random_network() {
+        use prelude::network::DenseNetwork;
+        use prelude::neuron::activation::ActivationFunction;
+        use math::matrix::dataset::Dataset;
+        use prelude::network::criteria::ComplexCritiria;
+
+        let mut net = DenseNetwork::init(
+            6, 
+            2, 
+            ActivationFunction::SIGMOID, 
+            1.0, 
+            1.0, 
+            1.0, 
+            1.0,
+            &mut 437898637u128
+        );
+
+        net.add(
+            10, 
+            ActivationFunction::SIGMOID, 
+            1.0, 
+            1.0, 
+            1.0, 
+            1.0, 
+            &mut 91287364u128
+        );
+
+        net.add(
+            2, 
+            ActivationFunction::SIGMOID, 
+            1.0, 
+            1.0, 
+            1.0, 
+            1.0, 
+            &mut 1957364u128
+        );
+
+        let mut seed: u128 = 3485736485;
+        let mut data  = Dataset::<f32, u8>::sample(
+            //  2 * 3
+            [64, 6], 
+            2, 
+            &mut seed
+        );
+
+        net.fit(
+            &mut data,
+            &ComplexCritiria::REAL
+        );
+
+    }
+
+    #[test]
     fn fit_test() {
         use prelude::neuron::Neuron;
         use prelude::neuron::activation::ActivationFunction;
         use prelude::layer::Layer;
-        use prelude::network::Network;
+        use prelude::network::DenseNetwork;
         use prelude::network::criteria::ComplexCritiria;
         use math::complex::Cfloat;
         use math::matrix::dataset::Dataset;
 
-        let mut net: Network<Cfloat<f64>> = Network::new(
+        let mut net: DenseNetwork<Cfloat<f64>> = DenseNetwork::new(
             3
         );
 
         // added two hidden layers
-        net.add(Layer::new(2));
-        net.add(Layer::new(2));
+        net.add_layer(Layer::new(2));
+        net.add_layer(Layer::new(2));
 
         // 3 input Neurons
         net.add_unit(
@@ -141,7 +194,7 @@ mod test_network {
 
         net.fit(
             &mut data,
-            &ComplexCritiria::REAL
+            &ComplexCritiria::PHASE
         );
     }
 }
