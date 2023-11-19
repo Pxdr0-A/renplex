@@ -81,7 +81,7 @@ impl<P> Trignometricable for Cfloat<P>
         let den = self.cos();
 
         // Potential vulnerability: Search an alternative.
-        if den != self.null() { self.sin() / den } else { self.inf() }
+        if den != Cfloat::null() { self.sin() / den } else { Cfloat::inf() }
     }
 
     fn sinh(self) -> Self {
@@ -102,6 +102,6 @@ impl<P> Trignometricable for Cfloat<P>
 
     fn tanh(self) -> Self {
 
-        if self != self.null() {self.sinh() / self.cosh()} else {self}
+        if self != Cfloat::null() { self.sinh() / self.cosh() } else { self }
     }
 }

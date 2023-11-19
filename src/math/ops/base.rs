@@ -1,11 +1,11 @@
 use crate::math::complex::Cfloat;
 
 pub trait Number {
-    fn null(self) -> Self;
+    fn null() -> Self;
 
-    fn unit(self) -> Self;
+    fn unit() -> Self;
 
-    fn inf(self) -> Self;
+    fn inf() -> Self;
 
     // you can also define a vestigial quantity
     // see float::EPSILON
@@ -15,15 +15,15 @@ macro_rules! numify {
     ( $( $t: ty ), * ) => {
         $(
             impl Number for $t {
-                fn null(self) -> $t {
+                fn null() -> $t {
                     0.0
                 }
 
-                fn unit(self) -> $t {
+                fn unit() -> $t {
                     1.0
                 }
 
-                fn inf(self) -> $t {
+                fn inf() -> $t {
                     <$t>::INFINITY
                 }
             }
@@ -37,24 +37,24 @@ impl<P> Number for Cfloat<P>
     where 
         P: Number {
         
-    fn null(self) -> Self {
+    fn null() -> Self {
         Cfloat { 
-            x: self.x.null(),
-            y: self.y.null()
+            x: P::null(),
+            y: P::null()
         }
     }
 
-    fn unit(self) -> Self {
+    fn unit() -> Self {
         Cfloat { 
-            x: self.x.unit(),
-            y: self.y.null()
+            x: P::unit(),
+            y: P::null()
         }
     }
 
-    fn inf(self) -> Self {
+    fn inf() -> Self {
         Cfloat {
-            x: self.x.inf(), 
-            y: self.y.inf() 
+            x: P::inf(), 
+            y: P::inf() 
         }
     }
 }

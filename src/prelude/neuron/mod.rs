@@ -14,7 +14,10 @@ pub struct Neuron<W> {
     pub activation: ActivationFunction,
 }
 
-impl<W> Neuron<W> {
+impl<W> Neuron<W> 
+    where 
+        W: AddAssign + Mul<Output = W> + Activatable, 
+        W: Copy {
     /// Returns a `Neuron<W>` with the specified weights, bias and activation function.
     /// 
     /// # Arguments
@@ -42,10 +45,7 @@ impl<W> Neuron<W> {
     /// 
     /// * `input` - Slice of the input to foward to the neuron. 
     ///             Needs to be in agreement with the number of weights.
-    pub fn signal(&self, input: &[W]) -> W 
-        where 
-            W: AddAssign + Mul<Output = W> + Activatable, 
-            W: Copy {
+    pub fn signal(&self, input: &[W]) -> W {
         
         assert_eq!(
             self.weights.len(), input.len(),

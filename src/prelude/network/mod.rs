@@ -5,6 +5,7 @@ use std::ops::{Add, Sub, Neg, AddAssign, Mul, Div};
 
 use criteria::ComplexCritiria;
 
+use crate::math::ops::base::Number;
 use crate::math::random::{lcgf32, lcgf64};
 use crate::math::complex::Cfloat;
 use crate::math::complex::casts::ComplexCast;
@@ -26,7 +27,11 @@ pub struct DenseNetwork<W> {
     pub hidden_layers: Vec<HiddenLayer<W>>
 }
 
-impl<W> DenseNetwork<W> {
+impl<W> DenseNetwork<W> 
+    where 
+        W: AddAssign + Mul<Output = W> + Activatable, 
+        W: Copy  {
+
     /// Returns a `DenseNetwork<W>` with just input. Reallocation will happen everytime a layer is added.
     /// 
     /// # Arguments
@@ -73,10 +78,7 @@ impl<W> DenseNetwork<W> {
     /// # Arguments
     /// 
     /// * `input` - Slice with the input data. Must be in agreement with the input length.
-    pub fn forward(&self, input: &[W]) -> Vec<W>
-        where 
-            W: AddAssign + Mul<Output = W> + Activatable, 
-            W: Copy {
+    pub fn forward(&self, input: &[W]) -> Vec<W> {
         
         let mut out = self.input_layer.signal(input);
         for layer in &self.hidden_layers {
@@ -87,19 +89,20 @@ impl<W> DenseNetwork<W> {
     }
 }
 
-impl<P> DenseNetwork<Cfloat<P>> {
+impl<P> DenseNetwork<Cfloat<P>> 
+    where 
+        P: Add<Output=P> + Sub<Output=P> + Neg<Output=P> + Mul<Output=P> + Div<Output=P>,
+        P: AddAssign,
+        P: Activatable + Trignometricable + Arcable + Powerable + SquareRootable,
+        P: ComplexCast<P> + Number,
+        Cfloat<P>: Activatable,
+        P: Copy + Debug  {
 
     pub fn fit(
         &self, 
         data: &mut Dataset<P, u8>,
         critiria: &ComplexCritiria
-    ) 
-        where 
-            P: Add<Output=P> + Sub<Output=P> + Neg<Output=P> + Mul<Output=P> + Div<Output=P>,
-            P: AddAssign,
-            P: Activatable + Trignometricable + Arcable + Powerable + SquareRootable + ComplexCast<P>,
-            Cfloat<P>: Activatable,
-            P: Copy + Debug {
+    ) {
         
         let complex_data = data.to_complex();
 
@@ -124,9 +127,6 @@ impl<P> DenseNetwork<Cfloat<P>> {
             [complex_data.body.shape[0], degree as usize]
         );
 
-        let val_ref = complex_data.body.elm(&0, &0);
-        let null_ref = val_ref.x - val_ref.x;
-        let unit_ref = val_ref.x / val_ref.x;
         let mut expectancy_model;
 
         // going through all data to collect predictions
@@ -173,12 +173,13 @@ impl<P> DenseNetwork<Cfloat<P>> {
             );
 
             // consider adding gaussian for building this vector
+            // or some other stuff
             expectancy_model = vec![
-                null_ref; 
+                P::null(); 
                 degree as usize
             ];
             // procedure only valid for classification
-            expectancy_model[complex_data.target[row] as usize] += unit_ref;
+            expectancy_model[complex_data.target[row] as usize] += P::unit();
             expected_out.add_row(&mut expectancy_model);
         }
 
