@@ -5,6 +5,8 @@ pub trait Number {
 
     fn unit() -> Self;
 
+    fn nan() -> Self;
+
     fn inf() -> Self;
 
     // you can also define a vestigial quantity
@@ -23,6 +25,10 @@ macro_rules! numify {
                     1.0
                 }
 
+                fn nan() -> $t {
+                    <$t>::NAN
+                }
+
                 fn inf() -> $t {
                     <$t>::INFINITY
                 }
@@ -31,7 +37,6 @@ macro_rules! numify {
     };
 }
 numify!{f32, f64}
-
 
 impl<P> Number for Cfloat<P>
     where 
@@ -48,6 +53,13 @@ impl<P> Number for Cfloat<P>
         Cfloat { 
             x: P::unit(),
             y: P::null()
+        }
+    }
+
+    fn nan() -> Self {
+        Cfloat {
+            x: P::nan(),
+            y: P::nan()
         }
     }
 
