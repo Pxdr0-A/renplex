@@ -46,6 +46,7 @@ mod ops {
 
 #[cfg(test)]
 mod test_network {
+
     use super::*;
 
     #[test]
@@ -53,27 +54,22 @@ mod test_network {
         use prelude::network::DenseNetwork;
         use prelude::neuron::activation::ActivationFunction;
         use math::matrix::dataset::Dataset;
-        use prelude::network::criteria::ComplexCritiria;
 
-        let mut net = DenseNetwork::init(
+        let mut net = DenseNetwork::<f64>::init(
             6, 
             2, 
             ActivationFunction::SIGMOID, 
             1.0, 
-            1.0, 
-            1.0, 
             1.0,
-            &mut 437898637u128
+            &mut 898637u128
         );
 
         net.add(
             10, 
-            ActivationFunction::SIGMOID, 
+            ActivationFunction::SIGMOID,  
             1.0, 
             1.0, 
-            1.0, 
-            1.0, 
-            &mut 91287364u128
+            &mut 287364u128
         );
 
         net.add(
@@ -81,13 +77,11 @@ mod test_network {
             ActivationFunction::SIGMOID, 
             1.0, 
             1.0, 
-            1.0, 
-            1.0, 
-            &mut 1957364u128
+            &mut 82157364u128
         );
 
-        let mut seed: u128 = 3485736485;
-        let mut data  = Dataset::<f32, u8>::sample(
+        let mut seed: u128 = 987234485;
+        let data  = Dataset::<f64, u8>::sample(
             //  2 * 3
             [64, 6], 
             2, 
@@ -95,8 +89,7 @@ mod test_network {
         );
 
         net.fit(
-            &mut data,
-            &ComplexCritiria::REAL
+            data,
         );
 
     }
