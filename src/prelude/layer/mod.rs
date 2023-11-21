@@ -1,4 +1,7 @@
-use std::ops::{AddAssign, Mul};
+use std::fmt::Debug;
+use std::ops::{AddAssign, Mul, Neg};
+
+use crate::math::ops::base::Number;
 
 use super::neuron::Neuron;
 use super::neuron::activation::Activatable;
@@ -27,8 +30,10 @@ pub trait Layer<W> {
 
 impl<W> Layer<W> for InputLayer<W> 
     where 
-        W: AddAssign + Mul<Output = W> + Activatable, 
-        W: Copy  {
+        W: AddAssign + Mul<Output = W> + Neg<Output = W> + PartialEq, 
+        W: Activatable + Number,
+        W: Copy,
+        W: Debug {
 
     /// Returns an empty `InputLayer<W>`. Enough memory is allocated in the process.
     /// 
@@ -87,8 +92,10 @@ impl<W> Layer<W> for InputLayer<W>
 
 impl<W> Layer<W> for HiddenLayer<W> 
     where 
-        W: AddAssign + Mul<Output = W> + Activatable, 
-        W: Copy  {
+        W: AddAssign + Mul<Output = W> + Neg<Output = W> + PartialEq, 
+        W: Activatable + Number,
+        W: Copy,
+        W: Debug {
 
     /// Returns an empty `HiddenLayer<W>`. Enough memory is allocated in the process.
     /// 
