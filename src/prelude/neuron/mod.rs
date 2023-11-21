@@ -2,7 +2,9 @@ pub mod activation;
 
 
 //std
-use std::ops::{AddAssign, Mul};
+use std::{ops::{AddAssign, Mul, Neg}, fmt::Debug};
+
+use crate::math::ops::base::Number;
 
 // local
 use self::activation::{ActivationFunction, Activatable};
@@ -16,8 +18,9 @@ pub struct Neuron<W> {
 
 impl<W> Neuron<W> 
     where 
-        W: AddAssign + Mul<Output = W> + Activatable, 
-        W: Copy {
+        W: AddAssign + Neg<Output = W> + Mul<Output = W> + PartialEq, 
+        W: Activatable + Number, 
+        W: Copy + Debug {
     /// Returns a `Neuron<W>` with the specified weights, bias and activation function.
     /// 
     /// # Arguments
@@ -54,11 +57,15 @@ impl<W> Neuron<W>
 
         // init cycle (bias needs to come with the proper sign)
         // or just correct it and make W accept the Neg trait
-        let mut out = self.bias;
+        let mut out = -self.bias;
         for i in 0..input.len() {
             out += self.weights[i] * input[i];
         }
 
-        out.activation(&self.activation)
+        let out_result = out.activation(&self.activation);
+        
+        //print!("({:?}, {:?})", out, out_result);
+
+        out_result
     }
 }

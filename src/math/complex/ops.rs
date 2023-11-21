@@ -1,5 +1,5 @@
 // std
-use std::ops::{Add, Sub, Mul, Div, AddAssign};
+use std::ops::{Add, Sub, Neg, Mul, Div, AddAssign};
 
 // local
 use super::Cfloat;
@@ -29,6 +29,19 @@ impl<P> Sub for Cfloat<P> where
         Cfloat {
             x: self.x - rhs.x,
             y: self.y - rhs.y
+        }
+    }
+}
+
+impl<P> Neg for Cfloat<P> where
+    P: Neg<Output = P> {
+
+    type Output = Cfloat<P>;
+
+    fn neg(self) -> Self::Output {
+        Cfloat {
+            x: - self.x,
+            y: - self.y
         }
     }
 }
