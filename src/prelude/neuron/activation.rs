@@ -2,7 +2,6 @@
 use std::ops::{Add, Sub, Mul, Div, Neg};
 
 // local
-use crate::math::complex::Cfloat;
 use crate::math::ops::base::Number;
 use crate::math::ops::{
     exp::Exponentiable, 
@@ -31,32 +30,10 @@ impl<P> Activatable for P
         P: Copy {
 
     fn activation(self, act_func: &ActivationFunction) -> Self {
-        assert!(
-            self != self + self,
-            "Division by zero encountered in primitives."
-        );
 
         match act_func {
             ActivationFunction::SIGMOID => { self.exp() / (P::unit() + self.exp()) },
             ActivationFunction::RELU => { if self.is_sign_positive() { self } else { P::null() } },
-            ActivationFunction::TANH => { self.tanh() }
-        }
-    }
-}
-
-// for complex numbers
-impl<P> Activatable for Cfloat<P> 
-    where
-        P: Add<Output=P> + Sub<Output=P> + Mul<Output=P> + Div<Output=P> + Neg<Output=P>,
-        P: PartialEq, 
-        P: Exponentiable + Trignometricable + Signable + Number,
-        P: Copy {
-            
-    fn activation(self, act_func: &ActivationFunction) -> Self {
-
-        match act_func {
-            ActivationFunction::SIGMOID => { self.exp() / (Cfloat::unit() + self.exp()) },
-            ActivationFunction::RELU => { if self.is_sign_positive() { self } else { Cfloat::null() } },
             ActivationFunction::TANH => { self.tanh() }
         }
     }
