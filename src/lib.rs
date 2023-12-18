@@ -3,192 +3,136 @@ pub mod prelude;
 
 
 #[cfg(test)]
-mod ops {
-    use crate::math::ops::trig::Trignometricable;
-
-    use super::*;
+mod neuronic {
 
     #[test]
-    fn complex_ops() {
-        use math::complex::Cfloat;
+    fn signal() {
+        use crate::math::complex::Cfloat;
+        use crate::math::ops::base::Complex;
 
-        let z = Cfloat::new(2.0, 3.0);
-        
-        z.re();
-        z.im();
-        z.norm();
-        z.phase();
-        z.conj();
-        z.inv();
-    }
+        use crate::prelude::neuron::UnitLike;
+        use crate::prelude::neuron::dense::DenseNeuron;
+        use crate::prelude::neuron::ActivationFunction;
 
-    #[test]
-    fn complex_trig() {
-        use math::complex::Cfloat;
+        let n1 = DenseNeuron::new(
+            vec![Cfloat::new(1.2f32, 1.4), Cfloat::new(5.4, 1.1)], 
+            Cfloat::new(1.0, 0.5), 
+            ActivationFunction::SIGMOID
+        );
 
-        let z = Cfloat::new(2.0, 3.0);
-        
-        z.re();
-        z.im();
-        z.norm();
-        z.phase();
-        z.conj();
-        z.inv();
+        let out = n1.signal(
+            &[Cfloat::new(1.5, 1.0), Cfloat::new(2.0, 2.0)]
+        );
 
-        z.sin();
-        z.sinh();
-        z.cos();
-        z.cosh();
-        z.tan();
-        z.tanh();
+        println!("{:?}", out);
     }
 }
 
 #[cfg(test)]
-mod test_network {
-
-    use super::*;
-
+mod layeronic {
+    
     #[test]
-    fn random_network() {
-        use prelude::network::DenseNetwork;
-        use prelude::neuron::activation::ActivationFunction;
-        use math::matrix::dataset::Dataset;
+    fn signal() {
+        use crate::math::complex::Cfloat;
+        use crate::math::ops::base::Complex;
 
-        let mut net = DenseNetwork::<f64>::init(
-            6, 
-            2, 
-            ActivationFunction::SIGMOID, 
-            1.0, 
-            1.0,
-            &mut 898637u128
+        use crate::prelude::neuron::UnitLike;
+        use crate::prelude::neuron::dense::DenseNeuron;
+        use crate::prelude::neuron::ActivationFunction;
+
+        use crate::prelude::layer::LayerLike;
+        use crate::prelude::layer::dense::DenseInputLayer;
+
+        let n1 = DenseNeuron::new(
+            vec![Cfloat::new(1.2f32, 1.4), Cfloat::new(5.4, 1.1)], 
+            Cfloat::new(1.0, 0.5), 
+            ActivationFunction::SIGMOID
         );
 
-        net.add(
-            10, 
-            ActivationFunction::SIGMOID,  
-            1.0, 
-            1.0, 
-            &mut 287364u128
+        let n2 = DenseNeuron::new(
+            vec![Cfloat::new(1.2, 1.4), Cfloat::new(5.4, 1.1)], 
+            Cfloat::new(1.0, 0.5), 
+            ActivationFunction::SIGMOID
         );
 
-        net.add(
-            2, 
-            ActivationFunction::SIGMOID, 
-            1.0, 
-            1.0, 
-            &mut 82157364u128
+        let mut l1 = DenseInputLayer::new(2);
+        l1.add(n1);
+        l1.add(n2);
+
+        let out = l1.signal(
+            &[
+                Cfloat::new(1.5, 1.0), Cfloat::new(2.0, 2.0),
+                Cfloat::new(1.5, 1.0), Cfloat::new(2.0, 2.0)
+            ]
         );
 
-        let mut seed: u128 = 987234485;
-        let data  = Dataset::<f64, u8>::sample(
-            //  2 * 3
-            [64, 6], 
-            2, 
-            &mut seed
-        );
-
-        net.fit(
-            data,
-        );
+        println!("{:?}", out);
 
     }
+}
+
+#[cfg(test)]
+mod networkonic {
 
     #[test]
-    fn fit_test() {
-        use prelude::neuron::Neuron;
-        use prelude::neuron::activation::ActivationFunction;
-        use prelude::layer::Layer;
-        use prelude::network::DenseNetwork;
-        use prelude::network::criteria::ComplexCritiria;
-        use math::complex::Cfloat;
-        use math::matrix::dataset::Dataset;
+    fn forward() {
+        use crate::math::complex::Cfloat;
+        use crate::math::ops::base::Complex;
 
-        let mut net: DenseNetwork<Cfloat<f64>> = DenseNetwork::new(
-            3
-        );
+        use crate::prelude::neuron::UnitLike;
+        use crate::prelude::neuron::dense::DenseNeuron;
+        use crate::prelude::neuron::ActivationFunction;
 
-        // added two hidden layers
-        net.add_layer(Layer::new(2));
-        net.add_layer(Layer::new(2));
+        use crate::prelude::layer::LayerLike;
+        use crate::prelude::layer::{InputLayer, Layer};
+        use crate::prelude::layer::dense::{DenseLayer, DenseInputLayer};
+        use crate::prelude::network::Network;
 
-        // 3 input Neurons
-        net.add_unit(
-            0, 
-            Neuron::new(
-                vec![Cfloat::new(0.5, 0.1), Cfloat::new(0.4, 0.1)], 
-                Cfloat::new(-1.0, -1.0), 
-                ActivationFunction::RELU
-            )
-        );
-        net.add_unit(
-            0, 
-            Neuron::new(
-                vec![Cfloat::new(0.7, 0.2), Cfloat::new(-0.4, 1.1)], 
-                Cfloat::new(-1.0, -1.0), 
-                ActivationFunction::RELU
-            )
-        );
-        net.add_unit(
-            0, 
-            Neuron::new(
-                vec![Cfloat::new(0.2, 0.5), Cfloat::new(0.1, -0.9)], 
-                Cfloat::new(-1.0, -1.0), 
-                ActivationFunction::RELU
-            )
+        let n1 = DenseNeuron::new(
+            vec![Cfloat::new(1.2f32, 1.4), Cfloat::new(5.4, 1.1)], 
+            Cfloat::new(1.0, 0.5), 
+            ActivationFunction::SIGMOID
         );
 
-        // add 2 neurons two the first hidden layer
-        // input of them must be 3 (3 neurons in the input)
-        net.add_unit(
-            1, 
-            Neuron::new(
-                vec![Cfloat::new(0.1, 0.1), Cfloat::new(-0.1, -0.1), Cfloat::new(0.2, 0.1)], 
-                Cfloat::new(-1.0, -1.0), 
-                ActivationFunction::TANH
-            )
+        let n2 = DenseNeuron::new(
+            vec![Cfloat::new(1.2, 1.4), Cfloat::new(5.4, 1.1)], 
+            Cfloat::new(1.0, 0.5), 
+            ActivationFunction::SIGMOID
         );
 
-        net.add_unit(
-            1, 
-            Neuron::new(
-                vec![Cfloat::new(-0.5, 0.8), Cfloat::new(0.3, 0.1), Cfloat::new(-0.1, 0.5)], 
-                Cfloat::new(-1.0, -1.0), 
-                ActivationFunction::TANH
-            )
+        let n3 = DenseNeuron::new(
+            vec![Cfloat::new(1.2f32, 1.4), Cfloat::new(5.4, 1.1)], 
+            Cfloat::new(1.0, 0.5), 
+            ActivationFunction::SIGMOID
         );
 
-        // add 2 neuron with 2 inputs
-        net.add_unit(
-            2, 
-            Neuron::new(
-                vec![Cfloat::new(0.3, -0.2), Cfloat::new(-0.3, 0.8)], 
-                Cfloat::new(-1.0, -1.0), 
-                ActivationFunction::SIGMOID
-            )
-        );
-        net.add_unit(
-            2, 
-            Neuron::new(
-                vec![Cfloat::new(-0.1, -0.2), Cfloat::new(0.3, 0.8)], 
-                Cfloat::new(-1.0, -1.0), 
-                ActivationFunction::SIGMOID
-            )
+        let n4 = DenseNeuron::new(
+            vec![Cfloat::new(1.2, 1.4), Cfloat::new(5.4, 1.1)], 
+            Cfloat::new(1.0, 0.5), 
+            ActivationFunction::SIGMOID
         );
 
+        let mut l1 = DenseInputLayer::new(2);
+        l1.add(n1);
+        l1.add(n2);
 
-        let mut seed: u128 = 3485736485;
-        let mut data  = Dataset::<f64, u8>::sample(
-            //  2 * 3
-            [64, 6], 
-            2, 
-            &mut seed
+        let mut l2 = DenseLayer::new(2);
+        l2.add(n3);
+        l2.add(n4);
+
+        let mut network = Network::new();
+        network.add_input(InputLayer::DenseInputLayer(l1));
+        network.add_layer(Layer::DenseLayer(l2));
+
+        let out = network.forward(
+            &[
+                Cfloat::new(1.5, 1.0), Cfloat::new(2.0, 2.0),
+                Cfloat::new(1.5, 1.0), Cfloat::new(2.0, 2.0)
+            ]
         );
 
-        net.fit(
-            &mut data,
-            &ComplexCritiria::PHASE
-        );
+        println!("{:?}", out);
+        
     }
 }
 
@@ -196,10 +140,60 @@ mod test_network {
 mod sandbox {
 
     #[test]
-    fn division() {
-        let i: f32 = 1.0 / 0.0;
-        assert_eq!(f32::INFINITY, i, "It is not");
+    fn returning_traits() {
+        struct Sheep {}
+        struct Cow {}
 
-        println!("{}", i.atan());
+        trait Animal {
+            fn noise(&self) -> &'static str;
+        }
+        
+        impl Animal for Cow {
+            fn noise(&self) -> &'static str {
+                "muuuuuuu"
+            }
+        }
+
+        impl Animal for Sheep {
+            fn noise(&self) -> &'static str {
+                "baaaaaaa"
+            }
+        }
+
+        fn choose(animal: bool) -> Box<dyn Animal> {
+            if animal {
+                Box::new(Sheep {})
+            } else {
+                Box::new(Cow {})
+            }
+        }
+
+        let mut a = Vec::new();
+
+        a.push(choose(true));
+        a.push(choose(false));
+        a.push(choose(false));
+
     }
+    
+}
+
+#[cfg(test)]
+mod datasetronic {
+
+    #[test]
+    fn sample() {
+        use crate::math::matrix::dataset::Dataset;
+
+        let d = Dataset::<f64, usize>::sample(
+            [8, 2], 
+            2, 
+            [100.0, 5.0], 
+            &mut (248356u128 as f64), 
+            &mut 11652
+        );
+
+        println!("{:?}", d);
+    }
+    
 }

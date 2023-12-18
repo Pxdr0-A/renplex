@@ -1,11 +1,14 @@
 pub mod criteria;
 
+use std::any::TypeId;
 use std::fmt::Debug;
+
 use std::ops::{Add, Sub, Neg, AddAssign, Mul, Div};
+use std::marker::PhantomData;
 
 use criteria::ComplexCritiria;
 
-use crate::math::ops::base::Number;
+use crate::math::ops::base::{Number, Real, Complex};
 use crate::math::random::{lcgf32, lcgf64};
 use crate::math::complex::Cfloat;
 use crate::math::complex::casts::ComplexCast;
@@ -16,34 +19,58 @@ use crate::math::ops::powi::Powerable;
 use crate::math::ops::sqrt::SquareRootable;
 use crate::math::ops::trig::Trignometricable;
 
-use super::neuron::Neuron;
-use super::neuron::activation::{Activatable, ActivationFunction};
+use super::neuron::{ProcessingUnit, UnitLike};
+use super::neuron::ActivationFunction;
 
-use super::layer::{InputLayer, HiddenLayer, Layer};
+use super::layer::{Layer, LayerLike, InputLayer};
+use super::neuron::param::Param;
 
-#[derive(Debug)]
-pub struct DenseNetwork<W> {
-    pub input_layer: InputLayer<W>,
-    pub hidden_layers: Vec<HiddenLayer<W>>
+
+pub struct Network<P, U, IL, L>
+    where
+        P: Param,
+        U: UnitLike<P>,
+        IL: LayerLike<P, U>,
+        L: LayerLike<P, U> {
+    
+    void_p: PhantomData<P>,
+    void_u: PhantomData<U>,
+    input: InputLayer<P, U, IL>,
+    layers: Vec<Layer<P, U, L>>
 }
 
-impl<W> DenseNetwork<W> 
-    where 
-        W: AddAssign + Mul<Output = W> + Neg<Output = W> + PartialEq, 
-        W: Activatable + Number,
-        W: Copy,
-        W: Debug {
+
+impl<P, U, IL, L> Network<P, U, IL, L> 
+    where
+        P: Param + Copy,
+        U: UnitLike<P>,
+        IL: LayerLike<P, U>,
+        L: LayerLike<P, U> {
 
     /// Returns a `DenseNetwork<W>` with just input. Reallocation will happen everytime a layer is added.
-    /// 
+    ///  
     /// # Arguments
     /// 
     /// * `n_units` - Number of input neurons of the network.
-    pub fn new(n_units: usize) -> DenseNetwork<W> {
-        DenseNetwork {
-            input_layer: InputLayer::new(n_units),
-            hidden_layers: Vec::<HiddenLayer<W>>::new()
+    pub fn new() -> Network<P, U, IL, L> {
+
+        Network {
+            void_p: PhantomData{},
+            void_u: PhantomData{},
+            input: InputLayer::VoidP(PhantomData{}),
+            layers: Vec::<Layer<P, U, L>>::new()
         }
+
+    }
+
+    pub fn add_input(&mut self, layer: InputLayer<P, U, IL>) {
+        // this match repeats a lot. Use a macro or something else!!!
+        self.input = match layer {
+            InputLayer::DenseInputLayer(l) => { InputLayer::DenseInputLayer(l) },
+            InputLayer::VoidP(_) => { panic!("No match for a valid layer.") },
+            InputLayer::VoidU(_) => { panic!("No match for a valid layer.") }
+        };
+
     }
 
     /// Updates a `DenseNetowork<W>` with an `HiddenLayer<W>`
@@ -51,28 +78,16 @@ impl<W> DenseNetwork<W>
     /// # Arguments
     /// 
     /// * `layer` - Hidden layer of neurons to add to the network.
-    pub fn add_layer(&mut self, layer: HiddenLayer<W>) {
-        self.hidden_layers.push(layer);
-    }
+    pub fn add_layer(&mut self, layer: Layer<P, U, L>) {
 
-    /// Updates some layer of a `DenseNetowork<W>` with a `Neuron<W>`
-    /// 
-    /// # Arguments
-    /// 
-    /// * `order` - Index of the layer to add the neuron. 
-    /// * `neuron` - Neuron to add to the respective layer.
-    pub fn add_unit(&mut self, order: usize, neuron: Neuron<W>) {
-        
-        // consider pattern matching
-        if order == 0 {
-            self.input_layer.add(neuron);
-        } else {
-            assert!(
-                order <= self.hidden_layers.len(), 
-                "Attempted to add a unit to an unexistent layer."
-            );
-            self.hidden_layers[order-1].add(neuron);
-        }
+        self.layers.push(
+            match layer {
+                Layer::DenseLayer(l) => { Layer::DenseLayer(l) },
+                Layer::VoidP(_) => { panic!("No match for a valid layer.") },
+                Layer::VoidU(_) => { panic!("No match for a valid layer.") }
+            }
+        );
+
     }
 
     /// Propagates a signal through a `DenseNetwork<W>` given an input.
@@ -80,18 +95,140 @@ impl<W> DenseNetwork<W>
     /// # Arguments
     /// 
     /// * `input` - Slice with the input data. Must be in agreement with the input length.
-    pub fn forward(&self, input: &[W]) -> Vec<W> {
-        
-        let mut out = self.input_layer.signal(input);
-        for layer in &self.hidden_layers {
-            out = layer.signal(&out);
+    pub fn forward(&self, input: &[P]) -> Vec<P> {
+        // update this later to a result!
+        let mut out = match &self.input {
+            InputLayer::DenseInputLayer(l) => { l.signal(input) },
+            InputLayer::VoidP(_) => { panic!("Input Layer was not defined.") },
+            InputLayer::VoidU(_) => { panic!("Input Layer was not defined.") }
+        };
+
+        for layer in &self.layers {
+            out = match layer {
+                Layer::DenseLayer(l) => { l.signal(&out) },
+                Layer::VoidP(_) => { panic!("Input Layer was not defined.") },
+                Layer::VoidU(_) => { panic!("Input Layer was not defined.") }
+            };
         }
 
         out
     }
+
 }
 
-impl<P> DenseNetwork<P> 
+// Real Implementations.
+impl<P, U, IL, L> Network<P, U, IL, L> 
+    where 
+        P: Param + Real + Copy,
+        U: UnitLike<P>,
+        IL: LayerLike<P, U>,
+        L: LayerLike<P, U> {
+
+    pub fn cost(&self, data: Dataset<P, P>) -> Matrix<P> {
+    
+        let mut predicted_out: Matrix<P> = Matrix::new(
+            [data.body.shape[0], data.degree as usize]
+        );
+
+        for row in 0..data.body.shape[0] {
+            predicted_out.add_row(
+                &mut self.forward(data.body.row(row))
+            );
+
+            // IMPLEMENT COMPLEX TRAIT TO GIVE TO CFLOAT AND F32/F64
+            // YOU CAN TRY TO MAKE A GENERAL COST FUNCTION
+            // Create a real and complex trait and a real param trait and a complex param trait
+        }
+    
+        predicted_out
+            .sub(data.target)
+            .powi(2)
+
+    }
+
+}
+
+// Complex Implementations.
+impl<P, U, IL, L> Network<Cfloat<P>, U, IL, L> 
+    where
+        P: Param + Real + Copy, 
+        Cfloat<P>: Param + Complex<P> + Copy,
+        U: UnitLike<Cfloat<P>>,
+        IL: LayerLike<Cfloat<P>, U>,
+        L: LayerLike<Cfloat<P>, U> {
+
+
+    pub fn cost(&self, data: Dataset<Cfloat<P>, P>, criteria: ComplexCritiria) -> Matrix<P> {
+    
+        let mut predicted_out: Matrix<P> = Matrix::new(
+            [data.body.shape[0], data.degree as usize]
+        );
+
+        for row in 0..data.body.shape[0] {
+            predicted_out.add_row(
+                &mut self.apply_criteria(data.body.row(row), &criteria)
+            );
+        }
+    
+        predicted_out
+            .sub(data.target)
+            .powi(2)
+
+    }
+
+    fn apply_criteria(
+        &self, 
+        data_point: &[Cfloat<P>],
+        criteria: &ComplexCritiria) -> Vec<P> {
+
+        match criteria  {
+            ComplexCritiria::REAL => { 
+                self
+                    .forward(data_point)
+                    .into_iter()
+                    .map( |x| x.re() )
+                    .collect::<Vec<P>>() 
+            },
+
+            ComplexCritiria::IMAGINARY => {
+                self
+                    .forward(data_point)
+                    .into_iter()
+                    .map( |x| x.re() )
+                    .collect::<Vec<P>>()
+            },
+
+            ComplexCritiria::NORM => {
+                self
+                    .forward(data_point)
+                    .into_iter()
+                    .map( |x| x.re() )
+                    .collect::<Vec<P>>()
+            },
+
+            ComplexCritiria::PHASE => {
+                self
+                    .forward(data_point)
+                    .into_iter()
+                    .map( |x| x.re() )
+                    .collect::<Vec<P>>()
+            }
+        }
+
+    }
+
+}
+
+impl<U, IL, L> Network<f32, U, IL, L> 
+    where 
+        U: UnitLike<f32>,
+        IL: LayerLike<f32, U>,
+        L: LayerLike<f32, U> {
+
+}
+
+/*
+impl<P> Network<P> 
     where 
         P: Add<Output=P> + Sub<Output=P> + Neg<Output=P> + Mul<Output=P> + Div<Output=P>,
         P: AddAssign,
@@ -164,7 +301,7 @@ impl<P> DenseNetwork<P>
 
 }
 
-impl<P> DenseNetwork<Cfloat<P>> 
+impl<P> Network<Cfloat<P>> 
     where 
         P: Add<Output=P> + Sub<Output=P> + Neg<Output=P> + Mul<Output=P> + Div<Output=P>,
         P: AddAssign,
@@ -277,7 +414,7 @@ impl<P> DenseNetwork<Cfloat<P>>
 macro_rules! init_real_dense_network {
     ($($generator: ident, $float: ty), *) => {
         $(
-            impl DenseNetwork<$float> {
+            impl Network<$float> {
                 pub fn init(
                     input_length: usize,
                     n_units: usize,
@@ -285,7 +422,7 @@ macro_rules! init_real_dense_network {
                     weight_scale: $float,
                     bias_scale: $float,
                     seed: &mut u128
-                ) -> DenseNetwork<$float> {
+                ) -> Network<$float> {
             
                     let order: usize = 0;
                     let n_weights = match calc_n_weights(input_length, n_units) {
@@ -300,7 +437,7 @@ macro_rules! init_real_dense_network {
                         }
                     };
             
-                    let mut network = DenseNetwork::<$float>::new(n_units);
+                    let mut network = Network::<$float>::new(n_units);
                     
                     network.add_rnd_param_layer(
                         n_units, 
@@ -405,7 +542,7 @@ init_real_dense_network!(lcgf32, f32, lcgf64, f64);
 macro_rules! init_complex_dense_network {
     ($($generator: ident, $float: ty), *) => {
         $(
-            impl DenseNetwork<Cfloat<$float>> {
+            impl Network<Cfloat<$float>> {
                 pub fn init(
                     input_length: usize,
                     n_units: usize,
@@ -415,7 +552,7 @@ macro_rules! init_complex_dense_network {
                     re_bias_scale: $float,
                     im_bias_scale: $float,
                     seed: &mut u128
-                ) -> DenseNetwork<Cfloat<$float>> {
+                ) -> Network<Cfloat<$float>> {
             
                     let order: usize = 0;
                     let n_weights = match calc_n_weights(input_length, n_units) {
@@ -430,7 +567,7 @@ macro_rules! init_complex_dense_network {
                         }
                     };
             
-                    let mut network = DenseNetwork::<Cfloat<$float>>::new(n_units);
+                    let mut network = Network::<Cfloat<$float>>::new(n_units);
                     
                     network.add_rnd_param_layer(
                         n_units, 
@@ -564,3 +701,5 @@ fn calc_n_weights(
     }
 
 }
+
+*/

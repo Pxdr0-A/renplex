@@ -38,6 +38,24 @@ macro_rules! numify {
 }
 numify!{f32, f64}
 
+impl Number for usize {
+    fn null() -> usize {
+        0
+    }
+
+    fn unit() -> usize {
+        1
+    }
+
+    fn nan() -> usize {
+        usize::MIN
+    }
+
+    fn inf() -> usize {
+        usize::MAX
+    }
+}
+
 impl<P> Number for Cfloat<P>
     where 
         P: Number {
@@ -69,4 +87,45 @@ impl<P> Number for Cfloat<P>
             y: P::inf() 
         }
     }
+}
+
+
+pub trait Real {
+    
+    fn new(x: Self) -> Self;
+
+}
+
+impl Real for f32 {
+    
+    fn new(x: Self) -> Self {
+        x
+    }
+
+}
+
+impl Real for f64 {
+    
+    fn new(x: Self) -> Self {
+        x
+    }
+
+}
+
+pub trait Complex<T> {
+    
+    fn new(x: T, y: T) -> Self;
+
+    fn re(&self) -> T;
+
+    fn im(&self) -> T;
+
+    fn norm(&self) -> T;
+
+    fn phase(&self) -> T;
+
+    fn conj(&self) -> Self;
+
+    fn inv(&self) -> Self;
+
 }

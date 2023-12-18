@@ -12,6 +12,7 @@ pub trait Arcable {
     fn atanh(self) -> Self;
 }
 
+
 macro_rules! arcify {
     ( $( $t: ty ), * ) => {
         $(
@@ -43,4 +44,5 @@ macro_rules! arcify {
         )*
     };
 }
+
 arcify!{f32, f64}

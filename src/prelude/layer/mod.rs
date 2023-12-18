@@ -1,137 +1,44 @@
-use std::fmt::Debug;
-use std::ops::{AddAssign, Mul, Neg};
+pub mod dense;
 
-use crate::math::ops::base::Number;
 
-use super::neuron::Neuron;
-use super::neuron::activation::Activatable;
+use std::marker::PhantomData;
 
-// Conventional input layer for dense network for instance.
-#[derive(Debug)]
-pub struct InputLayer<W> {
-    pub units: Vec<Neuron<W>>
-}
+use super::neuron::{param::Param, UnitLike};
 
-/// Conventional dense hidden layer.
-#[derive(Debug)]
-pub struct HiddenLayer<W> {
-    pub units: Vec<Neuron<W>>
-}
 
-pub trait Layer<W> {
+// maybe supertrait for InputLayerLike?
+pub trait LayerLike<P, U> 
+    where
+        P: Param,
+        U: UnitLike<P> {
     
     fn new(n_units: usize) -> Self;
 
-    fn add(&mut self, neuron: Neuron<W>);
+    fn add(&mut self, unit: U);
 
-    fn signal(&self, input: &[W]) -> Vec<W>;
+    fn signal(&self, input: &[P]) -> Vec<P>;
 
 }
 
-impl<W> Layer<W> for InputLayer<W> 
-    where 
-        W: AddAssign + Mul<Output = W> + Neg<Output = W> + PartialEq, 
-        W: Activatable + Number,
-        W: Copy,
-        W: Debug {
-
-    /// Returns an empty `InputLayer<W>`. Enough memory is allocated in the process.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `n_units` - Number of units that the layer will contain. 
-    ///               A Vec will be allocated with enough memory for the n_units.
-    fn new(n_units: usize) -> InputLayer<W> {
-        InputLayer {
-            units: Vec::<Neuron<W>>::with_capacity(n_units)
-        }
-    }
-
-    /// Updates the `InputLayer<W>` object with a `Neuron<W>`
-    /// 
-    /// # Arguments
-    /// 
-    /// * `neuron` - Neuron to add to the respective layer.
-    fn add(&mut self, neuron: Neuron<W>) {
-        self.units.push(neuron);
-    }
-
-    /// Returns a new Vec resultant from fowarding a signal through the input layer.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `input` - Slice of the input to foward to the layer. 
-    ///             Needs to be in agreement with the number of units and respective neuron inputs.
-    fn signal(&self, input: &[W]) -> Vec<W> {
-
-        // Try to implement concurrency if possible
-        let mut output = Vec::with_capacity(self.units.len());
-
-        let mut demand: usize;
-        let mut position: usize = 0;
-        for neuron in &self.units {
-            // The -1 is to work around index counts
-            demand = position + ( neuron.weights.len() - 1 );
-            assert!(
-                demand <= input.len(), 
-                "Input with inconsistent shape given to InputLayer."
-            );
-
-            output.push(
-                neuron.signal(&input[position..=demand])
-            );
-
-            // The +1 is to move one place. 
-            // We do not want to repeat the last point
-            position = demand + 1;
-        }
-
-        output
-    }
+pub enum InputLayer<P, U, L>
+    where
+        P: Param,
+        U: UnitLike<P>,
+        L: LayerLike<P, U>, {
+    
+    VoidP(PhantomData<P>),
+    VoidU(PhantomData<U>),
+    DenseInputLayer(L)
 }
 
-impl<W> Layer<W> for HiddenLayer<W> 
-    where 
-        W: AddAssign + Mul<Output = W> + Neg<Output = W> + PartialEq, 
-        W: Activatable + Number,
-        W: Copy,
-        W: Debug {
 
-    /// Returns an empty `HiddenLayer<W>`. Enough memory is allocated in the process.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `n_units` - Number of units that the layer will contain. 
-    ///               A Vec will be allocated with enough memory for the n_units.
-    fn new(n_units: usize) -> HiddenLayer<W> {
-        HiddenLayer {
-            units: Vec::<Neuron<W>>::with_capacity(n_units)
-        }
-    }
-
-    /// Updates the `HiddenLayer<W>` object with a `Neuron<W>`
-    /// 
-    /// # Arguments
-    /// 
-    /// * `neuron` - Neuron to add to the respective layer.
-    fn add(&mut self, neuron: Neuron<W>) {
-        self.units.push(neuron);
-    }
-
-    /// Returns a new Vec resultant from fowarding an input through a hidden layer.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `input` - Slice of the input to foward to the layer. 
-    ///             Needs to be in agreement with the number of units and respective neuron inputs.
-    fn signal(&self, input: &[W]) -> Vec<W> {
-
-        // try to implement concurrency if possible
-        let mut output = Vec::with_capacity(self.units.len());
-        for n in &self.units {
-            output.push(n.signal(input));
-        }
-
-        output
-    }
+pub enum Layer<P, U, L>
+    where
+        P: Param,
+        U: UnitLike<P>,
+        L: LayerLike<P, U>, {
+    
+    VoidP(PhantomData<P>),
+    VoidU(PhantomData<U>),
+    DenseLayer(L),
 }

@@ -1,68 +1,68 @@
 // std
-use std::ops::{Add, Sub};
+
+use crate::prelude::neuron::param::Param;
 
 // local
 use super::Matrix;
 
 
-// Generic addition for Matrix
-impl<T> Add for Matrix<T> where 
-    T: Add<Output=T>,
-    T: Copy {
-    
-    type Output = Matrix<T>;
+impl<P: Param + Clone> Matrix<P> {
 
-    fn add(self, rhs: Self) -> Self {
+    pub fn add(self, rhs: Matrix<P>) -> Matrix<P> {
+
         assert!(
             self.shape == rhs.shape,
             "Matrix shapes do not match in Addition."
         );
 
-        let mut index = 0;
-        let result: Vec<T> = self.body
+        let body = self.body
             .into_iter()
-            .map(|x| { 
-                index += 1;
+            .zip(rhs.body)
+            .map(|(lhs, rhs)| { lhs.add(rhs) })
+            .collect::<Vec<P>>();
 
-                x + rhs.body[index-1]
-             })
-             .collect();
-        
-        Matrix { 
-            body: result, 
-            shape: self.shape, 
-            capacity: self.capacity 
+        Matrix {
+            body,
+            shape: self.shape,
+            capacity: self.capacity
         }
+
     }
-}
 
-// Generic addition for Matrix
-impl<T> Sub for Matrix<T> where 
-    T: Sub<Output=T>,
-    T: Copy {
-    
-    type Output = Matrix<T>;
+    pub fn sub(self, rhs: Matrix<P>) -> Matrix<P> {
 
-    fn sub(self, rhs: Self) -> Self {
         assert!(
             self.shape == rhs.shape,
             "Matrix shapes do not match in Addition."
         );
 
-        let mut index = 0;
-        let result: Vec<T> = self.body
+        let body = self.body
             .into_iter()
-            .map(|x| { 
-                index += 1;
+            .zip(rhs.body)
+            .map(|(lhs, rhs)| { lhs.sub(rhs) })
+            .collect::<Vec<P>>();
 
-                x - rhs.body[index-1]
-             })
-             .collect();
-        
         Matrix { 
-            body: result, 
+            body, 
             shape: self.shape, 
             capacity: self.capacity 
         }
+
     }
+
+    pub fn powi(self, n: i32) -> Matrix<P> {
+
+        let body = self.body
+            .into_iter()
+            .map(|base| { base.powi(n) })
+            .collect::<Vec<P>>();
+
+        Matrix { 
+            body, 
+            shape: self.shape,
+            capacity: self.capacity 
+        }
+
+    }
+
 }

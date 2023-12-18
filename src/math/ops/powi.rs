@@ -4,6 +4,7 @@ use std::iter::Sum;
 use crate::math::complex::Cfloat;
 use crate::math::matrix::Matrix;
 
+use super::base::Complex;
 use super::sqrt::SquareRootable;
 use super::{
     trig::Trignometricable, 
@@ -31,6 +32,7 @@ powerfy!{f32, f64}
 
 impl<P> Powerable for Cfloat<P> 
     where
+        Cfloat<P>: Complex<P>,
         P: Trignometricable + Arcable + Powerable + SquareRootable,
         P: Add<Output=P> + Sub<Output=P> + Neg<Output=P> + Mul<Output=P> + Div<Output=P>,
         P: Sum,

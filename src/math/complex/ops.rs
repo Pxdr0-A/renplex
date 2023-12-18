@@ -1,5 +1,5 @@
 // std
-use std::ops::{Add, Sub, Neg, Mul, Div, AddAssign};
+use std::ops::{Add, Sub, Neg, Mul, Div, AddAssign, SubAssign};
 
 // local
 use super::Cfloat;
@@ -154,5 +154,15 @@ impl<P> AddAssign for Cfloat<P> where
     fn add_assign(&mut self, rhs: Self) {
         self.x += rhs.x;
         self.y += rhs.y;
+    }
+}
+
+// Generic Assign Addition for Cfloat
+impl<P> SubAssign for Cfloat<P> where 
+    P: SubAssign {
+
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
     }
 }

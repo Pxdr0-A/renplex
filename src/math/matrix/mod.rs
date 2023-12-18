@@ -18,6 +18,14 @@ pub struct Matrix<T> {
     pub capacity: [usize; 2],
 }
 
+pub struct SparseVec(usize);
+
+pub struct SparseMatrix {
+    body: Vec<SparseVec>,
+    shape: [usize; 2],
+    capacity: [usize; 2]
+}
+
 impl<T> Matrix<T> {
     /// Returns an empty generic `Matrix<T>` with enough allocated memory given the `capacity`.
     /// 
@@ -38,9 +46,10 @@ impl<T> Matrix<T> {
     }
 
     pub fn dealloc(&mut self) {
+        
         self.body.shrink_to_fit();
-
         self.capacity = self.shape;
+
     }
 
     /// Returns a reference to the generic element in position i, j of a `Matrix<T>`.
@@ -49,10 +58,10 @@ impl<T> Matrix<T> {
     /// 
     /// * `i` - reference to a `usize` representing the row's index.
     /// * `j` - reference to a `usize` representing the column's index.
-    pub fn elm(&self, i: &usize, j: &usize) -> &T {
+    pub fn elm(&self, i: usize, j: usize) -> &T {
         // i - lines; j - columns
         assert!(
-            i < &self.shape[0] && j < &self.shape[1],
+            i < self.shape[0] && j < self.shape[1],
             "Index Error: Some axis is out of bounds."
         );
 
@@ -64,9 +73,9 @@ impl<T> Matrix<T> {
     /// # Arguments
     /// 
     /// * `i` - reference to a `usize` representing the row's index.
-    pub fn row(&self, i: &usize) -> &[T] {
+    pub fn row(&self, i: usize) -> &[T] {
         assert!(
-            i < &self.shape[0],
+            i < self.shape[0],
             "Index Error: Row index is out of bounds."
         );
 
@@ -76,9 +85,9 @@ impl<T> Matrix<T> {
         &self.body[init..end]
     }
 
-    pub fn row_as_mut(&mut self, i: &usize) -> &mut [T] {
+    pub fn row_as_mut(&mut self, i: usize) -> &mut [T] {
         assert!(
-            i < &self.shape[0],
+            i < self.shape[0],
             "Index Error: Row index is out of bounds."
         );
 
@@ -98,9 +107,9 @@ impl<T> Matrix<T> {
     /// # Notes
     /// 
     /// Not very performant. Use this method outside heavy computation, if possible.
-    pub fn column(&self, j: &usize) -> Vec<&T> {
+    pub fn column(&self, j: usize) -> Vec<&T> {
         assert!(
-            j < &self.shape[1],
+            j < self.shape[1],
             "Index Error. Column index is out of bounds."
         );
 
@@ -137,9 +146,9 @@ impl<T> Matrix<T> {
         row.shrink_to_fit();
     }
 
-    pub fn del_row(&mut self, i: &usize) -> Vec<T> {
+    pub fn del_row(&mut self, i: usize) -> Vec<T> {
         assert!(
-            i < &self.shape[0],
+            i < self.shape[0],
             "Index Error: Row index is out of bounds."
         );
         assert!(

@@ -15,7 +15,7 @@ use std::ops::{Add, Neg, Mul, Div};
 //local
 use super::ops::{
     arc::Arcable, 
-    sqrt::SquareRootable
+    sqrt::SquareRootable, base::Complex
 };
 
 
@@ -23,43 +23,43 @@ use super::ops::{
 /// Generic structure for a complex number.
 /// 
 /// Complex numbers here were defined in their cartesian form.
-pub struct Cfloat<P> {
-    pub x: P,
-    pub y: P
+pub struct Cfloat<T> {
+    pub x: T,
+    pub y: T
 }
 
-impl<P> Cfloat<P> 
+impl<T> Complex<T> for Cfloat<T> 
     where 
-        P: Add<Output=P> + Mul<Output=P> + Div<Output=P> + Neg<Output=P>,
-        P: SquareRootable + Arcable,
-        P: Copy  {
+        T: Add<Output=T> + Mul<Output=T> + Div<Output=T> + Neg<Output=T>,
+        T: SquareRootable + Arcable,
+        T: Copy  {
 
-    pub fn new(x: P, y: P) -> Cfloat<P> {
+    fn new(x: T, y: T) -> Cfloat<T> {
 
         Cfloat {x, y}
     }
 
-    pub fn re(&self) -> P {
+    fn re(&self) -> T {
 
         self.x
     }
 
-    pub fn im(&self) -> P {
+    fn im(&self) -> T {
                 
         self.y
     }
 
-    pub fn norm(&self) -> P {
+    fn norm(&self) -> T {
         
         (self.x * self.x + self.y * self.y).sqrt()
     }
 
-    pub fn phase(&self) -> P {
+    fn phase(&self) -> T {
 
         (self.y / self.x).atan()
     }
 
-    pub fn conj(&self) -> Cfloat<P> {
+    fn conj(&self) -> Cfloat<T> {
         
         Cfloat {
             x: self.x,
@@ -67,11 +67,12 @@ impl<P> Cfloat<P>
         }
     }
 
-    pub fn inv(&self) -> Cfloat<P> {
+    fn inv(&self) -> Cfloat<T> {
 
         Cfloat {
             x: -self.x,
             y: -self.y
         }
     }
+
 }

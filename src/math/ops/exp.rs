@@ -19,6 +19,7 @@ macro_rules! exponensify {
         )*
     };
 }
+
 exponensify!{f32, f64}
 
 
