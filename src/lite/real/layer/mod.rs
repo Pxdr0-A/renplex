@@ -4,7 +4,7 @@ pub mod dense;
 use self::dense::{DenseInputLayer, DenseLayer};
 use crate::lite::real::Param;
 
-
+#[derive(Debug)]
 pub enum InputLayer<P: Param> {
     DenseInputLayer(DenseInputLayer<P>)
 }
@@ -21,6 +21,7 @@ impl<P: Param + Copy> InputLayer<P> {
     }
 }
 
+#[derive(Debug)]
 pub enum Layer<P: Param> {
     DenseLayer(DenseLayer<P>)
 }

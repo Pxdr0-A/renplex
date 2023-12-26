@@ -2,6 +2,7 @@ pub mod unit;
 pub mod layer;
 pub mod network;
 
+#[derive(Debug)]
 pub enum ActivationFunction {
     SIGMOID,
     TANH,

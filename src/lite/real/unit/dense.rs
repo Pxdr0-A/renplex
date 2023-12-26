@@ -2,6 +2,7 @@ use crate::lite::real::ActivationFunction;
 
 use super::Param;
 
+#[derive(Debug)]
 pub struct DenseNeuron<P: Param> {
     weights: Vec<P>,
     bias: P,

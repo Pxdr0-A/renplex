@@ -1,6 +1,7 @@
 use super::layer::{InputLayer, Layer};
 use super::Param;
 
+#[derive(Debug)]
 pub struct FeedFoward<P: Param> {
     input: InputLayer<P>,
     hidden: Vec<Layer<P>>

@@ -1,7 +1,8 @@
 use crate::lite::real::Param;
 use crate::lite::real::unit::dense::DenseNeuron;
+use super::{InputLayer, Layer};
 
-
+#[derive(Debug)]
 pub struct DenseInputLayer<P: Param> {
     input_size: usize,
     units: Vec<DenseNeuron<P>>
@@ -45,7 +46,7 @@ impl<P: Param + Copy> DenseInputLayer<P> {
     /// * `input` - Slice of the input to foward to the layer. 
     ///             Needs to be in agreement with the number of units and respective neuron inputs.
     pub fn signal(&self, input: &[P]) -> Result<Vec<P>, UnsetInputError> {
-        match self.input_size != input.len() {
+        match self.input_size == input.len() {
             true => {},
             false => { return Err(UnsetInputError::ClashingInput(self.input_size, input.len())); }
         }
@@ -72,8 +73,13 @@ impl<P: Param + Copy> DenseInputLayer<P> {
 
         Ok(output)
     }
+
+    pub fn wrap(self) -> InputLayer<P> {
+        InputLayer::DenseInputLayer(self)
+    }
 }
 
+#[derive(Debug)]
 pub struct DenseLayer<P: Param> {
     units: Vec<DenseNeuron<P>>
 }
@@ -106,6 +112,10 @@ impl<P: Param + Copy> DenseLayer<P> {
         }
 
         output
+    }
+
+    pub fn wrap(self) -> Layer<P> {
+        Layer::DenseLayer(self)
     }
 }
 
