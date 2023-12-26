@@ -1,15 +1,15 @@
-use crate::light::real::ActivationFunction;
+use crate::lite::real::ActivationFunction;
 
 use super::Param;
 
-pub struct Neuron<P: Param> {
+pub struct DenseNeuron<P: Param> {
     weights: Vec<P>,
     bias: P,
     acti: ActivationFunction
 }
 
 
-impl<P: Param + Copy> Neuron<P> {
+impl<P: Param + Copy> DenseNeuron<P> {
     /// Returns a `Neuron<W>` with the specified weights, bias and activation function.
     /// 
     /// # Arguments
@@ -18,13 +18,16 @@ impl<P: Param + Copy> Neuron<P> {
     /// * `bias` - Bias of the neuron (associated with unit input).
     /// * `activation` - Activation function to be associated with the neuron.
     ///    Check `renplex::prelude::neuron::activation::ActivationFunction` enum for the available options.
-    fn new(weights: Vec<P>, bias: P, acti: ActivationFunction) -> Neuron<P> {
-        
-        Neuron { 
+    pub fn new(weights: Vec<P>, bias: P, acti: ActivationFunction) -> DenseNeuron<P> {
+        DenseNeuron { 
             weights, 
             bias, 
             acti 
         }
+    }
+
+    pub fn get_weights(&self) -> &[P] {
+        &self.weights
     }
 
     /// Returns the result from the neuron's activation against an input.
@@ -33,12 +36,11 @@ impl<P: Param + Copy> Neuron<P> {
     /// 
     /// * `input` - Slice of the input to foward to the neuron. 
     ///             Needs to be in agreement with the number of weights.
-    fn signal(&self, input: &[P]) -> P {
-        
-        assert_eq!(
-            self.weights.len(), input.len(),
-            "Input length must match the number of neuron inputs."
-        );
+    pub fn signal(&self, input: &[P]) -> Result<P, NeuronSignalError> {
+        match self.weights.len() == input.len() {
+            true => {},
+            false => { return Err(NeuronSignalError(self.weights.len(), input.len())) }
+        }
 
         let mut out = self.bias.neg();
         // do with iterators maybe?
@@ -48,7 +50,10 @@ impl<P: Param + Copy> Neuron<P> {
             );
         }
 
-        out.act(&self.acti)
+        Ok(out.act(&self.acti))
     }
     
 }
+
+#[derive(Debug)]
+pub struct NeuronSignalError(usize, usize);

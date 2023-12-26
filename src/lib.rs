@@ -1,5 +1,5 @@
 pub mod math;
-pub mod light;
+pub mod lite;
 pub mod prelude;
 
 

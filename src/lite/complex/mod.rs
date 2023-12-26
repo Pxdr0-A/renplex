@@ -1,4 +1,8 @@
-pub enum CActivationFunction {
+pub mod unit;
+pub mod layer;
+pub mod network;
+
+pub enum ActivationFunction {
     
 }
 
@@ -24,6 +28,6 @@ pub trait Param {
 
     fn powi(self, n: i32) -> Self;
 
-    fn act(self, act_func: &CActivationFunction) -> Self;
+    fn act(self, act_func: &ActivationFunction) -> Self;
 
 }
