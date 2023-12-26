@@ -7,7 +7,7 @@ description = "A library capable of handling complexed valued neural network alt
 readme = "README.md"
 repository = "https://github.com/Pxdr0-A/renplex"
 license = "MIT"
-keywords = ["neural-networks", "engine", "nn-engine", "cvnn-engine"]
+keywords = ["neural-networks", "library"]
 categories = ["lib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
