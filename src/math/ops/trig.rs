@@ -1,6 +1,6 @@
 use std::ops::{Add, Sub, Mul, Div, Neg};
 
-use crate::math::complex::Cfloat;
+use crate::math::cfloat::Cfloat;
 
 use super::base::Number;
 

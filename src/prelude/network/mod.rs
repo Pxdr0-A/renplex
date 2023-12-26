@@ -10,8 +10,8 @@ use criteria::ComplexCritiria;
 
 use crate::math::ops::base::{Number, Real, Complex};
 use crate::math::random::{lcgf32, lcgf64};
-use crate::math::complex::Cfloat;
-use crate::math::complex::casts::ComplexCast;
+use crate::math::cfloat::Cfloat;
+use crate::math::cfloat::casts::ComplexCast;
 use crate::math::matrix::Matrix;
 use crate::math::matrix::dataset::Dataset;
 use crate::math::ops::arc::Arcable;
@@ -39,7 +39,7 @@ pub struct Network<P, U, IL, L>
     layers: Vec<Layer<P, U, L>>
 }
 
-
+// general implementations
 impl<P, U, IL, L> Network<P, U, IL, L> 
     where
         P: Param + Copy,
@@ -134,12 +134,9 @@ impl<P, U, IL, L> Network<P, U, IL, L>
             predicted_out.add_row(
                 &mut self.forward(data.body.row(row))
             );
-
-            // IMPLEMENT COMPLEX TRAIT TO GIVE TO CFLOAT AND F32/F64
-            // YOU CAN TRY TO MAKE A GENERAL COST FUNCTION
-            // Create a real and complex trait and a real param trait and a complex param trait
         }
     
+        // you can find other patterns for calculating the cost
         predicted_out
             .sub(data.target)
             .powi(2)
@@ -194,7 +191,7 @@ impl<P, U, IL, L> Network<Cfloat<P>, U, IL, L>
                 self
                     .forward(data_point)
                     .into_iter()
-                    .map( |x| x.re() )
+                    .map( |x| x.im() )
                     .collect::<Vec<P>>()
             },
 
@@ -202,7 +199,7 @@ impl<P, U, IL, L> Network<Cfloat<P>, U, IL, L>
                 self
                     .forward(data_point)
                     .into_iter()
-                    .map( |x| x.re() )
+                    .map( |x| x.norm() )
                     .collect::<Vec<P>>()
             },
 
@@ -210,7 +207,7 @@ impl<P, U, IL, L> Network<Cfloat<P>, U, IL, L>
                 self
                     .forward(data_point)
                     .into_iter()
-                    .map( |x| x.re() )
+                    .map( |x| x.phase() )
                     .collect::<Vec<P>>()
             }
         }

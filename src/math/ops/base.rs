@@ -1,4 +1,4 @@
-use crate::math::complex::Cfloat;
+use crate::math::cfloat::Cfloat;
 
 pub trait Number {
     fn null() -> Self;

@@ -1,6 +1,6 @@
 use std::ops::Mul;
 
-use crate::math::complex::Cfloat;
+use crate::math::cfloat::Cfloat;
 
 use super::trig::Trignometricable;
 

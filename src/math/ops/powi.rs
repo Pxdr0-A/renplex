@@ -1,7 +1,7 @@
 use std::ops::{Add, Sub, Neg, Mul, Div};
 use std::iter::Sum;
 
-use crate::math::complex::Cfloat;
+use crate::math::cfloat::Cfloat;
 use crate::math::matrix::Matrix;
 
 use super::base::Complex;

@@ -20,11 +20,13 @@ pub struct Matrix<T> {
 
 pub struct SparseVec(usize);
 
+/*
 pub struct SparseMatrix {
     body: Vec<SparseVec>,
     shape: [usize; 2],
     capacity: [usize; 2]
 }
+*/
 
 impl<T> Matrix<T> {
     /// Returns an empty generic `Matrix<T>` with enough allocated memory given the `capacity`.
