@@ -5,4 +5,7 @@
   "editor.fontSize": 18,
   "editor.detectIndentation": true,
   "editor.tabSize": 4,
+  "rust-analyzer.linkedProjects": [
+    "./Cargo.toml"
+  ],
 }
