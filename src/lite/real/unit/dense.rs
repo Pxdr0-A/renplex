@@ -37,10 +37,10 @@ impl<P: Param + Copy> DenseNeuron<P> {
     /// 
     /// * `input` - Slice of the input to foward to the neuron. 
     ///             Needs to be in agreement with the number of weights.
-    pub fn signal(&self, input: &[P]) -> Result<P, NeuronSignalError> {
+    pub fn signal(&self, input: &[P]) -> P {
         match self.weights.len() == input.len() {
             true => {},
-            false => { return Err(NeuronSignalError(self.weights.len(), input.len())) }
+            false => { panic!("Input size not matching input length.") }
         }
 
         let mut out = self.bias.neg();
@@ -51,7 +51,7 @@ impl<P: Param + Copy> DenseNeuron<P> {
             );
         }
 
-        Ok(out.act(&self.acti))
+        out.act(&self.acti)
     }
     
 }

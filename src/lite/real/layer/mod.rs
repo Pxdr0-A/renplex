@@ -15,7 +15,6 @@ impl<P: Param + Copy> InputLayer<P> {
             InputLayer::DenseInputLayer(layer) => {
                 layer
                     .signal(input)
-                    .unwrap()
             }
         }
     }

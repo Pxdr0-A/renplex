@@ -75,8 +75,62 @@ mod lite_test {
         let layer = l2.wrap();
 
         let mut network = FeedFoward::new(input_layer);
-        network.add(layer);
+        network.add_layer(layer);
 
         println!("{:?}", network.foward(&[2.0; 6]));
+    }
+
+    #[test]
+    fn random_net_test() {
+        use lite::real::layer::dense::DenseInputLayer;
+        use lite::real::layer::dense::DenseLayer;
+        use lite::real::network::FeedFoward;
+        use lite::real::ActivationFunction::{SIGMOID, TANH};
+
+        let ref mut seed = 943456861;
+        let scale = 10.0;
+
+        let input_layer = DenseInputLayer::init(
+            6, 
+            12, 
+            TANH, 
+            scale, 
+            seed
+        ).wrap();
+
+        let layer1 = DenseLayer::init(
+            16, 
+            6, 
+            SIGMOID, 
+            scale, 
+            seed
+        ).wrap();
+
+        let layer2 = DenseLayer::init(
+            16, 
+            16, 
+            SIGMOID, 
+            scale, 
+            seed
+        ).wrap();
+
+        let layer3 = DenseLayer::init(
+            2, 
+            16, 
+            SIGMOID, 
+            scale, 
+            seed
+        ).wrap();
+
+        let mut network = FeedFoward::new(input_layer);
+        network.add_layer(layer1);
+        network.add_layer(layer2);
+        network.add_layer(layer3);
+
+        let out1 = network.foward(&[2.3, 0.1, 1.0, 1.2, 0.4, 2.9, 1.8, 0.9, 0.2, 0.1, 3.1, 1.3]);
+        let out2 = network.foward(&vec![1.0; 12]);
+
+        println!("{:?}", out1);
+        println!("{:?}", out2);
     }
 }

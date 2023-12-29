@@ -15,7 +15,7 @@ impl<P: Param + Copy> FeedFoward<P> {
         }
     }
 
-    pub fn add(&mut self, layer: Layer<P>) {
+    pub fn add_layer(&mut self, layer: Layer<P>) {
         self.hidden.push(layer);
     }
 

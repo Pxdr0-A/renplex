@@ -2,7 +2,7 @@ pub mod unit;
 pub mod layer;
 pub mod network;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ActivationFunction {
     SIGMOID,
     TANH,
@@ -33,6 +33,8 @@ pub trait Param {
     fn div(self, rhs: Self) -> Self;
     
     fn div_mut(&mut self, rhs: Self);
+
+    fn rem(self, rhs: Self) -> Self;
 
     fn powi(self, n: i32) -> Self;
 
@@ -84,6 +86,10 @@ impl Param for f32 {
 
     fn div_mut(&mut self, rhs: Self) {
         *self /= rhs;
+    }
+
+    fn rem(self, rhs: Self) -> Self {
+        self % rhs
     }
 
     fn powi(self, n: i32) -> Self {

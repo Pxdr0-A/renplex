@@ -1,5 +1,6 @@
-use crate::lite::real::Param;
+use crate::lite::real::{Param, ActivationFunction};
 use crate::lite::real::unit::dense::DenseNeuron;
+use crate::math::random::lcgf32;
 use super::{InputLayer, Layer};
 
 #[derive(Debug)]
@@ -45,10 +46,10 @@ impl<P: Param + Copy> DenseInputLayer<P> {
     /// 
     /// * `input` - Slice of the input to foward to the layer. 
     ///             Needs to be in agreement with the number of units and respective neuron inputs.
-    pub fn signal(&self, input: &[P]) -> Result<Vec<P>, UnsetInputError> {
+    pub fn signal(&self, input: &[P]) -> Vec<P> {
         match self.input_size == input.len() {
             true => {},
-            false => { return Err(UnsetInputError::ClashingInput(self.input_size, input.len())); }
+            false => { panic!("Input size not matching input length.") }
         }
 
         let mut output = Vec::with_capacity(self.units.len());
@@ -62,7 +63,6 @@ impl<P: Param + Copy> DenseInputLayer<P> {
             output.push(
                 neuron
                     .signal(&input[position..=demand])
-                    .unwrap()
             );
 
             // The +1 is to move one place. 
@@ -71,11 +71,42 @@ impl<P: Param + Copy> DenseInputLayer<P> {
 
         }
 
-        Ok(output)
+        output
     }
 
     pub fn wrap(self) -> InputLayer<P> {
         InputLayer::DenseInputLayer(self)
+    }
+}
+
+impl DenseInputLayer<f32> {
+    pub fn init(
+        capacity: usize,
+        input_size: usize,
+        acti: ActivationFunction,
+        scale: f32,
+        seed: &mut u128) -> DenseInputLayer<f32> {
+        
+        let inputs = match input_size % capacity == 0 && input_size / capacity >= 2 {
+            true => { input_size / capacity },
+            false => { panic!("Input size needs to be a multiple of the number of units.") }
+        };
+
+        let mut layer: DenseInputLayer<f32> = DenseInputLayer::new(capacity, input_size);
+        for _ in 0..capacity {
+            layer.add(
+                DenseNeuron::new(
+                    vec![scale; inputs]
+                        .into_iter()
+                        .map(|elm| {elm * lcgf32(seed) - (scale / 2.0)})
+                        .collect(), 
+                    scale * lcgf32(seed) - (scale / 2.0), 
+                    acti.clone()
+                )
+            );
+        }
+
+        layer
     }
 }
 
@@ -107,7 +138,6 @@ impl<P: Param + Copy> DenseLayer<P> {
             output.push(
                 neuron
                     .signal(input)
-                    .unwrap()
             );
         }
 
@@ -117,6 +147,33 @@ impl<P: Param + Copy> DenseLayer<P> {
     pub fn wrap(self) -> Layer<P> {
         Layer::DenseLayer(self)
     }
+}
+
+impl DenseLayer<f32> {
+    pub fn init(
+        capacity: usize,
+        inputs: usize,
+        acti: ActivationFunction,
+        scale: f32,
+        seed: &mut u128) -> DenseLayer<f32> {
+        
+        let mut layer: DenseLayer<f32> = DenseLayer::new(capacity);
+        for _ in 0..capacity {
+            layer.add(
+                DenseNeuron::new(
+                    vec![scale; inputs]
+                        .into_iter()
+                        .map(|elm| {elm * lcgf32(seed) - (scale / 2.0)})
+                        .collect(), 
+                    scale * lcgf32(seed) - (scale / 2.0), 
+                    acti.clone()
+                )
+            );
+        }
+
+        layer
+    }
+
 }
 
 
