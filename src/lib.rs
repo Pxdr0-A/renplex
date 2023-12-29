@@ -1,6 +1,6 @@
 pub mod math;
 pub mod lite;
-pub mod prelude;
+pub mod dynamic;
 
 
 #[cfg(test)]
@@ -132,5 +132,64 @@ mod lite_test {
 
         println!("{:?}", out1);
         println!("{:?}", out2);
+    }
+
+    #[test]
+    fn cost() {
+        use crate::math::matrix::dataset::Dataset;
+        use lite::real::layer::dense::DenseInputLayer;
+        use lite::real::layer::dense::DenseLayer;
+        use lite::real::network::FeedFoward;
+        use lite::real::ActivationFunction::{SIGMOID, TANH};
+
+        let ref mut seed = 92347865;
+
+        let data: Dataset<f32, f32> = Dataset::<f32, f32>::sample(
+            [64, 6], 
+            4, 
+            seed
+        );
+
+        let scale = 10.0;
+
+        let input_layer = DenseInputLayer::init(
+            3, 
+            6, 
+            TANH, 
+            scale, 
+            seed
+        ).wrap();
+
+        let layer1 = DenseLayer::init(
+            16, 
+            3, 
+            SIGMOID, 
+            scale, 
+            seed
+        ).wrap();
+
+        let layer2 = DenseLayer::init(
+            16, 
+            16, 
+            SIGMOID, 
+            scale, 
+            seed
+        ).wrap();
+
+        let layer3 = DenseLayer::init(
+            4, 
+            16, 
+            SIGMOID, 
+            scale, 
+            seed
+        ).wrap();
+
+        let mut network = FeedFoward::new(input_layer);
+        network.add_layer(layer1);
+        network.add_layer(layer2);
+        network.add_layer(layer3);
+
+        let cost_func = network.cost(data);
+        println!("{:?}", cost_func)
     }
 }
