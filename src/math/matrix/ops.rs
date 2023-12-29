@@ -1,12 +1,12 @@
 // std
 
-use crate::prelude::neuron::param::Param;
+use crate::lite::real::Param;
 
 // local
 use super::Matrix;
 
 
-impl<P: Param + Clone> Matrix<P> {
+impl<P: Param + Copy> Matrix<P> {
 
     pub fn add(self, rhs: Matrix<P>) -> Matrix<P> {
 
@@ -33,7 +33,7 @@ impl<P: Param + Clone> Matrix<P> {
 
         assert!(
             self.shape == rhs.shape,
-            "Matrix shapes do not match in Addition."
+            "Matrix shapes do not match in Subtraction."
         );
 
         let body = self.body

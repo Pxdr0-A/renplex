@@ -130,7 +130,23 @@ impl<T> Matrix<T> {
     /// 
     /// * `row` - mutable reference to a generic `Vec<T>`. 
     ///           Gets consumed after the addition of the row to `Matrix<T>`.
-    pub fn add_row(&mut self, row: &mut Vec<T>) {
+    pub fn add_row(&mut self, mut row: Vec<T>) {
+        assert!(
+            (row.len() == self.shape[1]) || self.shape[1] == 0,
+            "Invalid Addition: Inconsistent row length."
+        );
+
+        assert!(
+            self.capacity[0] > self.shape[0],
+            "Invalid Addition: Attempting to exceed allocated memory."
+        );
+
+        self.shape[0] += 1;
+        self.shape[1] = row.len();
+        self.body.append(&mut row);
+    }
+
+    pub fn add_mut_row(&mut self, row: &mut Vec<T>) {
         assert!(
             (row.len() == self.shape[1]) || self.shape[1] == 0,
             "Invalid Addition: Inconsistent row length."
@@ -144,8 +160,8 @@ impl<T> Matrix<T> {
         self.shape[0] += 1;
         self.shape[1] = row.len();
         self.body.append(row);
-
-        row.shrink_to_fit();
+        // do not necessarily need this
+        // row.shrink_to_fit();
     }
 
     pub fn del_row(&mut self, i: usize) -> Vec<T> {
