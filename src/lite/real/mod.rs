@@ -3,10 +3,44 @@ pub mod layer;
 pub mod network;
 
 #[derive(Debug, Clone)]
-pub enum ActivationFunction {
+pub enum ActFunction {
     SIGMOID,
     TANH,
     RELU
+}
+
+impl ActFunction {
+    pub fn compute_f32(&self, val: f32) -> f32 {
+        match self {
+            ActFunction::SIGMOID => {
+                val.exp() / (1.0 + val.exp())
+            },
+
+            ActFunction::TANH => {
+                val.tanh()
+            },
+            
+            ActFunction::RELU => {
+                if val.is_sign_positive() { val } else { 0.0 }
+            }
+        }
+    }
+
+    pub fn compute_f64(&self, val: f64) -> f64 {
+        match self {
+            ActFunction::SIGMOID => {
+                val.exp() / (1.0 + val.exp())
+            },
+
+            ActFunction::TANH => {
+                val.tanh()
+            },
+            
+            ActFunction::RELU => {
+                if val.is_sign_positive() { val } else { 0.0 }
+            }
+        }
+    }
 }
 
 /// Something that can be updated in the network for the learning stages.
@@ -34,11 +68,9 @@ pub trait Param {
     
     fn div_mut(&mut self, rhs: Self);
 
-    fn rem(self, rhs: Self) -> Self;
-
     fn powi(self, n: i32) -> Self;
 
-    fn act(self, act_func: &ActivationFunction) -> Self;
+    fn act(self, act_func: &ActFunction) -> Self;
 
 }
 
@@ -88,20 +120,68 @@ impl Param for f32 {
         *self /= rhs;
     }
 
-    fn rem(self, rhs: Self) -> Self {
-        self % rhs
+    fn powi(self, n: i32) -> Self {
+        self.powi(n)
+    }
+
+    fn act(self, act_func: &ActFunction) -> Self {
+        act_func.compute_f32(self)
+    }
+
+}
+
+impl Param for f64 {
+
+    fn null() -> Self {
+        0.0
+    }
+
+    fn unit() -> Self {
+        1.0
+    }
+
+    fn neg(self) -> Self {
+        -self
+    }
+
+    fn add(self, rhs: Self) -> Self {
+        self + rhs
+    }
+
+    fn add_mut(&mut self, rhs: Self) {
+        *self += rhs;
+    }
+
+    fn sub(self, rhs: Self) -> Self {
+        self - rhs
+    }
+
+    fn sub_mut(&mut self, rhs: Self) {
+        *self -= rhs;
+    }
+
+    fn mul(self, rhs: Self) -> Self {
+        self * rhs
+    }
+
+    fn mul_mut(&mut self, rhs: Self) {
+        *self *= rhs;
+    }
+
+    fn div(self, rhs: Self) -> Self {
+        self / rhs
+    }
+
+    fn div_mut(&mut self, rhs: Self) {
+        *self /= rhs;
     }
 
     fn powi(self, n: i32) -> Self {
         self.powi(n)
     }
 
-    fn act(self, act_func: &ActivationFunction) -> Self {
-        match act_func {
-            ActivationFunction::SIGMOID => { self.exp() / (1.0 + self.exp()) },
-            ActivationFunction::RELU => { if self.is_sign_positive() { self } else { 0.0 } },
-            ActivationFunction::TANH => { self.tanh() }
-        }
+    fn act(self, act_func: &ActFunction) -> Self {
+        act_func.compute_f64(self)
     }
 
 }
