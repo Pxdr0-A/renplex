@@ -1,4 +1,4 @@
-use crate::lite::real::ActivationFunction;
+use crate::lite::real::ActFunction;
 
 use super::Param;
 
@@ -6,7 +6,7 @@ use super::Param;
 pub struct DenseNeuron<P: Param> {
     weights: Vec<P>,
     bias: P,
-    acti: ActivationFunction
+    acti: ActFunction
 }
 
 
@@ -19,7 +19,7 @@ impl<P: Param + Copy> DenseNeuron<P> {
     /// * `bias` - Bias of the neuron (associated with unit input).
     /// * `activation` - Activation function to be associated with the neuron.
     ///    Check `renplex::prelude::neuron::activation::ActivationFunction` enum for the available options.
-    pub fn new(weights: Vec<P>, bias: P, acti: ActivationFunction) -> DenseNeuron<P> {
+    pub fn new(weights: Vec<P>, bias: P, acti: ActFunction) -> DenseNeuron<P> {
         DenseNeuron { 
             weights, 
             bias, 
@@ -38,10 +38,7 @@ impl<P: Param + Copy> DenseNeuron<P> {
     /// * `input` - Slice of the input to foward to the neuron. 
     ///             Needs to be in agreement with the number of weights.
     pub fn signal(&self, input: &[P]) -> P {
-        match self.weights.len() == input.len() {
-            true => {},
-            false => { panic!("Input size not matching input length.") }
-        }
+        if self.weights.len() != input.len() { panic!("Input size does not match the number of weights.") }
 
         let mut out = self.bias.neg();
         // do with iterators maybe?
