@@ -11,12 +11,12 @@ mod lite_test {
     #[test]
     fn dense_neuron_test() {
         use lite::real::unit::dense::DenseNeuron;
-        use lite::real::ActivationFunction;
+        use lite::real::ActFunction;
 
         let n = DenseNeuron::new(
             vec![1.0, 2.0], 
             2.0, 
-            ActivationFunction::SIGMOID
+            ActFunction::SIGMOID
         );
 
         println!("{:?}", n);
@@ -30,33 +30,33 @@ mod lite_test {
         use lite::real::layer::dense::DenseInputLayer;
         use lite::real::layer::dense::DenseLayer;
         use lite::real::network::FeedFoward;
-        use lite::real::ActivationFunction;
+        use lite::real::ActFunction;
 
         let n1 = DenseNeuron::new(
             vec![0.1, 0.2], 
             2.0, 
-            ActivationFunction::SIGMOID
+            ActFunction::SIGMOID
         );
         let n2 = DenseNeuron::new(
             vec![0.3, 0.2], 
             2.0, 
-            ActivationFunction::SIGMOID
+            ActFunction::SIGMOID
         );
         let n3 = DenseNeuron::new(
             vec![1.0, 2.0], 
             2.0, 
-            ActivationFunction::SIGMOID
+            ActFunction::SIGMOID
         );
 
         let n4 = DenseNeuron::new(
             vec![1.0, 2.0, 3.0], 
             2.0, 
-            ActivationFunction::SIGMOID
+            ActFunction::SIGMOID
         );
         let n5 = DenseNeuron::new(
             vec![1.0, 4.0, 3.0], 
             2.0, 
-            ActivationFunction::SIGMOID
+            ActFunction::SIGMOID
         );
 
         let mut l1 = DenseInputLayer::new(3, 6);
@@ -85,12 +85,12 @@ mod lite_test {
         use lite::real::layer::dense::DenseInputLayer;
         use lite::real::layer::dense::DenseLayer;
         use lite::real::network::FeedFoward;
-        use lite::real::ActivationFunction::{SIGMOID, TANH};
+        use lite::real::ActFunction::{SIGMOID, TANH};
 
         let ref mut seed = 943456861;
         let scale = 10.0;
 
-        let input_layer = DenseInputLayer::init(
+        let input_layer = DenseInputLayer::<f64>::init(
             6, 
             12, 
             TANH, 
@@ -98,7 +98,7 @@ mod lite_test {
             seed
         ).wrap();
 
-        let layer1 = DenseLayer::init(
+        let layer1 = DenseLayer::<f64>::init(
             16, 
             6, 
             SIGMOID, 
@@ -106,7 +106,7 @@ mod lite_test {
             seed
         ).wrap();
 
-        let layer2 = DenseLayer::init(
+        let layer2 = DenseLayer::<f64>::init(
             16, 
             16, 
             SIGMOID, 
@@ -114,7 +114,7 @@ mod lite_test {
             seed
         ).wrap();
 
-        let layer3 = DenseLayer::init(
+        let layer3 = DenseLayer::<f64>::init(
             2, 
             16, 
             SIGMOID, 
@@ -140,19 +140,19 @@ mod lite_test {
         use lite::real::layer::dense::DenseInputLayer;
         use lite::real::layer::dense::DenseLayer;
         use lite::real::network::FeedFoward;
-        use lite::real::ActivationFunction::{SIGMOID, TANH};
+        use lite::real::ActFunction::{SIGMOID, TANH};
 
         let ref mut seed = 92347865;
 
-        let data: Dataset<f32, f32> = Dataset::<f32, f32>::sample(
+        let data: Dataset<f64, f64> = Dataset::<f64, f64>::sample(
             [64, 6], 
             4, 
             seed
         );
 
-        let scale = 10.0;
+        let scale: f64 = 10.0;
 
-        let input_layer = DenseInputLayer::init(
+        let input_layer = DenseInputLayer::<f64>::init(
             3, 
             6, 
             TANH, 
@@ -160,7 +160,7 @@ mod lite_test {
             seed
         ).wrap();
 
-        let layer1 = DenseLayer::init(
+        let layer1 = DenseLayer::<f64>::init(
             16, 
             3, 
             SIGMOID, 
@@ -168,7 +168,7 @@ mod lite_test {
             seed
         ).wrap();
 
-        let layer2 = DenseLayer::init(
+        let layer2 = DenseLayer::<f64>::init(
             16, 
             16, 
             SIGMOID, 
@@ -176,7 +176,7 @@ mod lite_test {
             seed
         ).wrap();
 
-        let layer3 = DenseLayer::init(
+        let layer3 = DenseLayer::<f64>::init(
             4, 
             16, 
             SIGMOID, 
