@@ -4,75 +4,352 @@
 //! these tools are based on f32 and f64 which are the only primitives that implement
 //! the traits requested by the tools.
 
-
-pub mod ops;
-pub mod casts;
-
-
-// std
-use std::ops::{Add, Neg, Mul, Div};
-
-//local
-use super::ops::{
-    arc::Arcable, 
-    sqrt::SquareRootable, base::Complex
+use std::ops::{
+    Add, Sub, Mul, Div,
+    AddAssign, SubAssign, MulAssign, DivAssign
 };
 
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-/// Generic structure for a complex number.
-/// 
-/// Complex numbers here were defined in their cartesian form.
-pub struct Cfloat<T> {
-    pub x: T,
-    pub y: T
+#[derive(Copy, Clone)]
+pub struct Cf32 {
+    pub x: f32,
+    pub y: f32
 }
 
-impl<T> Complex<T> for Cfloat<T> 
-    where 
-        T: Add<Output=T> + Mul<Output=T> + Div<Output=T> + Neg<Output=T>,
-        T: SquareRootable + Arcable,
-        T: Copy  {
+#[derive(Copy, Clone)]
+pub struct Cf64 {
+    pub x: f64,
+    pub y: f64
+}
 
-    fn new(x: T, y: T) -> Cfloat<T> {
-
-        Cfloat {x, y}
-    }
-
-    fn re(&self) -> T {
-
+// General operations for Cf32
+impl Cf32 {
+    pub fn re(&self) -> f32 {
         self.x
     }
 
-    fn im(&self) -> T {
-                
+    pub fn im(&self) -> f32 {
         self.y
     }
 
-    fn norm(&self) -> T {
-        
-        (self.x * self.x + self.y * self.y).sqrt()
+    pub fn norm(&self) -> f32 {
+        (self.x.powi(2) + self.y.powi(2)).sqrt()
     }
 
-    fn phase(&self) -> T {
+    pub fn phase(&self) -> f32 {
+        (self.y / self.x).tan()
+    }
+}
 
-        (self.y / self.x).atan()
+// General operations for Cf64
+impl Cf64 {
+    pub fn re(&self) -> f64 {
+        self.x
     }
 
-    fn conj(&self) -> Cfloat<T> {
-        
-        Cfloat {
-            x: self.x,
-            y: -self.y
+    pub fn im(&self) -> f64 {
+        self.y
+    }
+
+    pub fn norm(&self) -> f64 {
+        (self.x.powi(2) + self.y.powi(2)).sqrt()
+    }
+
+    pub fn phase(&self) -> f64 {
+        (self.y / self.x).tan()
+    }
+} 
+
+
+// Arithmetic Operations for Cf32
+
+// Normal operations
+impl Add for Cf32 {
+            
+    type Output = Cf32;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Cf32 { 
+            x: self.x + rhs.x,
+            y: self.y + rhs.y
         }
     }
+}
 
-    fn inv(&self) -> Cfloat<T> {
+impl Sub for Cf32 {
+    
+    type Output = Cf32;
 
-        Cfloat {
-            x: -self.x,
-            y: -self.y
+    fn sub(self, rhs: Self) -> Self::Output {
+        Cf32 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y
         }
     }
+}
 
+impl Mul for Cf32 {
+    
+    type Output = Cf32;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Cf32 { 
+            x: self.x * rhs.x - self.y * rhs.y, 
+            y: self.x * rhs.y + self.y * rhs.x
+        }
+    }
+}
+
+impl Div for Cf32 {
+    
+    type Output = Cf32;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+
+        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+
+        Cf32 { 
+            x: (self.x * rhs.x + self.y * rhs.y) / den, 
+            y: (self.y * rhs.x - self.x * rhs.y) / den
+        }
+    }
+}
+
+// Assignement operations
+impl AddAssign for Cf32 {
+
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl SubAssign for Cf32 {
+
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl MulAssign for Cf32 {
+
+    fn mul_assign(&mut self, rhs: Self) {
+        self.x = self.x * rhs.x - self.y * rhs.y;
+        self.y = self.x * rhs.y + self.y * rhs.x;
+    }
+}
+
+impl DivAssign for Cf32 {
+    
+    fn div_assign(&mut self, rhs: Self) {
+        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+
+        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+
+        self.x = (self.x * rhs.x + self.y * rhs.y) / den;
+        self.y = (self.y * rhs.x - self.x * rhs.y) / den;
+    }
+}
+
+// Operations with references (not complete)
+impl<'a, 'b> Add<&'b Cf32> for &'a Cf32 {
+
+    type Output = Cf32;
+
+    fn add(self, rhs: &'b Cf32) -> Self::Output {
+        Cf32 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl<'a, 'b> Sub<&'b Cf32> for &'a Cf32 {
+
+    type Output = Cf32;
+
+    fn sub(self, rhs: &'b Cf32) -> Self::Output {
+        Cf32 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl<'a, 'b> Mul<&'b Cf32> for &'a Cf32 {
+    
+    type Output = Cf32;
+
+    fn mul(self, rhs: &'b Cf32) -> Self::Output {
+
+        Cf32 { 
+            x: self.x * rhs.x - self.y * rhs.y, 
+            y: self.x * rhs.y + self.y * rhs.x
+        }
+    }
+}
+
+impl<'a, 'b> Div<&'b Cf32> for &'a Cf32 {
+    
+    type Output = Cf32;
+
+    fn div(self, rhs: &'b Cf32) -> Self::Output{
+        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+
+        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+
+        Cf32 { 
+            x: (self.x * rhs.x + self.y * rhs.y) / den, 
+            y: (self.y * rhs.x - self.x * rhs.y) / den
+        }
+    }
+}
+
+
+// Operations for Cf64
+
+// Normal operations
+impl Add for Cf64 {
+            
+    type Output = Cf64;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Cf64 { 
+            x: self.x + rhs.x,
+            y: self.y + rhs.y
+        }
+    }
+}
+
+impl Sub for Cf64 {
+    
+    type Output = Cf64;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Cf64 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y
+        }
+    }
+}
+
+impl Mul for Cf64 {
+    
+    type Output = Cf64;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Cf64 { 
+            x: self.x * rhs.x - self.y * rhs.y, 
+            y: self.x * rhs.y + self.y * rhs.x
+        }
+    }
+}
+
+impl Div for Cf64 {
+    
+    type Output = Cf64;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+
+        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+
+        Cf64 { 
+            x: (self.x * rhs.x + self.y * rhs.y) / den, 
+            y: (self.y * rhs.x - self.x * rhs.y) / den
+        }
+    }
+}
+
+// Assignement operations
+impl AddAssign for Cf64 {
+
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+// Assignement Operations
+impl SubAssign for Cf64 {
+
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl MulAssign for Cf64 {
+
+    fn mul_assign(&mut self, rhs: Self) {
+        self.x = self.x * rhs.x - self.y * rhs.y;
+        self.y = self.x * rhs.y + self.y * rhs.x;
+    }
+}
+
+impl DivAssign for Cf64 {
+    
+    fn div_assign(&mut self, rhs: Self) {
+        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+
+        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+
+        self.x = (self.x * rhs.x + self.y * rhs.y) / den;
+        self.y = (self.y * rhs.x - self.x * rhs.y) / den;
+    }
+}
+
+// Operations with references (not complete)
+impl<'a, 'b> Add<&'b Cf64> for &'a Cf64 {
+
+    type Output = Cf64;
+
+    fn add(self, rhs: &'b Cf64) -> Self::Output {
+        Cf64 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl<'a, 'b> Sub<&'b Cf64> for &'a Cf64 {
+
+    type Output = Cf64;
+
+    fn sub(self, rhs: &'b Cf64) -> Self::Output {
+        Cf64 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl<'a, 'b> Mul<&'b Cf64> for &'a Cf64 {
+    
+    type Output = Cf64;
+
+    fn mul(self, rhs: &'b Cf64) -> Self::Output {
+
+        Cf64 { 
+            x: self.x * rhs.x - self.y * rhs.y, 
+            y: self.x * rhs.y + self.y * rhs.x
+        }
+    }
+}
+
+impl<'a, 'b> Div<&'b Cf64> for &'a Cf64 {
+    
+    type Output = Cf64;
+
+    fn div(self, rhs: &'b Cf64) -> Self::Output{
+        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+
+        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+
+        Cf64 { 
+            x: (self.x * rhs.x + self.y * rhs.y) / den, 
+            y: (self.y * rhs.x - self.x * rhs.y) / den
+        }
+    }
 }
