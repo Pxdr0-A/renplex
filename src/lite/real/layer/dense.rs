@@ -5,14 +5,12 @@ use super::{InputLayer, Layer};
 
 #[derive(Debug)]
 pub struct DenseInputLayer<P: Param> {
-    input_size: usize,
     units: Vec<DenseNeuron<P>>
 }
 
 impl<P: Param + Copy> DenseInputLayer<P> {
-    pub fn new(capacity: usize, input_size: usize) -> DenseInputLayer<P> {
+    pub fn new(capacity: usize) -> DenseInputLayer<P> {
         DenseInputLayer {
-            input_size,
             units: Vec::with_capacity(capacity)
         }
     }
@@ -21,23 +19,12 @@ impl<P: Param + Copy> DenseInputLayer<P> {
         self.units.push(neuron);
     }
 
-    pub fn set_input_size(&mut self, size: usize) -> Result<(), LayerInputError> {
-        match self.input_size == size {
-            true => {  },
-            false => { return Err(LayerInputError::ClashingInput(self.input_size, size)); }
-        }
-
-        let entries: usize = self.units
+    pub fn get_input_size(&self) -> usize {
+        self.units
             .iter()
-            .map(|elm| {elm.get_weights().len()})
-            .sum();
-
-        match size % entries == 0 && size / entries >= 2 {
-            true => { self.input_size = size },
-            false => { return Err(LayerInputError::InconsistentInput(size, entries)); }
-        }
-
-        Ok(())
+            .map(|elm| { elm.get_input_len() })
+            .reduce(|acc, elm| { acc + elm })
+            .unwrap()
     }
 
     /// Returns a new Vec resultant from fowarding a signal through the input layer.
@@ -47,10 +34,7 @@ impl<P: Param + Copy> DenseInputLayer<P> {
     /// * `input` - Slice of the input to foward to the layer. 
     ///             Needs to be in agreement with the number of units and respective neuron inputs.
     pub fn signal(&self, input: &[P]) -> Vec<P> {
-        match self.input_size == input.len() {
-            true => {},
-            false => { panic!("Input size not matching input length.") }
-        }
+        if self.get_input_size() == input.len() { panic!("Input size not matching input length.") }
 
         let mut output = Vec::with_capacity(self.units.len());
 
@@ -89,11 +73,11 @@ impl DenseInputLayer<f32> {
         
         let inputs = if input_size % capacity == 0 && input_size / capacity >= 2 { 
             input_size / capacity 
-        } else { 
+        } else {
             panic!("Input size needs to be a multiple of the number of units.") 
         };
 
-        let mut layer: DenseInputLayer<f32> = DenseInputLayer::new(capacity, input_size);
+        let mut layer: DenseInputLayer<f32> = DenseInputLayer::new(capacity);
         for _ in 0..capacity {
             layer.add(
                 DenseNeuron::new(
@@ -125,7 +109,7 @@ impl DenseInputLayer<f64> {
             panic!("Input size needs to be a multiple of the number of units.") 
         };
 
-        let mut layer: DenseInputLayer<f64> = DenseInputLayer::new(capacity, input_size);
+        let mut layer: DenseInputLayer<f64> = DenseInputLayer::new(capacity);
         for _ in 0..capacity {
             layer.add(
                 DenseNeuron::new(

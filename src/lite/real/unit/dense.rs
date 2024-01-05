@@ -31,6 +31,10 @@ impl<P: Param + Copy> DenseNeuron<P> {
         &self.weights
     }
 
+    pub fn get_input_len(&self) -> usize {
+        self.weights.len()
+    }
+
     /// Returns the result from the neuron's activation against an input.
     /// 
     /// # Arguments
