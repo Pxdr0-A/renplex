@@ -2,7 +2,7 @@ use crate::math::cfloat::{Cf32, Cf64};
 use crate::math::matrix::Matrix;
 use crate::math::matrix::dataset::Dataset;
 
-use super::layer::{InputLayer, Layer};
+use super::layer::{ComplexInputLayer, ComplexLayer};
 use super::ComplexParam;
 
 
@@ -36,19 +36,19 @@ impl ComplexCriteria {
 
 #[derive(Debug)]
 pub struct FeedFoward<CP: ComplexParam> {
-    input: InputLayer<CP>,
-    hidden: Vec<Layer<CP>>
+    input: ComplexInputLayer<CP>,
+    hidden: Vec<ComplexLayer<CP>>
 }
 
 impl<CP: ComplexParam + Copy> FeedFoward<CP> {
-    pub fn new(input: InputLayer<CP>) -> FeedFoward<CP> {
+    pub fn new(input: ComplexInputLayer<CP>) -> FeedFoward<CP> {
         FeedFoward { 
             input, 
             hidden: Vec::new()
         }
     }
 
-    pub fn add_layer(&mut self, layer: Layer<CP>) {
+    pub fn add_layer(&mut self, layer: ComplexLayer<CP>) {
         self.hidden.push(layer);
     }
 
@@ -63,6 +63,7 @@ impl<CP: ComplexParam + Copy> FeedFoward<CP> {
     }
 }
 
+// Complex f32 implementations
 impl FeedFoward<Cf32> {
     pub fn cost(&self, data: Dataset<Cf32, f32>, criterion: &ComplexCriteria) -> Matrix<f32> {
         let mut predictions = Matrix::new(data.body.shape);
@@ -80,6 +81,7 @@ impl FeedFoward<Cf32> {
     }    
 }
 
+// Complex f64 implementations
 impl FeedFoward<Cf64> {
     pub fn cost(&self, data: Dataset<Cf64, f64>, criterion: &ComplexCriteria) -> Matrix<f64> {
         let mut predictions = Matrix::new(data.body.shape);

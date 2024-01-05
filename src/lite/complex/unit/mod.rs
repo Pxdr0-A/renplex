@@ -1,8 +1,8 @@
 pub mod dense;
 
 use super::ComplexParam;
-use dense::DenseNeuron;
+use dense::DenseCNeuron;
 
-pub enum ProcessingUnit<CP: ComplexParam> {
-    DenseNeuron(DenseNeuron<CP>)
+pub enum ComplexProcessingUnit<CP: ComplexParam> {
+    DenseCNeuron(DenseCNeuron<CP>)
 }

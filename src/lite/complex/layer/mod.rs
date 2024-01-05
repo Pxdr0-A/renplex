@@ -1,17 +1,17 @@
 pub mod dense;
 
-use dense::{DenseInputLayer, DenseLayer};
+use dense::{DenseCInputLayer, DenseCLayer};
 use crate::lite::complex::ComplexParam;
 
 #[derive(Debug)]
-pub enum InputLayer<CP: ComplexParam> {
-    DenseInputLayer(DenseInputLayer<CP>)
+pub enum ComplexInputLayer<CP: ComplexParam> {
+    DenseCInputLayer(DenseCInputLayer<CP>)
 }
 
-impl<CP: ComplexParam + Copy> InputLayer<CP> {
+impl<CP: ComplexParam + Copy> ComplexInputLayer<CP> {
     pub fn signal(&self, input: &[CP]) -> Vec<CP> {
         match self {
-            InputLayer::DenseInputLayer(layer) => {
+            ComplexInputLayer::DenseCInputLayer(layer) => {
                 layer
                     .signal(input)
             }
@@ -20,14 +20,14 @@ impl<CP: ComplexParam + Copy> InputLayer<CP> {
 }
 
 #[derive(Debug)]
-pub enum Layer<P: ComplexParam> {
-    DenseLayer(DenseLayer<P>)
+pub enum ComplexLayer<P: ComplexParam> {
+    DenseCLayer(DenseCLayer<P>)
 }
 
-impl<CP: ComplexParam + Copy> Layer<CP> {
+impl<CP: ComplexParam + Copy> ComplexLayer<CP> {
     pub fn signal(&self, input: &[CP]) -> Vec<CP> {
         match self {
-            Layer::DenseLayer(layer) => {
+            ComplexLayer::DenseCLayer(layer) => {
                 layer
                     .signal(input)
             }

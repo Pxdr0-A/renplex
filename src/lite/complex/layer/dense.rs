@@ -1,40 +1,31 @@
 use crate::math::cfloat::{Cf32, Cf64};
 use crate::math::random::{lcgf32, lcgf64};
 use crate::lite::complex::{ComplexParam, ComplexActFunction};
-use crate::lite::complex::unit::dense::DenseNeuron;
-use super::{InputLayer, Layer};
+use crate::lite::complex::unit::dense::DenseCNeuron;
+use super::{ComplexInputLayer, ComplexLayer};
 
 #[derive(Debug)]
-pub struct DenseInputLayer<CP: ComplexParam> {
-    input_size: usize,
-    units: Vec<DenseNeuron<CP>>
+pub struct DenseCInputLayer<CP: ComplexParam> {
+    units: Vec<DenseCNeuron<CP>>
 }
 
-impl<CP: ComplexParam + Copy> DenseInputLayer<CP> {
-    pub fn new(capacity: usize, input_size: usize) -> DenseInputLayer<CP> {
-        DenseInputLayer {
-            input_size,
+impl<CP: ComplexParam + Copy> DenseCInputLayer<CP> {
+    pub fn new(capacity: usize) -> DenseCInputLayer<CP> {
+        DenseCInputLayer {
             units: Vec::with_capacity(capacity)
         }
     }
 
-    pub fn add(&mut self, neuron: DenseNeuron<CP>) {
+    pub fn add(&mut self, neuron: DenseCNeuron<CP>) {
         self.units.push(neuron);
     }
 
-    pub fn set_input_size(&mut self, size: usize) {
-        if self.input_size == size { panic!("Input size and size not matching.") }
-
-        let entries: usize = self.units
+    pub fn get_input_size(&self) -> usize {
+        self.units
             .iter()
-            .map(|elm| {elm.get_weights().len()})
-            .sum();
-
-        if size % entries == 0 && size / entries >= 2 { 
-            self.input_size = size;
-        } else {
-            panic!("Entries are not a multiple of the input size")
-        }
+            .map(|elm| { elm.get_input_len() })
+            .reduce(|acc, elm| { acc + elm })
+            .unwrap()
     }
 
     /// Returns a new Vec resultant from fowarding a signal through the input layer.
@@ -44,7 +35,7 @@ impl<CP: ComplexParam + Copy> DenseInputLayer<CP> {
     /// * `input` - Slice of the input to foward to the layer. 
     ///             Needs to be in agreement with the number of units and respective neuron inputs.
     pub fn signal(&self, input: &[CP]) -> Vec<CP> {
-        if self.input_size == input.len() { panic!("Input size not matching input length.") }
+        if self.get_input_size() == input.len() { panic!("Input size not matching input length.") }
 
         let mut output = Vec::with_capacity(self.units.len());
 
@@ -68,18 +59,18 @@ impl<CP: ComplexParam + Copy> DenseInputLayer<CP> {
         output
     }
 
-    pub fn wrap(self) -> InputLayer<CP> {
-        InputLayer::DenseInputLayer(self)
+    pub fn wrap(self) -> ComplexInputLayer<CP> {
+        ComplexInputLayer::DenseCInputLayer(self)
     }
 }
 
-impl DenseInputLayer<Cf32> {
+impl DenseCInputLayer<Cf32> {
     pub fn init(
         capacity: usize,
         input_size: usize,
         acti: ComplexActFunction,
         scale: f32,
-        seed: &mut u128) -> DenseInputLayer<Cf32> {
+        seed: &mut u128) -> DenseCInputLayer<Cf32> {
         
         let inputs = if input_size % capacity == 0 && input_size / capacity >= 2 { 
             input_size / capacity 
@@ -87,10 +78,10 @@ impl DenseInputLayer<Cf32> {
             panic!("Input size needs to be a multiple of the number of units.") 
         };
 
-        let mut layer: DenseInputLayer<Cf32> = DenseInputLayer::new(capacity, input_size);
+        let mut layer: DenseCInputLayer<Cf32> = DenseCInputLayer::new(capacity);
         for _ in 0..capacity {
             layer.add(
-                DenseNeuron::new(
+                DenseCNeuron::new(
                     vec![scale; inputs]
                         .into_iter()
                         .map(|elm| {
@@ -113,13 +104,13 @@ impl DenseInputLayer<Cf32> {
     }
 }
 
-impl DenseInputLayer<Cf64> {
+impl DenseCInputLayer<Cf64> {
     pub fn init(
         capacity: usize,
         input_size: usize,
         acti: ComplexActFunction,
         scale: f64,
-        seed: &mut u128) -> DenseInputLayer<Cf64> {
+        seed: &mut u128) -> DenseCInputLayer<Cf64> {
         
         let inputs = if input_size % capacity == 0 && input_size / capacity >= 2 { 
             input_size / capacity 
@@ -127,10 +118,10 @@ impl DenseInputLayer<Cf64> {
             panic!("Input size needs to be a multiple of the number of units.") 
         };
 
-        let mut layer: DenseInputLayer<Cf64> = DenseInputLayer::new(capacity, input_size);
+        let mut layer: DenseCInputLayer<Cf64> = DenseCInputLayer::new(capacity);
         for _ in 0..capacity {
             layer.add(
-                DenseNeuron::new(
+                DenseCNeuron::new(
                     vec![scale; inputs]
                         .into_iter()
                         .map(|elm| {
@@ -154,18 +145,18 @@ impl DenseInputLayer<Cf64> {
 }
 
 #[derive(Debug)]
-pub struct DenseLayer<CP: ComplexParam> {
-    units: Vec<DenseNeuron<CP>>
+pub struct DenseCLayer<CP: ComplexParam> {
+    units: Vec<DenseCNeuron<CP>>
 }
 
-impl<CP: ComplexParam + Copy> DenseLayer<CP> {
-    pub fn new(capacity: usize) -> DenseLayer<CP> {
-        DenseLayer {
+impl<CP: ComplexParam + Copy> DenseCLayer<CP> {
+    pub fn new(capacity: usize) -> DenseCLayer<CP> {
+        DenseCLayer {
             units: Vec::with_capacity(capacity)
         }
     }
 
-    pub fn add(&mut self, neuron: DenseNeuron<CP>) {
+    pub fn add(&mut self, neuron: DenseCNeuron<CP>) {
         self.units.push(neuron);
     }
 
@@ -187,23 +178,23 @@ impl<CP: ComplexParam + Copy> DenseLayer<CP> {
         output
     }
 
-    pub fn wrap(self) -> Layer<CP> {
-        Layer::DenseLayer(self)
+    pub fn wrap(self) -> ComplexLayer<CP> {
+        ComplexLayer::DenseCLayer(self)
     }
 }
 
-impl DenseLayer<Cf32> {
+impl DenseCLayer<Cf32> {
     pub fn init(
         capacity: usize,
         inputs: usize,
         acti: ComplexActFunction,
         scale: f32,
-        seed: &mut u128) -> DenseLayer<Cf32> {
+        seed: &mut u128) -> DenseCLayer<Cf32> {
         
-        let mut layer: DenseLayer<Cf32> = DenseLayer::new(capacity);
+        let mut layer: DenseCLayer<Cf32> = DenseCLayer::new(capacity);
         for _ in 0..capacity {
             layer.add(
-                DenseNeuron::new(
+                DenseCNeuron::new(
                     vec![scale; inputs]
                         .into_iter()
                         .map(|elm| {
@@ -226,18 +217,18 @@ impl DenseLayer<Cf32> {
     }
 }
 
-impl DenseLayer<Cf64> {
+impl DenseCLayer<Cf64> {
     pub fn init(
         capacity: usize,
         inputs: usize,
         acti: ComplexActFunction,
         scale: f64,
-        seed: &mut u128) -> DenseLayer<Cf64> {
+        seed: &mut u128) -> DenseCLayer<Cf64> {
         
-        let mut layer: DenseLayer<Cf64> = DenseLayer::new(capacity);
+        let mut layer: DenseCLayer<Cf64> = DenseCLayer::new(capacity);
         for _ in 0..capacity {
             layer.add(
-                DenseNeuron::new(
+                DenseCNeuron::new(
                     vec![scale; inputs]
                         .into_iter()
                         .map(|elm| {

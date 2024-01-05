@@ -1,14 +1,14 @@
 use crate::lite::complex::{ComplexParam, ComplexActFunction};
 
 #[derive(Debug)]
-pub struct DenseNeuron<CP: ComplexParam> {
+pub struct DenseCNeuron<CP: ComplexParam> {
     weights: Vec<CP>,
     bias: CP,
     acti: ComplexActFunction
 }
 
 
-impl<CP: ComplexParam + Copy> DenseNeuron<CP> {
+impl<CP: ComplexParam + Copy> DenseCNeuron<CP> {
     /// Returns a `Neuron<W>` with the specified weights, bias and activation function.
     /// 
     /// # Arguments
@@ -17,8 +17,8 @@ impl<CP: ComplexParam + Copy> DenseNeuron<CP> {
     /// * `bias` - Bias of the neuron (associated with unit input).
     /// * `activation` - Activation function to be associated with the neuron.
     ///    Check `renplex::prelude::neuron::activation::ActivationFunction` enum for the available options.
-    pub fn new(weights: Vec<CP>, bias: CP, acti: ComplexActFunction) -> DenseNeuron<CP> {
-        DenseNeuron { 
+    pub fn new(weights: Vec<CP>, bias: CP, acti: ComplexActFunction) -> DenseCNeuron<CP> {
+        DenseCNeuron { 
             weights, 
             bias: acti.derive_bias(bias), 
             acti 
@@ -27,6 +27,10 @@ impl<CP: ComplexParam + Copy> DenseNeuron<CP> {
 
     pub fn get_weights(&self) -> &[CP] {
         &self.weights
+    }
+
+    pub fn get_input_len(&self) -> usize {
+        self.weights.len()
     }
 
     /// Returns the result from the neuron's activation against an input.
