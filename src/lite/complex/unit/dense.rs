@@ -21,7 +21,7 @@ impl<CP: ComplexParam + Copy> DenseCNeuron<CP> {
         DenseCNeuron { 
             weights, 
             bias: acti.derive_bias(bias), 
-            acti 
+            acti
         }
     }
 
