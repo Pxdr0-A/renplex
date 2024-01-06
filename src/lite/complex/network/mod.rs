@@ -78,7 +78,20 @@ impl FeedFoward<Cf32> {
         predictions
             .sub(data.target)
             .powi(2)
-    }    
+    }
+
+    pub fn cp_cost(&self, data: Dataset<Cf32, Cf32>) -> Matrix<Cf32> {
+        let mut predictions = Matrix::new(data.body.shape);
+        for r in 0..data.body.shape[0] {
+            predictions.add_row(
+                self.foward(data.body.row(r))
+            );
+        }
+    
+        predictions
+            .sub_cp(data.target)
+            .abs_sq()
+    } 
 }
 
 // Complex f64 implementations
@@ -96,5 +109,18 @@ impl FeedFoward<Cf64> {
         predictions
             .sub(data.target)
             .powi(2)
-    }    
+    }
+
+    pub fn cp_cost(&self, data: Dataset<Cf64, Cf64>) -> Matrix<Cf64> {
+        let mut predictions = Matrix::new(data.body.shape);
+        for r in 0..data.body.shape[0] {
+            predictions.add_row(
+                self.foward(data.body.row(r))
+            );
+        }
+    
+        predictions
+            .sub_cp(data.target)
+            .abs_sq()
+    }
 }
