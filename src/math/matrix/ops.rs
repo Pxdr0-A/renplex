@@ -1,6 +1,7 @@
 // std
 
 use crate::lite::real::Param;
+use crate::lite::complex::ComplexParam;
 
 // local
 use super::Matrix;
@@ -10,10 +11,7 @@ impl<P: Param + Copy> Matrix<P> {
 
     pub fn add(self, rhs: Matrix<P>) -> Matrix<P> {
 
-        assert!(
-            self.shape == rhs.shape,
-            "Matrix shapes do not match in Addition."
-        );
+        if self.shape != rhs.shape { panic!("Matrix shapes do not match in Subtraction.") }
 
         let body = self.body
             .into_iter()
@@ -31,10 +29,7 @@ impl<P: Param + Copy> Matrix<P> {
 
     pub fn sub(self, rhs: Matrix<P>) -> Matrix<P> {
 
-        assert!(
-            self.shape == rhs.shape,
-            "Matrix shapes do not match in Subtraction."
-        );
+        if self.shape != rhs.shape { panic!("Matrix shapes do not match in Subtraction.") }
 
         let body = self.body
             .into_iter()
@@ -65,4 +60,56 @@ impl<P: Param + Copy> Matrix<P> {
 
     }
 
+}
+
+impl<CP: ComplexParam + Copy> Matrix<CP> {
+
+    pub fn add_cp(self, rhs: Matrix<CP>) -> Matrix<CP> {
+
+        if self.shape != rhs.shape { panic!("Matrix shapes do not match in Subtraction.") }
+
+        let body = self.body
+            .into_iter()
+            .zip(rhs.body)
+            .map(|(lhs, rhs)| { lhs.add(rhs) })
+            .collect::<Vec<CP>>();
+
+        Matrix {
+            body,
+            shape: self.shape,
+            capacity: self.capacity
+        }
+
+    }
+
+    pub fn sub_cp(self, rhs: Matrix<CP>) -> Matrix<CP> {
+
+        if self.shape != rhs.shape { panic!("Matrix shapes do not match in Subtraction.") }
+
+        let body = self.body
+            .into_iter()
+            .zip(rhs.body)
+            .map(|(lhs, rhs)| { lhs.sub(rhs) })
+            .collect::<Vec<CP>>();
+
+        Matrix { 
+            body, 
+            shape: self.shape, 
+            capacity: self.capacity 
+        }
+
+    }
+
+    pub fn abs_sq(self) -> Matrix<CP> {
+        let body = self.body
+            .into_iter()
+            .map(|elm| { elm.conj().mul(elm) })
+            .collect::<Vec<CP>>();
+
+        Matrix { 
+            body, 
+            shape: self.shape, 
+            capacity: self.capacity 
+        }
+    }
 }
