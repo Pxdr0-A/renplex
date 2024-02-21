@@ -1,9 +1,7 @@
 use super::Matrix;
 
-use crate::math::random::{lcgf32, lcgf64};
+//use crate::math::random::{lcgf32, lcgf64};
 
-
-// CREATE A DATASET STRUCT!
 #[derive(Debug)]
 pub struct Dataset<B, T> {
     pub body: Matrix<B>,
@@ -11,6 +9,8 @@ pub struct Dataset<B, T> {
     pub degree: usize
 }
 
+
+/*
 impl Dataset<f32, f32> {
     pub fn sample(
         dims: [usize; 2],
@@ -143,3 +143,4 @@ impl Dataset<f64, f64> {
         }
     }
 }
+*/
