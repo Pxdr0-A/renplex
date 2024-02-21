@@ -3,8 +3,8 @@
   "editor.fontLigatures": true,
   "editor.fontWeight": "500",
   "editor.fontSize": 16,
-  "editor.detectIndentation": true,
-  "editor.tabSize": 4,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
   "rust-analyzer.linkedProjects": [
     "./Cargo.toml"
   ],
