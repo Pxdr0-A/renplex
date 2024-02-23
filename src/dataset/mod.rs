@@ -1,5 +1,4 @@
-use super::Matrix;
-
+use crate::math::matrix::Matrix;
 //use crate::math::random::{lcgf32, lcgf64};
 
 #[derive(Debug)]
