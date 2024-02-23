@@ -1,6 +1,4 @@
-use std::ops::{Add, Mul, AddAssign, SubAssign};
-
-pub mod dataset;
+use std::{fmt::{Debug, Display}, ops::{Add, AddAssign, Mul, SubAssign}};
 
 mod err;
 use err::{
@@ -102,9 +100,9 @@ impl<T: Copy> Matrix<T> {
   }
 
   pub fn row_into_slice(&self, i: usize, result: &mut [T]) -> Result<(), OperationError> {
-    if i >= self.shape[1] { return Err(OperationError::OutOfBounds); }
+    if i >= self.shape[0] { return Err(OperationError::OutOfBounds); }
 
-    if result.len() != self.shape[0] { return Err(OperationError::InconsistentShape); }
+    if result.len() != self.shape[1] { return Err(OperationError::InconsistentShape); }
 
     let init = i * self.shape[1];
     let end = i * self.shape[1] + self.shape[1];
@@ -155,15 +153,18 @@ impl<T: Copy> Matrix<T> {
   /// * `row` - mutable reference to a generic `Vec<T>`. 
   ///           Gets consumed after the addition of the row to `Matrix<T>`.
   pub fn add_row(&mut self, mut row: Vec<T>) -> Result<(), UpdateError> {
-    if !(row.len() == self.shape[1] || self.shape[1] == 0) {
+    if !(row.len() == self.shape[1] || (self.shape == [0, 0])) {
       return Err(UpdateError::InconsistentLength);
     }
+
+    // try "add" the row
+    self.shape[0] += 1;
     
-    if self.capacity[0] < self.shape[0] {
+    if (self.shape[0] > self.capacity[0]) || (self.shape[1] > self.capacity[1] || row.len() > self.capacity[1]) {
+      self.shape[0] -= 1;
       return Err(UpdateError::Overflow);
     }
 
-    self.shape[0] += 1;
     self.shape[1] = row.len();
     self.body.append(&mut row);
 
@@ -175,7 +176,7 @@ impl<T: Copy> Matrix<T> {
       return Err(UpdateError::InconsistentLength);
     }
     
-    if self.capacity[0] < self.shape[0] {
+    if (self.shape[0] >= self.capacity[0]) || (self.shape[1] > self.capacity[1]) {
       return Err(UpdateError::Overflow);
     }
 
@@ -281,7 +282,7 @@ impl<T> Matrix<T>
     Ok(())
   }
 
-  pub fn mul(&self, rhs: Self) -> Result<Matrix<T>, OperationError> {    
+  pub fn mul(&self, rhs: &Self) -> Result<Matrix<T>, OperationError> {    
     if self.shape[1] != rhs.shape[0] { return Err(OperationError::InvalidRHS); }
 
     let new_shape: [usize; 2] = [self.shape[0], rhs.shape[1]];
@@ -323,6 +324,17 @@ impl<T: Copy> SliceToMatrix<T> for [T] {
     let result = Matrix::from_body(body, shape);
 
     Ok(result)
+  }
+}
+
+impl<T: Display + Debug> Display for Matrix<T> {
+
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    for elm in self.body.chunks(self.shape[1]) {
+      writeln!(f, "{:?}", elm)?;
+    }
+
+    write!(f, "shape: {:?}, capacity: {:?}", self.shape, self.capacity)
   }
 }
 
