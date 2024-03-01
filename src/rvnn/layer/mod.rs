@@ -1,4 +1,6 @@
-use crate::{input::{InputType, OutputType}, math::{BasicOperations, Real}};
+use crate::input::{InputType, OutputType}; 
+use crate::math::{BasicOperations, Real};
+use crate::act::ActFunc;
 
 use self::{dense::DenseLayer, flatten::Flatten, conv::ConvLayer};
 
@@ -12,9 +14,22 @@ pub enum LayerError {
   UnimplementedLayer
 }
 
-pub trait LayerLike<T> {
+pub enum InitMethod {
+  Random,
+  Distribution
+}
+
+pub enum InitError {
+  InvalidMethod
+}
+
+pub trait LayerLike<T> where Self: Sized {
+
+  fn init(inputs: usize, units: usize, func: ActFunc, method: InitMethod, seed: &mut u128) -> Result<Self, InitError>;
 
   fn forward(&self, input: InputType<T>) -> Result<OutputType<T>, LayerError>;
+
+  fn wrap(self) -> Layer<T>;
 }
 
 pub enum Layer<T> {

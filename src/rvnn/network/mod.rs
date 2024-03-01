@@ -12,7 +12,17 @@ pub struct Network<T> {
   layers: Vec<Layer<T>>,
 }
 
-impl<T: Real + BasicOperations<T>> Network<T> {
+impl<T: Real + BasicOperations<T>> Network<T>  {
+  pub fn new() -> Network<T> {
+    Network {
+      layers: Vec::new()
+    }
+  }
+
+  pub fn add(&mut self, layer: Layer<T>) {
+    self.layers.push(layer)
+  }
+
   pub fn forward(&self, input_type: InputType<T>) -> Result<OutputType<T>, ForwardError> {
     if self.layers.len() == 0 { return Err(ForwardError::MissingLayers) }
 
