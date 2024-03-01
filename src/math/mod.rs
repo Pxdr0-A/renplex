@@ -2,6 +2,7 @@ use std::ops::{AddAssign, SubAssign, Add, Mul};
 use std::default::Default;
 
 use self::cfloat::{Cf32, Cf64};
+use self::random::{lcgf32, lcgf64};
 
 pub mod matrix;
 pub mod random;
@@ -11,16 +12,27 @@ pub trait BasicOperations<T>: AddAssign + SubAssign + Add<Output=T> + Mul<Output
 
 impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + Add<Output=T> + Mul<Output=T> + Default + Copy {}
 
+/// Trait containing utilities for RVNNs
 pub trait Real {
+  fn gen(seed: &mut u128) -> Self;
+
   fn sigmoid(self) -> Self;
 }
 
 impl Real for f32 {
+  fn gen(seed: &mut u128) -> Self {
+    lcgf32(seed)
+  }
+
   fn sigmoid(self) -> Self {
     self.exp() / (1.0 + self.exp())
   }
 }
 impl Real for f64 {
+  fn gen(seed: &mut u128) -> Self {
+    lcgf64(seed)
+  }
+
   fn sigmoid(self) -> Self {
     self.exp() / (1.0 + self.exp())
   }
