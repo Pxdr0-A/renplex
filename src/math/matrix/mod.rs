@@ -1,4 +1,6 @@
-use std::{fmt::{Debug, Display}, ops::{Add, AddAssign, Mul, SubAssign}};
+use std::fmt::{Debug, Display};
+use std::ops::AddAssign;
+use super::BasicOperations;
 
 mod err;
 use err::{
@@ -47,6 +49,10 @@ impl<T: Copy> Matrix<T> {
     body.shrink_to_fit();
 
     Matrix { body, shape, capacity: shape }
+  }
+
+  pub fn export_body(self) -> Vec<T> {
+    self.body
   }
 
   pub fn get_body(&self) -> &[T] {
@@ -231,7 +237,7 @@ impl<T: Copy> Matrix<T> {
       return Err(UpdateError::InconsistentLength);
     }
 
-    if self.capacity[1] < self.shape[1] {
+    if self.shape[1] < self.capacity[1] {
       return Err(UpdateError::Overflow);
     }
 
@@ -254,30 +260,44 @@ impl<T: Copy> Matrix<T> {
 
 impl<T> Matrix<T> 
   where 
-    T: AddAssign + SubAssign + Add<Output=T> + Mul<Output=T> + Default + Copy {
+    T: BasicOperations<T> {
 
-  pub fn add_mut(&mut self, rhs: Self) -> Result<(), OperationError> {
+  pub fn add_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
     if self.shape != rhs.shape { 
       return Err(OperationError::InconsistentShape);
     }
 
     self.body
       .iter_mut()
-      .zip(rhs.body)
-      .for_each(|(lhs, rhs)| { *lhs += rhs });
+      .zip(&rhs.body)
+      .for_each(|(lhs, rhs)| { *lhs += *rhs });
 
     Ok(())
   }
 
-  pub fn sub_mut(&mut self, rhs: Self) -> Result<(), OperationError> {
+  /// Usefull for adding columns with columns or rows with rows
+  pub fn add_slice(&mut self, rhs: &[T]) -> Result<(), OperationError> {
+    if self.body.len() != rhs.len() { 
+      return Err(OperationError::InconsistentShape);
+    }
+
+    self.body
+      .iter_mut()
+      .zip(rhs)
+      .for_each(|(lhs, rhs)| { *lhs += *rhs });
+
+    Ok(())
+  }
+
+  pub fn sub_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
     if self.shape != rhs.shape { 
       return Err(OperationError::InconsistentShape);
     }
 
     self.body
       .iter_mut()
-      .zip(rhs.body)
-      .for_each(|(lhs, rhs)| { *lhs -= rhs });
+      .zip(&rhs.body)
+      .for_each(|(lhs, rhs)| { *lhs -= *rhs });
 
     Ok(())
   }
@@ -309,6 +329,43 @@ impl<T> Matrix<T>
         capacity: new_shape 
       }
     )
+  }
+
+  /// Usefull for multiplying columns or rows with a matrix
+  pub fn mul_slice(&self, rhs: &[T]) -> Result<Vec<T>, OperationError> {
+    if self.shape[1] != rhs.len() { return Err(OperationError::InvalidRHS); }
+
+    let mut result_body = vec![T::default(); self.shape[0]];
+    
+    let row_buf = &mut vec![T::default(); self.shape[1]][..];
+    for r in 0..self.shape[0] {
+      self.row_into_slice(r, row_buf).unwrap();
+
+      result_body[r] = (0..self.shape[1])
+        .fold(T::default(), |acc, k| {
+          /* go through columns of matrix and rows of vector (same value) */
+          acc + row_buf[k] * rhs[k]
+      });
+    }
+
+    Ok(result_body)
+  }
+}
+
+pub trait SliceOps<T> {
+  fn add_slice(&mut self, rhs: &Self) -> Result<(), OperationError>;
+}
+
+impl<T: Copy + AddAssign> SliceOps<T> for [T] {
+  fn add_slice(&mut self, rhs: &Self) -> Result<(), OperationError> {
+    if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
+    
+    self
+      .iter_mut()
+      .zip(rhs)
+      .for_each(|(lhs, rhs)| { *lhs += *rhs });
+
+    Ok(())
   }
 }
 
