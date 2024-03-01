@@ -16,6 +16,6 @@ mod matrix_tests {
 
   #[test]
   fn net_ops() {
-    
+  
   }
 }
