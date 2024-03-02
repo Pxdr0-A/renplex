@@ -1,6 +1,8 @@
-use crate::input::{InputType, OutputType};
+use crate::input::{InputShape, InputType, OutputShape, OutputType};
 use crate::math::{BasicOperations, Real};
 use crate::rvnn::layer::Layer;
+
+use super::layer::{InitMethod, LayerLike};
 
 
 #[derive(Debug)]
@@ -8,19 +10,92 @@ pub enum ForwardError {
   MissingLayers
 }
 
+#[derive(Debug)]
+pub enum LayerAdditionError {
+  MissingInput,
+  ExistentInput,
+  EarlyInitialization,
+  IncompatibleIO,
+  UnimplementedLayer
+}
+
 pub struct Network<T> {
   layers: Vec<Layer<T>>,
 }
 
-impl<T: Real + BasicOperations<T>> Network<T>  {
+impl<T: Real + BasicOperations<T>> Network<T> {
   pub fn new() -> Network<T> {
     Network {
       layers: Vec::new()
     }
   }
 
-  pub fn add(&mut self, layer: Layer<T>) {
-    self.layers.push(layer)
+  /// Adds an empty input [`Layer`] to the [`Network`] and initializes it.
+  pub fn add_input(&mut self, 
+    mut layer: Layer<T>, 
+    input_shape: InputShape, 
+    units: usize, 
+    method: InitMethod, 
+    seed: &mut u128
+  ) -> Result<(), LayerAdditionError> {
+    
+    if self.layers.len() > 0 { return Err(LayerAdditionError::ExistentInput) }
+
+    if layer.is_empty() { 
+      /* check what layer is and initialize it */
+      match &mut layer {
+        Layer::Dense(l) => { l.init_mut(input_shape, units, method, seed).unwrap(); },
+        _ => { return Err(LayerAdditionError::UnimplementedLayer) }
+      }
+
+      /* add input layer */
+      self.layers.push(layer);
+
+      Ok(())
+    } else {
+      Err(LayerAdditionError::EarlyInitialization)
+    }
+  }
+
+  /// Adds an empty [`Layer`] to the [`Network`] and initializes it based on previous layer. [`InputShape`] is inferred. 
+  pub fn add(&mut self, 
+    mut layer: Layer<T>, 
+    units: usize, 
+    method: InitMethod, 
+    seed: &mut u128
+  ) -> Result<(), LayerAdditionError> {
+    
+    if self.layers.len() == 0 {
+      return Err(LayerAdditionError::MissingInput)
+    }
+
+    if layer.is_empty() {
+      /* check previous number of output (may depend on layer type) */
+      let next_input_shape = self.layers
+        .last()
+        .unwrap()
+        .get_output_shape();
+
+      /* check what layer is and initialize it */
+      match &mut layer {
+        Layer::Dense(l) => {
+          match next_input_shape {
+            /* cast the output shape of the previous layer onto the input shape of the next layer */
+            OutputShape::Vector(size) => { l.init_mut(InputShape::Vector(size), units, method, seed).unwrap(); },
+            _ => { return Err(LayerAdditionError::IncompatibleIO) }
+          }
+        },
+        _ => { return Err(LayerAdditionError::UnimplementedLayer) }
+      }
+
+      /* add the initialized layer */
+      self.layers.push(layer);
+
+      Ok(())
+    } else {
+      /* throw error (layer must be empty) */
+      Err(LayerAdditionError::EarlyInitialization)
+    }
   }
 
   pub fn forward(&self, input_type: InputType<T>) -> Result<OutputType<T>, ForwardError> {
@@ -35,6 +110,7 @@ impl<T: Real + BasicOperations<T>> Network<T>  {
 
     for layer_ref in layers_iter {
       /* propagate through hidden layers */
+      /* there might be a better solution without using convert() */
       out = layer_ref
         .foward(out.convert())
         .unwrap();
