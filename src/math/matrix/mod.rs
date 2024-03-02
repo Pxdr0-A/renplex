@@ -27,6 +27,13 @@ pub struct Matrix<T> {
 }
 
 impl<T: Copy> Matrix<T> {
+  pub fn new() -> Matrix<T> {
+    let body = Vec::new();
+    let shape = [0_usize, 0];
+    let capacity = [0_usize, 0];
+
+    Matrix { body, shape, capacity }
+  }
   /// Returns an empty generic `Matrix<T>` with enough allocated memory given the `capacity`.
   /// 
   /// # Arguments
@@ -38,7 +45,7 @@ impl<T: Copy> Matrix<T> {
   /// 
   /// `capacity` for now, cannot be changed. 
   /// It is fixed when `Matrix<T>` is initiated with `new()` method.
-  pub fn new(capacity: [usize; 2]) -> Matrix<T> {
+  pub fn with_capacity(capacity: [usize; 2]) -> Matrix<T> {
     let body = Vec::with_capacity(capacity[0] * capacity[1]);
     let shape = [0, 0];
 
