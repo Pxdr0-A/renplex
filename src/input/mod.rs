@@ -18,3 +18,13 @@ impl<T: Copy> OutputType<T> {
     }
   }
 }
+
+pub enum InputShape {
+  Vector(usize),
+  Matrix([usize; 2])
+}
+
+pub enum OutputShape {
+  Vector(usize),
+  Matrix([usize; 2])
+}
