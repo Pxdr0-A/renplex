@@ -4,21 +4,53 @@
 //! these tools are based on f32 and f64 which are the only primitives that implement
 //! the traits requested by the tools.
 
-use std::ops::{
-    Add, Sub, Mul, Div,
-    AddAssign, SubAssign, MulAssign, DivAssign
-};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::fmt::Display;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Cf32 {
     pub x: f32,
     pub y: f32
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Cf64 {
     pub x: f64,
     pub y: f64
+}
+
+impl Display for Cf32 {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let norm = self.norm();
+    let phase = self.phase();
+    write!(f, "{}ø{}", norm, phase)
+  }
+}
+
+impl Display for Cf64 {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let norm = self.norm();
+    let phase = self.phase();
+    write!(f, "{}ø{}", norm, phase)
+  }
+}
+
+impl Default for Cf32 {
+  fn default() -> Self {
+    Cf32 {
+      x: 0.0,
+      y: 0.0
+    }
+  }
+}
+
+impl Default for Cf64 {
+  fn default() -> Self {
+    Cf64 {
+      x: 0.0,
+      y: 0.0
+    }
+  }
 }
 
 // General operations for Cf32
