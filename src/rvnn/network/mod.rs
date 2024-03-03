@@ -55,8 +55,7 @@ impl<T: Real + BasicOperations<T>> Network<T> {
       match &mut layer {
         Layer::Dense(l) => {
           l.init_mut(input_shape, units, method, seed).unwrap();
-        },
-        _ => { return Err(LayerAdditionError::UnimplementedLayer) }
+        }
       }
 
       /* add input layer */
@@ -76,9 +75,7 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     seed: &mut u128
   ) -> Result<(), LayerAdditionError> {
     
-    if self.layers.len() == 0 {
-      return Err(LayerAdditionError::MissingInput)
-    }
+    if self.layers.len() == 0 { return Err(LayerAdditionError::MissingInput) }
 
     if layer.is_empty() {
       /* check previous number of output (may depend on layer type) */
@@ -95,8 +92,7 @@ impl<T: Real + BasicOperations<T>> Network<T> {
             IOShape::Vector(size) => { l.init_mut(IOShape::Vector(size), units, method, seed).unwrap(); },
             _ => { return Err(LayerAdditionError::IncompatibleIO) }
           }
-        },
-        _ => { return Err(LayerAdditionError::UnimplementedLayer) }
+        }
       }
 
       /* add the initialized layer */

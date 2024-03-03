@@ -60,8 +60,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
               }
               biases.push(T::gen(seed, scale));
             }
-          },
-          _ => { return Err(LayerInitError::UnimplementedInitMethod) }
+          }        
         }
 
         Ok(
@@ -101,8 +100,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
     
               self.weights = Matrix::from_body(body, [units, inputs]);
               self.biases = biases;
-            },
-            _ => { return Err(LayerInitError::UnimplementedInitMethod); }
+            }
           }
         },
         _ => { return Err(LayerInitError::InvalidInputShape); }
