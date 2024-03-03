@@ -1,9 +1,10 @@
 use std::marker::PhantomData;
 
-use crate::input::{InputShape, InputType, OutputShape, OutputType};
+use crate::input::{IOShape, IOType};
 use crate::act::ActFunc;
 use super::{LayerForwardError, LayerLike, LayerInitError};
 
+#[derive(Debug)]
 pub struct Flatten<T> {
   _hidden: PhantomData<T> 
 }
@@ -13,11 +14,11 @@ impl<T> LayerLike<T> for Flatten<T> {
     unimplemented!()
   }
 
-  fn get_input_shape(&self) -> InputShape {
+  fn get_input_shape(&self) -> IOShape {
     unimplemented!()
   }
 
-  fn get_output_shape(&self) -> OutputShape {
+  fn get_output_shape(&self) -> IOShape {
     unimplemented!()
   }
 
@@ -25,15 +26,19 @@ impl<T> LayerLike<T> for Flatten<T> {
     unimplemented!()
   }
 
-  fn init(input_shape: InputShape, units: usize, func: crate::act::ActFunc, method: super::InitMethod, seed: &mut u128) -> Result<Self, LayerInitError> {
+  fn init(input_shape: IOShape, units: usize, func: crate::act::ActFunc, method: super::InitMethod, seed: &mut u128) -> Result<Self, LayerInitError> {
     unimplemented!()
   }
 
-  fn init_mut(&mut self, input_shape: InputShape, units: usize, method: super::InitMethod, seed: &mut u128) -> Result<(), LayerInitError> {
+  fn init_mut(&mut self, input_shape: IOShape, units: usize, method: super::InitMethod, seed: &mut u128) -> Result<(), LayerInitError> {
     unimplemented!()
   }
 
-  fn forward(&self, _input_type: InputType<T>) -> Result<OutputType<T>, LayerForwardError> {
+  fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+    unimplemented!()
+  }
+
+  fn forward(&self, _input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     unimplemented!()
   }
 

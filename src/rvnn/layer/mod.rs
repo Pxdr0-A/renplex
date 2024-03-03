@@ -1,4 +1,4 @@
-use crate::input::{InputShape, InputType, OutputShape, OutputType}; 
+use crate::input::{IOShape, IOType}; 
 use crate::math::{BasicOperations, Real};
 use crate::act::ActFunc;
 
@@ -15,8 +15,8 @@ pub enum LayerForwardError {
 }
 
 pub enum InitMethod {
-  Random,
-  Distribution
+  Random(usize),
+  Undefined
 }
 
 #[derive(Debug)]
@@ -29,23 +29,26 @@ pub enum LayerInitError {
 pub trait LayerLike<T> where Self: Sized {
   fn is_empty(&self) -> bool;
 
-  fn get_input_shape(&self) -> InputShape;
+  fn get_input_shape(&self) -> IOShape;
 
-  fn get_output_shape(&self) -> OutputShape;
+  fn get_output_shape(&self) -> IOShape;
 
-  /// Initializes an empty layer
+  /// Creates an empty layer
   fn new(func: ActFunc) -> Self;
 
-  fn init(input_shape: InputShape, units: usize, func: ActFunc, method: InitMethod, seed: &mut u128) -> Result<Self, LayerInitError>;
+  fn init(input_shape: IOShape, units: usize, func: ActFunc, method: InitMethod, seed: &mut u128) -> Result<Self, LayerInitError>;
 
-  fn init_mut(&mut self, input_shape: InputShape, units: usize, method: InitMethod, seed: &mut u128) -> Result<(), LayerInitError>;
+  fn init_mut(&mut self, input_shape: IOShape, units: usize, method: InitMethod, seed: &mut u128) -> Result<(), LayerInitError>;
 
-  fn forward(&self, input: InputType<T>) -> Result<OutputType<T>, LayerForwardError>;
+  fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError>;
+
+  fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError>;
 
   fn wrap(self) -> Layer<T>;
 }
 
 /// Just a general interface for a [`Network<T>`] that allows for a static personaliztion.
+#[derive(Debug)]
 pub enum Layer<T> {
   Dense(DenseLayer<T>),
   Flatten(Flatten<T>),
@@ -61,7 +64,7 @@ impl<T: Real + BasicOperations<T>> Layer<T> {
     }
   }
 
-  pub fn get_input_shape(&self) -> InputShape {
+  pub fn get_input_shape(&self) -> IOShape {
     match self {
       Layer::Dense(l) => { l.get_input_shape() },
       Layer::Flatten(l) => { l.get_input_shape() },
@@ -69,7 +72,7 @@ impl<T: Real + BasicOperations<T>> Layer<T> {
     }
   }
 
-  pub fn get_output_shape(&self) -> OutputShape {
+  pub fn get_output_shape(&self) -> IOShape {
     match self {
       Layer::Dense(l) => { l.get_output_shape() },
       Layer::Flatten(l) => { l.get_output_shape() },
@@ -77,7 +80,15 @@ impl<T: Real + BasicOperations<T>> Layer<T> {
     }
   }
 
-  pub fn foward(&self, input_type: InputType<T>) -> Result<OutputType<T>, LayerForwardError> {
+  pub fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+    /* deconstruct what type of layer it is */
+    match self {
+      Layer::Dense(l) => { l.trigger(input_type) },
+      _ => { Err(LayerForwardError::UnimplementedLayer) }
+    }  
+  }
+
+  pub fn foward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     /* deconstruct what type of layer it is */
     match self {
       Layer::Dense(l) => { l.forward(input_type) },

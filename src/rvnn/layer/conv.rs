@@ -1,8 +1,9 @@
 use crate::math::matrix::Matrix;
-use crate::input::{InputShape, InputType, OutputType};
+use crate::input::{IOShape, IOType};
 use crate::act::ActFunc;
 use super::{LayerInitError, LayerForwardError, LayerLike};
 
+#[derive(Debug)]
 pub struct ConvLayer<T> {
   _weights: Matrix<T>,
   _biases: Vec<T>
@@ -13,11 +14,11 @@ impl<T> LayerLike<T> for ConvLayer<T> {
     unimplemented!()
   }
   
-  fn get_input_shape(&self) -> crate::input::InputShape {
+  fn get_input_shape(&self) -> IOShape {
     unimplemented!()
   }
 
-  fn get_output_shape(&self) -> crate::input::OutputShape {
+  fn get_output_shape(&self) -> IOShape {
     unimplemented!()
   }
 
@@ -25,15 +26,19 @@ impl<T> LayerLike<T> for ConvLayer<T> {
     unimplemented!()
   }
 
-  fn init(input_shape: InputShape, units: usize, func: crate::act::ActFunc, method: super::InitMethod, seed: &mut u128) -> Result<Self, LayerInitError> {
+  fn init(input_shape: IOShape, units: usize, func: crate::act::ActFunc, method: super::InitMethod, seed: &mut u128) -> Result<Self, LayerInitError> {
     unimplemented!()
   }
 
-  fn init_mut(&mut self, input_shape: InputShape, units: usize, method: super::InitMethod, seed: &mut u128) -> Result<(), LayerInitError> {
+  fn init_mut(&mut self, input_shape: IOShape, units: usize, method: super::InitMethod, seed: &mut u128) -> Result<(), LayerInitError> {
     unimplemented!()
   }
 
-  fn forward(&self, _input_type: InputType<T>) -> Result<OutputType<T>, LayerForwardError> {
+  fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+    unimplemented!()
+  }
+
+  fn forward(&self, _input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     unimplemented!()
   }
 
