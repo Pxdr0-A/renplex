@@ -5,13 +5,14 @@ pub enum ActError {
   UnimplementedAct
 }
 
+#[derive(Debug)]
 pub enum ActFunc {
   Sigmoid,
   Tanh
 }
 
 impl ActFunc {
-  pub fn act<T: Real + Copy>(&self, values: &mut [T]) -> Result<(), ActError> {
+  pub fn compute<T: Real + Copy>(&self, values: &mut [T]) -> Result<(), ActError> {
     match self {
       ActFunc::Sigmoid => { 
         for elm in values.iter_mut() {
