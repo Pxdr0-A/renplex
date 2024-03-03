@@ -2,8 +2,8 @@ use crate::act::ActFunc;
 use crate::math::matrix::{Matrix, SliceOps};
 use crate::math::{BasicOperations, Real};
 use crate::input::{IOShape, IOType};
-
-use super::{Layer, LayerForwardError, LayerLike, InitMethod, LayerInitError};
+use crate::init::InitMethod;
+use super::{Layer, LayerForwardError, LayerLike, LayerInitError};
 
 #[derive(Debug)]
 pub struct DenseLayer<T> {

@@ -1,14 +1,11 @@
 use crate::math::{Complex, Real};
 
 #[derive(Debug)]
-pub enum ActError {
-  UnimplementedAct
-}
+pub enum ActError {}
 
 #[derive(Debug)]
 pub enum ActFunc {
-  Sigmoid,
-  Tanh
+  Sigmoid
 }
 
 impl ActFunc {
@@ -20,19 +17,18 @@ impl ActFunc {
         }
 
         Ok(())
-      },
-      _ => { Err(ActError::UnimplementedAct) }
+      }
     }
   }
 }
 
+#[derive(Debug)]
 pub enum ComplexActFunc {
-  RITSigmoid,
-  RITTanh
+  RITSigmoid
 }
 
 impl ComplexActFunc {
-  pub fn act<T: Complex + Copy>(&self, values: &mut [T]) -> Result<(), ActError> {
+  pub fn compute<T: Complex + Copy>(&self, values: &mut [T]) -> Result<(), ActError> {
     match self {
       ComplexActFunc::RITSigmoid => {
         for elm in values.iter_mut() {
@@ -40,8 +36,7 @@ impl ComplexActFunc {
         }
 
         Ok(())
-      },
-      _ => { Err(ActError::UnimplementedAct) }
+      }
     }
   }
 }

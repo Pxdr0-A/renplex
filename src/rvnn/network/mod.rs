@@ -1,8 +1,9 @@
 use crate::input::{IOShape, IOType};
 use crate::math::{BasicOperations, Real};
 use crate::rvnn::layer::Layer;
+use crate::init::InitMethod;
 
-use super::layer::{InitMethod, LayerLike};
+use super::layer::LayerLike;
 
 
 #[derive(Debug)]

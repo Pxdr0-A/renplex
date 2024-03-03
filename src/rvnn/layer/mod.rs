@@ -1,6 +1,7 @@
 use crate::input::{IOShape, IOType}; 
 use crate::math::{BasicOperations, Real};
 use crate::act::ActFunc;
+use crate::init::InitMethod;
 
 use self::dense::DenseLayer;
 
@@ -9,10 +10,6 @@ pub mod dense;
 #[derive(Debug)]
 pub enum LayerForwardError {
   InvalidInput
-}
-
-pub enum InitMethod {
-  Random(usize)
 }
 
 #[derive(Debug)]

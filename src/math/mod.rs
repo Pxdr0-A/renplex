@@ -60,7 +60,7 @@ impl Complex for Cf32 {
 
   fn rit_sigmoid(self) -> Self {
     Cf32 {
-      x: self.x.exp() / (1.0 + self.y.exp()),
+      x: self.x.exp() / (1.0 + self.x.exp()),
       y: self.y.exp() / (1.0 + self.y.exp())
     }
   }
@@ -78,7 +78,7 @@ impl Complex for Cf64 {
 
   fn rit_sigmoid(self) -> Self {
     Cf64 {
-      x: self.x.exp() / (1.0 + self.y.exp()),
+      x: self.x.exp() / (1.0 + self.x.exp()),
       y: self.y.exp() / (1.0 + self.y.exp())
     }
   }
