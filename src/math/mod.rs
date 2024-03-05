@@ -35,7 +35,7 @@ impl Real for f32 {
   }
 
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError> {
-    if size > critical_index { return Err(PredicionError::CriticalIndexOverflow) }
+    if size < critical_index { return Err(PredicionError::CriticalIndexOverflow) }
 
     match pred_method {
       PredictModel::Sparse => { 
@@ -59,7 +59,7 @@ impl Real for f64 {
   }
 
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError> {
-    if size > critical_index { return Err(PredicionError::CriticalIndexOverflow) }
+    if size < critical_index { return Err(PredicionError::CriticalIndexOverflow) }
     
     match pred_method {
       PredictModel::Sparse => { 

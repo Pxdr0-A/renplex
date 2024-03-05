@@ -93,4 +93,24 @@ mod basic_tests {
     println!("{:?}", out);
 
   }
+
+  #[test]
+  fn dataset_tests() {
+    use dataset::Dataset;
+    use init::PredictModel;
+    use math::cfloat::Cf32;
+
+    let ref mut seed = 9891827_u128;
+
+    let data: Dataset<Cf32, f32> = Dataset::sample(
+      [64, 6], 
+      3, 
+      100, 
+      10, 
+      PredictModel::Sparse, 
+      seed
+    ).unwrap();
+
+    println!("{:?}", data);
+  }
 }

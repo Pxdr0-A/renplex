@@ -1,3 +1,5 @@
+#[derive(Debug)]
 pub enum DatasetSampleError {
-  BellowMinimumSamples
+  BellowMinimumSamples,
+  IncompatibleTargetType
 }
