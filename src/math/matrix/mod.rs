@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display};
-use std::ops::AddAssign;
+use std::ops::{AddAssign, SubAssign};
 use super::BasicOperations;
 
 mod err;
@@ -34,6 +34,7 @@ impl<T: Copy> Matrix<T> {
 
     Matrix { body, shape, capacity }
   }
+  
   /// Returns an empty generic `Matrix<T>` with enough allocated memory given the `capacity`.
   /// 
   /// # Arguments
@@ -361,9 +362,11 @@ impl<T> Matrix<T>
 
 pub trait SliceOps<T> {
   fn add_slice(&mut self, rhs: &Self) -> Result<(), OperationError>;
+
+  fn sub_slice(&mut self, rhs: &Self) -> Result<(), OperationError>;
 }
 
-impl<T: Copy + AddAssign> SliceOps<T> for [T] {
+impl<T: Copy + AddAssign + SubAssign> SliceOps<T> for [T] {
   fn add_slice(&mut self, rhs: &Self) -> Result<(), OperationError> {
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
     
@@ -371,6 +374,17 @@ impl<T: Copy + AddAssign> SliceOps<T> for [T] {
       .iter_mut()
       .zip(rhs)
       .for_each(|(lhs, rhs)| { *lhs += *rhs });
+
+    Ok(())
+  }
+
+  fn sub_slice(&mut self, rhs: &Self) -> Result<(), OperationError> {
+    if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
+    
+    self
+      .iter_mut()
+      .zip(rhs)
+      .for_each(|(lhs, rhs)| { *lhs -= *rhs });
 
     Ok(())
   }
