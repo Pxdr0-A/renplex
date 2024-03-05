@@ -40,6 +40,7 @@ pub fn lcgf64(seed: &mut u128) -> f64 {
 
 }
 
+/// Generates a random index from 0 to m-1.
 pub fn lcgi(seed: &mut u128, m: u128) -> usize {
     // IBM C/C++ convention params
     let a: u128 = 1103515245;
@@ -47,6 +48,5 @@ pub fn lcgi(seed: &mut u128, m: u128) -> usize {
 
     *seed = (a * *seed + b) % (m - 1);
     
-    (*seed as usize) / (m as usize)
-
+    *seed as usize
 }
