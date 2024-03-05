@@ -4,6 +4,7 @@ pub mod input;
 pub mod act;
 pub mod opt;
 pub mod init;
+pub mod err;
 pub mod rvnn;
 pub mod cvnn;
 
@@ -90,5 +91,6 @@ mod basic_tests {
     let out = net.forward(IOType::Vector(vec![Cf64 { x: 1.0, y: 1.0 }; 2 * 4])).unwrap();
 
     println!("{:?}", out);
+
   }
 }
