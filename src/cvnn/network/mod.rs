@@ -1,23 +1,14 @@
+use crate::dataset::Dataset;
 use crate::input::{IOShape, IOType};
+use crate::math::matrix::Matrix;
 use crate::math::{BasicOperations, Complex};
 use crate::cvnn::layer::CLayer;
 use crate::init::InitMethod;
+use crate::err::{CostError, ForwardError, LayerAdditionError};
 
 use super::layer::CLayerLike;
+use super::Criteria;
 
-
-#[derive(Debug)]
-pub enum ForwardError {
-  MissingLayers
-}
-
-#[derive(Debug)]
-pub enum LayerAdditionError {
-  MissingInput,
-  ExistentInput,
-  EarlyInitialization,
-  IncompatibleIO
-}
 
 #[derive(Debug)]
 pub struct CNetwork<T> {
@@ -29,6 +20,18 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     CNetwork {
       layers: Vec::new()
     }
+  }
+
+  pub fn get_input_shape(&self) -> Result<IOShape, LayerAdditionError> {
+    if self.layers.len() == 0 { return Err(LayerAdditionError::MissingInput) }
+    
+    Ok(self.layers[0].get_input_shape())
+  }
+
+  pub fn get_output_shape(&self) -> Result<IOShape, LayerAdditionError> {
+    if self.layers.len() == 0 { return Err(LayerAdditionError::MissingInput) }
+    
+    Ok(self.layers.last().unwrap().get_output_shape())
   }
 
   /// Adds an empty input [`Layer`] to the [`Network`] and initializes it.
@@ -124,5 +127,38 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     }
 
     Ok(out)
+  }
+
+  pub fn cost(&self, data: Dataset<T, T::Precision>, criteria: Criteria) -> Result<Matrix<T::Precision>, CostError>
+    where T::Precision: Copy {
+    /* do shape error handling */
+    match self.get_input_shape().unwrap() {
+      IOShape::Vector(len) => {
+        let body_shape = data.body.get_shape();
+        let target_shape = data.target.get_shape();
+        if len != body_shape[1] { return Err(CostError::IncompatibleDataset) }
+        /* check output shape */
+        match self.get_output_shape().unwrap() {
+          IOShape::Vector(len) => {
+            let data_chunks = data.body.get_body().chunks(body_shape[1]);
+            let target_chunks = data.target.get_body().chunks(target_shape[1]);
+            let mut cost_func = Matrix::with_capacity([data_chunks.len(), len]);
+            for (body, target) in data_chunks.zip(target_chunks) {
+              cost_func.add_row(
+                /* add the output cost */
+                match self.forward(IOType::Vector(body.to_vec())).unwrap() {
+                  /* calculate cost */
+                  IOType::Vector(pred) => { T::cost(&pred[..], target, &criteria) },
+                  _ => { return Err(CostError::InconsistentIO) }
+                }
+              ).unwrap();
+            }
+            Ok(cost_func)
+          },
+          IOShape::Matrix(_shape) => { unimplemented!() }
+        }
+      },
+      IOShape::Matrix(_shape) => { unimplemented!() }
+    }
   }
 }

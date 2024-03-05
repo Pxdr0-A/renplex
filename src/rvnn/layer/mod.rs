@@ -2,21 +2,11 @@ use crate::input::{IOShape, IOType};
 use crate::math::{BasicOperations, Real};
 use crate::act::ActFunc;
 use crate::init::InitMethod;
+use crate::err::{LayerInitError, LayerForwardError};
 
 use self::dense::DenseLayer;
 
 pub mod dense;
-
-#[derive(Debug)]
-pub enum LayerForwardError {
-  InvalidInput
-}
-
-#[derive(Debug)]
-pub enum LayerInitError {
-  InvalidInputShape,
-  AlreadyInitialized
-}
 
 pub trait LayerLike<T> where Self: Sized {
   fn is_empty(&self) -> bool;

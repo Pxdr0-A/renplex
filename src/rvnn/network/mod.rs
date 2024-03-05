@@ -2,23 +2,10 @@ use crate::input::{IOShape, IOType};
 use crate::math::{BasicOperations, Real};
 use crate::rvnn::layer::Layer;
 use crate::init::InitMethod;
+use crate::err::{LayerAdditionError, ForwardError};
 
 use super::layer::LayerLike;
 
-
-#[derive(Debug)]
-pub enum ForwardError {
-  MissingLayers
-}
-
-#[derive(Debug)]
-pub enum LayerAdditionError {
-  MissingInput,
-  ExistentInput,
-  EarlyInitialization,
-  IncompatibleIO,
-  UnimplementedLayer
-}
 
 #[derive(Debug)]
 pub struct Network<T> {
