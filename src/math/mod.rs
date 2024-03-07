@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::ops::{AddAssign, SubAssign, Add, Mul};
+use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use std::default::Default;
 
 use crate::rvnn::CostModel;
@@ -17,13 +17,17 @@ pub mod cfloat;
 const SIGMOID_THRESHOLD_F32: f32 = 15.0;
 const SIGMOID_THRESHOLD_F64: f64 = 30.0;
 
-pub trait BasicOperations<T>: AddAssign + SubAssign + Add<Output=T> + Mul<Output=T> + Default + Debug + Copy {}
+pub trait BasicOperations<T>: AddAssign + SubAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
 
-impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + Add<Output=T> + Mul<Output=T> + Default + Debug + Copy {}
+impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
 
 /// Trait containing utilities for RVNNs
 pub trait Real 
   where Self: Sized {
+
+  fn pow(&self, n: i32) -> Self;
+
+  fn log(&self) -> Self;
 
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
@@ -35,6 +39,14 @@ pub trait Real
 }
 
 impl Real for f32 {
+  fn pow(&self, n: i32) -> Self {
+    self.powi(n)
+  }
+
+  fn log(&self) -> Self {
+    self.ln()
+  }
+
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as f32;
 
@@ -77,6 +89,14 @@ impl Real for f32 {
   }
 }
 impl Real for f64 {
+  fn pow(&self, n: i32) -> Self {
+    self.powi(n)
+  }
+
+  fn log(&self) -> Self {
+    self.ln()
+  }
+
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as f64;
 
@@ -122,6 +142,18 @@ impl Real for f64 {
 pub trait Complex where Self: Sized {
   type Precision: Real + BasicOperations<Self::Precision>;
 
+  fn new(re: Self::Precision, im: Self::Precision) -> Self;
+
+  fn re(&self) -> Self::Precision;
+
+  fn im(&self) -> Self::Precision;
+
+  fn norm(&self) -> Self::Precision;
+
+  fn norm_sq(&self) -> Self::Precision;
+
+  fn phase(&self) -> Self::Precision;
+
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
   fn rit_sigmoid(self) -> Self;
@@ -134,17 +166,41 @@ pub trait Complex where Self: Sized {
 impl Complex for Cf32 {
   type Precision = f32;
 
-  fn gen(seed: &mut u128, scale: usize) -> Self {
-    let float_scale = scale as f32;
+  fn new(re: Self::Precision, im: Self::Precision) -> Self {
+    Self { x: re, y: im }
+  }
 
-    Cf32 { 
+  fn re(&self) -> Self::Precision {
+    self.x
+  }
+
+  fn im(&self) -> Self::Precision {
+    self.y
+  }
+
+  fn norm(&self) -> Self::Precision {
+    (self.x.powi(2) + self.y.powi(2)).sqrt()
+  }
+
+  fn norm_sq(&self) -> Self::Precision {
+    self.x.powi(2) + self.y.powi(2)
+  }
+
+  fn phase(&self) -> Self::Precision {
+    (self.y / self.x).tan()
+  }
+
+  fn gen(seed: &mut u128, scale: usize) -> Self {
+    let float_scale = scale as Self::Precision;
+
+    Self { 
       x: 2.0 * float_scale * lcgf32(seed) - float_scale,
       y: 2.0 * float_scale * lcgf32(seed) - float_scale
     }
   }
 
   fn rit_sigmoid(self) -> Self {
-    Cf32 {
+    Self {
       x: self.x.sigmoid(),
       y: self.y.sigmoid()
     }
@@ -155,25 +211,7 @@ impl Complex for Cf32 {
       .iter()
       .zip(target)
       .map(|(pred, targ)| {
-        match cost_model {
-          ComplexCostModel::Conventional => {
-            match criteria {
-              Criteria::Norm => { (pred.norm_sq() - targ).powi(2) },
-              Criteria::Phase => { (pred.phase() - targ).powi(2) },
-              Criteria::Real => { (pred.re() - targ).powi(2) },
-              Criteria::Imaginary => { (pred.im() - targ).powi(2) }
-            }
-          }
-          ComplexCostModel::Group => {
-            let complex_targ = Cf32::new(*targ, 0.0);
-            match criteria {
-              Criteria::Norm => { (pred - &complex_targ).norm_sq().powi(2) },
-              Criteria::Phase => { (pred - &complex_targ).phase().powi(2) },
-              Criteria::Real => { (pred - &complex_targ).re().powi(2) },
-              Criteria::Imaginary => { (pred - &complex_targ).im().powi(2) }
-            }
-          }
-        }
+        cost_model.compute(pred, targ, criteria) 
       })
       .collect()
   }
@@ -182,25 +220,8 @@ impl Complex for Cf32 {
     prediction
       .iter()
       .zip(target)
-      .map(|(pred, targ)| {
-        match cost_model {
-          ComplexCostModel::Conventional => {
-            match criteria {
-              Criteria::Norm => { (pred.norm() - targ.norm()).powi(2) },
-              Criteria::Phase => { (pred.phase() - targ.phase()).powi(2) },
-              Criteria::Real => { (pred.re() - targ.re()).powi(2) },
-              Criteria::Imaginary => { (pred.im() - targ.im()).powi(2) }
-            }
-          }
-          ComplexCostModel::Group => {
-            match criteria {
-              Criteria::Norm => { (pred - targ).norm_sq() },
-              Criteria::Phase => { (pred - targ).phase().powi(2) },
-              Criteria::Real => { (pred - targ).re().powi(2) },
-              Criteria::Imaginary => { (pred - targ).im().powi(2) }
-            }
-          }
-        }
+      .map(|(pred, targ)| { 
+        cost_model.compute_raw(pred, targ, criteria) 
       })
       .collect()
   }
@@ -209,46 +230,52 @@ impl Complex for Cf32 {
 impl Complex for Cf64 {
   type Precision = f64;
 
-  fn gen(seed: &mut u128, scale: usize) -> Self {
-    let float_scale = scale as f64;
+  fn new(re: Self::Precision, im: Self::Precision) -> Self {
+    Self { x: re, y: im }
+  }
 
-    Cf64 { 
+  fn re(&self) -> Self::Precision {
+    self.x
+  }
+
+  fn im(&self) -> Self::Precision {
+    self.y
+  }
+
+  fn norm(&self) -> Self::Precision {
+    (self.x.powi(2) + self.y.powi(2)).sqrt()
+  }
+
+  fn norm_sq(&self) -> Self::Precision {
+    self.x.powi(2) + self.y.powi(2)
+  }
+
+  fn phase(&self) -> Self::Precision {
+    (self.y / self.x).tan()
+  }
+
+  fn gen(seed: &mut u128, scale: usize) -> Self {
+    let float_scale = scale as Self::Precision;
+
+    Self { 
       x: 2.0 * float_scale * lcgf64(seed) - float_scale,
       y: 2.0 * float_scale * lcgf64(seed) - float_scale
     }
   }
 
   fn rit_sigmoid(self) -> Self {
-    Cf64 {
+    Self {
       x: self.x.sigmoid(),
       y: self.y.sigmoid()
     }
   }
 
-  fn cost(prediction: &[Self], target: &[Self::Precision], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision> {
+  fn cost(prediction: &[Self], target: &[Self::Precision], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision> {    
     prediction
       .iter()
       .zip(target)
       .map(|(pred, targ)| {
-        match cost_model {
-          ComplexCostModel::Conventional => {
-            match criteria {
-              Criteria::Norm => { (pred.norm() - targ).powi(2) },
-              Criteria::Phase => { (pred.phase() - targ).powi(2) },
-              Criteria::Real => { (pred.re() - targ).powi(2) },
-              Criteria::Imaginary => { (pred.im() - targ).powi(2) }
-            }
-          }
-          ComplexCostModel::Group => {
-            let complex_targ = Cf64::new(*targ, 0.0);
-            match criteria {
-              Criteria::Norm => { (pred - &complex_targ).norm_sq() },
-              Criteria::Phase => { (pred - &complex_targ).phase().powi(2) },
-              Criteria::Real => { (pred - &complex_targ).re().powi(2) },
-              Criteria::Imaginary => { (pred - &complex_targ).im().powi(2) }
-            }
-          }
-        }
+        cost_model.compute(pred, targ, criteria)
       })
       .collect()
   }
@@ -258,24 +285,7 @@ impl Complex for Cf64 {
       .iter()
       .zip(target)
       .map(|(pred, targ)| {
-        match cost_model {
-          ComplexCostModel::Conventional => {
-            match criteria {
-              Criteria::Norm => { (pred.norm() - targ.norm()).powi(2) },
-              Criteria::Phase => { (pred.phase() - targ.phase()).powi(2) },
-              Criteria::Real => { (pred.re() - targ.re()).powi(2) },
-              Criteria::Imaginary => { (pred.im() - targ.im()).powi(2) }
-            }
-          }
-          ComplexCostModel::Group => {
-            match criteria {
-              Criteria::Norm => { (pred - targ).norm_sq() },
-              Criteria::Phase => { (pred - targ).phase().powi(2) },
-              Criteria::Real => { (pred - targ).re().powi(2) },
-              Criteria::Imaginary => { (pred - targ).im().powi(2) }
-            }
-          }
-        }
+        cost_model.compute_raw(pred, targ, criteria)
       })
       .collect()
   }

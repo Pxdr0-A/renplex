@@ -7,6 +7,8 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::fmt::Display;
 
+use super::Complex;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Cf32 {
     pub x: f32,
@@ -52,61 +54,6 @@ impl Default for Cf64 {
     }
   }
 }
-
-// General operations for Cf32
-impl Cf32 {
-  pub fn new(re: f32, im: f32) -> Cf32 {
-    Cf32 { x: re, y: im }
-  }
-
-  pub fn re(&self) -> f32 {
-    self.x
-  }
-
-  pub fn im(&self) -> f32 {
-    self.y
-  }
-
-  pub fn norm(&self) -> f32 {
-    (self.x.powi(2) + self.y.powi(2)).sqrt()
-  }
-
-  pub fn norm_sq(&self) -> f32 {
-    self.x.powi(2) + self.y.powi(2)
-  }
-
-  pub fn phase(&self) -> f32 {
-    (self.y / self.x).tan()
-  }
-}
-
-// General operations for Cf64
-impl Cf64 {
-  pub fn new(re: f64, im: f64) -> Cf64 {
-    Cf64 { x: re, y: im }
-  }
-
-  pub fn re(&self) -> f64 {
-    self.x
-  }
-
-  pub fn im(&self) -> f64 {
-    self.y
-  }
-
-  pub fn norm(&self) -> f64 {
-    (self.x.powi(2) + self.y.powi(2)).sqrt()
-  }
-
-  pub fn norm_sq(&self) -> f64 {
-    self.x.powi(2) + self.y.powi(2)
-  }
-
-  pub fn phase(&self) -> f64 {
-    (self.y / self.x).tan()
-  }
-} 
-
 
 // Arithmetic Operations for Cf32
 
