@@ -1,4 +1,7 @@
 /target
 /Cargo.lock
 /refs
+
 /venv
+
+data.csv
