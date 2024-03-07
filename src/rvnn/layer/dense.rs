@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::act::ActFunc;
 use crate::math::matrix::{Matrix, SliceOps};
 use crate::math::{BasicOperations, Real};
@@ -24,7 +26,8 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
   }
 
   fn get_input_shape(&self) -> IOShape {
-    IOShape::Vector(self.biases.len())
+    let weight_shape = self.weights.get_shape();
+    IOShape::Vector(weight_shape[0] * weight_shape[1])
   }
 
   fn get_output_shape(&self) -> IOShape {
@@ -144,7 +147,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
         self.func
           .compute(&mut res[..])
           .unwrap();
-
+        
         /* layer returns a vector */
         Ok(IOType::Vector(res))
       },

@@ -1,10 +1,15 @@
+use std::fmt::Debug;
+
 use crate::input::{IOShape, IOType};
 use crate::math::{BasicOperations, Real};
+use crate::math::matrix::Matrix;
+use crate::dataset::Dataset;
 use crate::rvnn::layer::Layer;
 use crate::init::InitMethod;
-use crate::err::{LayerAdditionError, ForwardError};
+use crate::err::{LayerAdditionError, ForwardError, CostError};
 
 use super::layer::LayerLike;
+use super::CostModel;
 
 
 #[derive(Debug)]
@@ -17,6 +22,18 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     Network {
       layers: Vec::new()
     }
+  }
+
+  pub fn get_input_shape(&self) -> Result<IOShape, LayerAdditionError> {
+    if self.layers.len() == 0 { return Err(LayerAdditionError::MissingInput) }
+    
+    Ok(self.layers[0].get_input_shape())
+  }
+
+  pub fn get_output_shape(&self) -> Result<IOShape, LayerAdditionError> {
+    if self.layers.len() == 0 { return Err(LayerAdditionError::MissingInput) }
+    
+    Ok(self.layers.last().unwrap().get_output_shape())
   }
 
   /// Adds an empty input [`Layer`] to the [`Network`] and initializes it.
@@ -105,12 +122,58 @@ impl<T: Real + BasicOperations<T>> Network<T> {
 
     for layer_ref in layers_iter {
       /* propagate through hidden layers */
-      /* there might be a better solution without using convert() */
       out = layer_ref
         .foward(out)
         .unwrap();
     }
 
     Ok(out)
+  }
+
+  pub fn cost(&self, 
+    data: Dataset<T, T>,
+    cost_model: CostModel,
+  ) -> Result<Matrix<T>, CostError> where T: Debug {
+
+    /* do shape error handling */
+    match self.get_input_shape().unwrap() {
+      IOShape::Vector(len) => {
+        let body_shape = data.body.get_shape();
+        let target_shape = data.target.get_shape();
+        if len != body_shape[1] { return Err(CostError::IncompatibleDataset) }
+        /* check output shape */
+        match self.get_output_shape().unwrap() {
+          IOShape::Vector(len) => {
+            let data_chunks = data.body.get_body().chunks(body_shape[1]);
+            let target_chunks = data.target.get_body().chunks(target_shape[1]);
+            let mut cost_func = Matrix::with_capacity([data_chunks.len(), len]);
+            for (body, target) in data_chunks.zip(target_chunks) {
+              cost_func.add_row(
+                /* add the output cost */
+                match self.forward(IOType::Vector(body.to_vec())).unwrap() {
+                  /* calculate cost */
+                  IOType::Vector(prediction) => {
+                    T::cost(&prediction[..], target, &cost_model)
+                  },
+                  _ => { return Err(CostError::InconsistentIO) }
+                }
+              ).unwrap();
+            }
+            Ok(cost_func)
+          },
+          IOShape::Matrix(_shape) => { 
+            /* output of the network is a Matrix whose input is a vector */ 
+            /* calculate cost accordingly */
+            unimplemented!() 
+          }
+        }
+      },
+      IOShape::Matrix(_shape) => { 
+        /* input of the network is a Matrix */
+        /* check the output shape */
+        /* calculate cost based on output shape */
+        unimplemented!() 
+      }
+    }
   }
 }
