@@ -162,6 +162,15 @@ impl Complex for Cf32 {
               Criteria::Imaginary => { (pred.im() - targ).powi(2) }
             }
           }
+          ComplexCostModel::Group => {
+            let complex_targ = Cf32::new(*targ, 0.0);
+            match criteria {
+              Criteria::Norm => { (pred - &complex_targ).norm().powi(2) },
+              Criteria::Phase => { (pred - &complex_targ).phase().powi(2) },
+              Criteria::Real => { (pred - &complex_targ).re().powi(2) },
+              Criteria::Imaginary => { (pred - &complex_targ).im().powi(2) }
+            }
+          }
         }
       })
       .collect()
@@ -199,6 +208,15 @@ impl Complex for Cf64 {
               Criteria::Phase => { (pred.phase() - targ).powi(2) },
               Criteria::Real => { (pred.re() - targ).powi(2) },
               Criteria::Imaginary => { (pred.im() - targ).powi(2) }
+            }
+          }
+          ComplexCostModel::Group => {
+            let complex_targ = Cf64::new(*targ, 0.0);
+            match criteria {
+              Criteria::Norm => { (pred - &complex_targ).norm().powi(2) },
+              Criteria::Phase => { (pred - &complex_targ).phase().powi(2) },
+              Criteria::Real => { (pred - &complex_targ).re().powi(2) },
+              Criteria::Imaginary => { (pred - &complex_targ).im().powi(2) }
             }
           }
         }
