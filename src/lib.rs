@@ -102,8 +102,8 @@ mod basic_tests {
 
     let ref mut seed = 9891827_u128;
 
-    let data: Dataset<Cf32, f32> = Dataset::sample(
-      [64, 6], 
+    let data: Dataset<Cf32, f32> = Dataset::sample_complex(
+      [64, 2], 
       3, 
       100, 
       10, 
@@ -112,5 +112,24 @@ mod basic_tests {
     ).unwrap();
 
     println!("{:?}", data);
+  }
+
+  #[test]
+  fn dataset_to_csv_test() {
+    use dataset::Dataset;
+    use init::PredictModel;
+
+    let ref mut seed = 119824653_u128;
+
+    let data: Dataset<f32, f32> = Dataset::sample(
+      [128, 2], 
+      4, 
+      100, 
+      10, 
+      PredictModel::Sparse, 
+      seed
+    ).unwrap();
+
+    data.to_csv().unwrap();
   }
 }
