@@ -25,7 +25,8 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
   }
 
   fn get_input_shape(&self) -> IOShape {
-    IOShape::Vector(self.biases.len())
+    let weight_shape = self.weights.get_shape();
+    IOShape::Vector(weight_shape[0] * weight_shape[1])
   }
 
   fn get_output_shape(&self) -> IOShape {
