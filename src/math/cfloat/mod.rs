@@ -55,40 +55,48 @@ impl Default for Cf64 {
 
 // General operations for Cf32
 impl Cf32 {
-    pub fn re(&self) -> f32 {
-        self.x
-    }
+  pub fn new(re: f32, im: f32) -> Cf32 {
+    Cf32 { x: re, y: im }
+  }
 
-    pub fn im(&self) -> f32 {
-        self.y
-    }
+  pub fn re(&self) -> f32 {
+    self.x
+  }
 
-    pub fn norm(&self) -> f32 {
-        (self.x.powi(2) + self.y.powi(2)).sqrt()
-    }
+  pub fn im(&self) -> f32 {
+    self.y
+  }
 
-    pub fn phase(&self) -> f32 {
-        (self.y / self.x).tan()
-    }
+  pub fn norm(&self) -> f32 {
+    (self.x.powi(2) + self.y.powi(2)).sqrt()
+  }
+
+  pub fn phase(&self) -> f32 {
+    (self.y / self.x).tan()
+  }
 }
 
 // General operations for Cf64
 impl Cf64 {
-    pub fn re(&self) -> f64 {
-        self.x
-    }
+  pub fn new(re: f64, im: f64) -> Cf64 {
+    Cf64 { x: re, y: im }
+  }
 
-    pub fn im(&self) -> f64 {
-        self.y
-    }
+  pub fn re(&self) -> f64 {
+    self.x
+  }
 
-    pub fn norm(&self) -> f64 {
-        (self.x.powi(2) + self.y.powi(2)).sqrt()
-    }
+  pub fn im(&self) -> f64 {
+    self.y
+  }
 
-    pub fn phase(&self) -> f64 {
-        (self.y / self.x).tan()
-    }
+  pub fn norm(&self) -> f64 {
+    (self.x.powi(2) + self.y.powi(2)).sqrt()
+  }
+
+  pub fn phase(&self) -> f64 {
+    (self.y / self.x).tan()
+  }
 } 
 
 
@@ -96,15 +104,15 @@ impl Cf64 {
 
 // Normal operations
 impl Add for Cf32 {
-            
-    type Output = Cf32;
+          
+  type Output = Cf32;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        Cf32 { 
-            x: self.x + rhs.x,
-            y: self.y + rhs.y
-        }
+  fn add(self, rhs: Self) -> Self::Output {
+    Cf32 { 
+      x: self.x + rhs.x,
+      y: self.y + rhs.y
     }
+  }
 }
 
 impl Sub for Cf32 {
