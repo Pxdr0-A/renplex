@@ -155,10 +155,19 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
             }
             Ok(cost_func)
           },
-          IOShape::Matrix(_shape) => { unimplemented!() }
+          IOShape::Matrix(_shape) => { 
+            /* output of the network is a Matrix whose input is a vector */ 
+            /* calculate cost accordingly */
+            unimplemented!() 
+          }
         }
       },
-      IOShape::Matrix(_shape) => { unimplemented!() }
+      IOShape::Matrix(_shape) => { 
+        /* input of the network is a Matrix */
+        /* check the output shape */
+        /* calculate cost based on output shape */
+        unimplemented!() 
+      }
     }
   }
 }
