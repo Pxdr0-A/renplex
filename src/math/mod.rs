@@ -127,6 +127,8 @@ pub trait Complex where Self: Sized {
   fn rit_sigmoid(self) -> Self;
 
   fn cost(prediction: &[Self], target: &[Self::Precision], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision>;
+
+  fn raw_cost(prediction: &[Self], target: &[Self], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision>;
 }
 
 impl Complex for Cf32 {
@@ -156,7 +158,7 @@ impl Complex for Cf32 {
         match cost_model {
           ComplexCostModel::Conventional => {
             match criteria {
-              Criteria::Norm => { (pred.norm() - targ).powi(2) },
+              Criteria::Norm => { (pred.norm_sq() - targ).powi(2) },
               Criteria::Phase => { (pred.phase() - targ).powi(2) },
               Criteria::Real => { (pred.re() - targ).powi(2) },
               Criteria::Imaginary => { (pred.im() - targ).powi(2) }
@@ -165,10 +167,37 @@ impl Complex for Cf32 {
           ComplexCostModel::Group => {
             let complex_targ = Cf32::new(*targ, 0.0);
             match criteria {
-              Criteria::Norm => { (pred - &complex_targ).norm().powi(2) },
+              Criteria::Norm => { (pred - &complex_targ).norm_sq().powi(2) },
               Criteria::Phase => { (pred - &complex_targ).phase().powi(2) },
               Criteria::Real => { (pred - &complex_targ).re().powi(2) },
               Criteria::Imaginary => { (pred - &complex_targ).im().powi(2) }
+            }
+          }
+        }
+      })
+      .collect()
+  }
+
+  fn raw_cost(prediction: &[Self], target: &[Self], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision> {    
+    prediction
+      .iter()
+      .zip(target)
+      .map(|(pred, targ)| {
+        match cost_model {
+          ComplexCostModel::Conventional => {
+            match criteria {
+              Criteria::Norm => { (pred.norm() - targ.norm()).powi(2) },
+              Criteria::Phase => { (pred.phase() - targ.phase()).powi(2) },
+              Criteria::Real => { (pred.re() - targ.re()).powi(2) },
+              Criteria::Imaginary => { (pred.im() - targ.im()).powi(2) }
+            }
+          }
+          ComplexCostModel::Group => {
+            match criteria {
+              Criteria::Norm => { (pred - targ).norm_sq() },
+              Criteria::Phase => { (pred - targ).phase().powi(2) },
+              Criteria::Real => { (pred - targ).re().powi(2) },
+              Criteria::Imaginary => { (pred - targ).im().powi(2) }
             }
           }
         }
@@ -213,10 +242,37 @@ impl Complex for Cf64 {
           ComplexCostModel::Group => {
             let complex_targ = Cf64::new(*targ, 0.0);
             match criteria {
-              Criteria::Norm => { (pred - &complex_targ).norm().powi(2) },
+              Criteria::Norm => { (pred - &complex_targ).norm_sq() },
               Criteria::Phase => { (pred - &complex_targ).phase().powi(2) },
               Criteria::Real => { (pred - &complex_targ).re().powi(2) },
               Criteria::Imaginary => { (pred - &complex_targ).im().powi(2) }
+            }
+          }
+        }
+      })
+      .collect()
+  }
+
+  fn raw_cost(prediction: &[Self], target: &[Self], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision> {    
+    prediction
+      .iter()
+      .zip(target)
+      .map(|(pred, targ)| {
+        match cost_model {
+          ComplexCostModel::Conventional => {
+            match criteria {
+              Criteria::Norm => { (pred.norm() - targ.norm()).powi(2) },
+              Criteria::Phase => { (pred.phase() - targ.phase()).powi(2) },
+              Criteria::Real => { (pred.re() - targ.re()).powi(2) },
+              Criteria::Imaginary => { (pred.im() - targ.im()).powi(2) }
+            }
+          }
+          ComplexCostModel::Group => {
+            match criteria {
+              Criteria::Norm => { (pred - targ).norm_sq() },
+              Criteria::Phase => { (pred - targ).phase().powi(2) },
+              Criteria::Real => { (pred - targ).re().powi(2) },
+              Criteria::Imaginary => { (pred - targ).im().powi(2) }
             }
           }
         }

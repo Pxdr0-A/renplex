@@ -21,7 +21,7 @@ pub struct Cf64 {
 
 impl Display for Cf32 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let norm = self.norm();
+    let norm = self.norm_sq();
     let phase = self.phase();
     write!(f, "{}ø{}", norm, phase)
   }
@@ -29,7 +29,7 @@ impl Display for Cf32 {
 
 impl Display for Cf64 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let norm = self.norm();
+    let norm = self.norm_sq();
     let phase = self.phase();
     write!(f, "{}ø{}", norm, phase)
   }
@@ -71,6 +71,10 @@ impl Cf32 {
     (self.x.powi(2) + self.y.powi(2)).sqrt()
   }
 
+  pub fn norm_sq(&self) -> f32 {
+    self.x.powi(2) + self.y.powi(2)
+  }
+
   pub fn phase(&self) -> f32 {
     (self.y / self.x).tan()
   }
@@ -92,6 +96,10 @@ impl Cf64 {
 
   pub fn norm(&self) -> f64 {
     (self.x.powi(2) + self.y.powi(2)).sqrt()
+  }
+
+  pub fn norm_sq(&self) -> f64 {
+    self.x.powi(2) + self.y.powi(2)
   }
 
   pub fn phase(&self) -> f64 {

@@ -177,4 +177,53 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       }
     }
   }
+
+  /// Calculates the cost of a batch of data expressed as a [`Dataset`].
+  pub fn raw_cost(&self, 
+    data: Dataset<T, T>,
+    cost_model: ComplexCostModel,
+    criteria: Criteria
+  ) -> Result<Matrix<T::Precision>, CostError> {
+
+    /* do shape error handling */
+    match self.get_input_shape().unwrap() {
+      IOShape::Vector(len) => {
+        let body_shape = data.body.get_shape();
+        let target_shape = data.target.get_shape();
+        if len != body_shape[1] { return Err(CostError::IncompatibleDataset) }
+        /* check output shape */
+        match self.get_output_shape().unwrap() {
+          IOShape::Vector(len) => {
+            let data_chunks = data.body.get_body().chunks(body_shape[1]);
+            let target_chunks = data.target.get_body().chunks(target_shape[1]);
+            let mut cost_func = Matrix::with_capacity([data_chunks.len(), len]);
+            for (body, target) in data_chunks.zip(target_chunks) {
+              cost_func.add_row(
+                /* add the output cost */
+                match self.forward(IOType::Vector(body.to_vec())).unwrap() {
+                  /* calculate cost */
+                  IOType::Vector(prediction) => { 
+                    T::raw_cost(&prediction[..], target, &cost_model, &criteria) 
+                  },
+                  _ => { return Err(CostError::InconsistentIO) }
+                }
+              ).unwrap();
+            }
+            Ok(cost_func)
+          },
+          IOShape::Matrix(_shape) => { 
+            /* output of the network is a Matrix whose input is a vector */ 
+            /* calculate cost accordingly */
+            unimplemented!() 
+          }
+        }
+      },
+      IOShape::Matrix(_shape) => { 
+        /* input of the network is a Matrix */
+        /* check the output shape */
+        /* calculate cost based on output shape */
+        unimplemented!() 
+      }
+    }
+  }
 }
