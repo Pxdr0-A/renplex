@@ -81,7 +81,7 @@ mod basic_tests {
     net.add(
       /* layer to be added (as hidden) */
       DenseCLayer::new(ComplexActFunc::RITSigmoid).wrap(), 
-      2, 
+      2,
       InitMethod::Random(4), 
       seed
     ).unwrap();
@@ -92,6 +92,75 @@ mod basic_tests {
 
     println!("{:?}", out);
 
+  }
+  
+  #[test]
+  fn cost_test() {
+    use dataset::Dataset;
+    use init::PredictModel;
+    use rvnn::network::Network;
+    use rvnn::layer::dense::DenseLayer;
+    use rvnn::layer::LayerLike;
+    use rvnn::CostModel;
+    use act::ActFunc;
+    use input::IOShape;
+    use init::InitMethod;
+
+    let ref mut seed = 182756_u128;
+
+    let n_input_dendrits: usize = 2;
+    let n_input_units: usize = 2;
+    let input_len = n_input_dendrits * n_input_units;
+    let scale: usize = 4;
+
+    let data: Dataset<f32, f32> = Dataset::sample(
+      [64, input_len], 
+      3, 
+      100, 
+      10, 
+      PredictModel::Sparse, 
+      seed
+    ).unwrap();
+    data.to_csv().unwrap();
+
+    let mut net: Network<f32> = Network::new();
+    net.add_input(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      IOShape::Vector(n_input_dendrits), 
+      n_input_units,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      16,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      64, 
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      4, 
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+
+    let cost = net.cost(data, CostModel::Conventional).unwrap();
+    cost.to_csv().unwrap();
+  }
+
+  #[test]
+  fn sigmoid_test() {
+    use math::Real;
+
+    let a: f32= 220.33234;
+
+    println!("{}", a.sigmoid());
   }
 
   #[test]
