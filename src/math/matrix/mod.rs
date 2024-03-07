@@ -1,4 +1,6 @@
 use std::fmt::{Debug, Display};
+use std::fs::File;
+use std::io::Write;
 use std::ops::{AddAssign, SubAssign};
 use super::BasicOperations;
 
@@ -402,7 +404,7 @@ impl<T: Copy> SliceToMatrix<T> for [T] {
   }
 }
 
-impl<T: Display + Debug> Display for Matrix<T> {
+impl<T: Debug> Display for Matrix<T> {
 
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     for elm in self.body.chunks(self.shape[1]) {
@@ -410,6 +412,27 @@ impl<T: Display + Debug> Display for Matrix<T> {
     }
 
     write!(f, "shape: {:?}, capacity: {:?}", self.shape, self.capacity)
+  }
+}
+
+impl<T: Debug + Copy> Matrix<T> {
+  pub fn to_csv(&self) -> std::io::Result<()> {
+    let mut file = File::create("matrix.csv")?;
+    
+    let data_row_len = self.get_shape()[1];
+    let data_chunks = self.get_body().chunks(data_row_len);
+
+    let mut string_val;
+    for row in data_chunks {
+      string_val = format!("{:?}", row)
+        .replace(" ", "")
+        .replace("[", "")
+        .replace("]", "");
+      
+      writeln!(file, "{}", string_val)?;
+    }
+    
+    Ok(())
   }
 }
 
