@@ -9,5 +9,6 @@ pub enum Criteria {
 }
 
 pub enum ComplexCostModel {
-  Conventional
+  Conventional,
+  Group
 }
