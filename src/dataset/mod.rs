@@ -36,18 +36,15 @@ impl<B: Debug, T: Debug + PartialOrd + Copy> Dataset<B, T> {
     writeln!(file, "{}", header.join(","))?;
 
     let mut string_val;
-    let mut buf;
     let mut class;
     for (body, target) in data_chunks.zip(target_chunks) {
       string_val = format!("{:?}", body)
         .replace(" ", "")
         .replace("[", "")
         .replace("]", "");
-      buf = unsafe { string_val.as_bytes_mut() };
-      buf.rotate_right(1);
       (class, _) = target.iter().enumerate().max_by(|(_, &a), (_, &b)| { a.partial_cmp(&b).unwrap() }).unwrap();
 
-      file.write_all(&buf[2..])?;
+      write!(file, "{}", string_val)?;
       writeln!(file, ",{}", class)?;
     }
 
