@@ -61,12 +61,12 @@ impl<B: Complex + BasicOperations<B>, T: Real + BasicOperations<T>> Dataset<B, T
   /// Samples a [`Dataset`] with complex values.
   /// This artificial data has rectangular-like symmetry.
   pub fn sample_complex(
-      dims: [usize; 2],
-      degree: usize,
-      macro_scale: usize,
-      micro_scale: usize,
-      pred_method: PredictModel,
-      seed: &mut u128
+    dims: [usize; 2],
+    degree: usize,
+    macro_scale: usize,
+    micro_scale: usize,
+    pred_method: PredictModel,
+    seed: &mut u128
   ) -> Result<Dataset<B, T>, DatasetSampleError> {
 
     if dims[0] < degree { return Err(DatasetSampleError::BellowMinimumSamples) }
@@ -96,20 +96,20 @@ impl<B: Complex + BasicOperations<B>, T: Real + BasicOperations<T>> Dataset<B, T
     let mut labels: Matrix<T> = Matrix::with_capacity([dims[0], degree]);
     let mut added_row: Vec<B> = Vec::with_capacity(dims[1]);
     for _ in 0..dims[0] {
-        selected_class = lcgi(seed, degree as u128);
-        one_hot_vec = T::gen_pred(degree, selected_class, &pred_method).unwrap();
-        labels.add_mut_row(&mut one_hot_vec).unwrap();
-        
-        class_center = centers.row(selected_class).unwrap();
+      selected_class = lcgi(seed, degree as u128);
+      one_hot_vec = T::gen_pred(degree, selected_class, &pred_method).unwrap();
+      labels.add_mut_row(&mut one_hot_vec).unwrap();
+      
+      class_center = centers.row(selected_class).unwrap();
 
-        for col in 0..dims[1] {
-            added_row.push(
-                class_center[col] + B::gen(seed, micro_scale)
-            );
-        }
-        
-        // add_row will clean the added_row vec
-        sample_matrix.add_mut_row(&mut added_row).unwrap();
+      for col in 0..dims[1] {
+        added_row.push(
+          class_center[col] + B::gen(seed, micro_scale)
+        );
+      }
+      
+      // add_row will clean the added_row vec
+      sample_matrix.add_mut_row(&mut added_row).unwrap();
     }
 
     Ok(
