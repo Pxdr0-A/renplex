@@ -7,7 +7,7 @@ use crate::init::InitMethod;
 use crate::err::{CostError, ForwardError, LayerAdditionError};
 
 use super::layer::CLayerLike;
-use super::Criteria;
+use super::{ComplexCostModel, Criteria};
 
 
 #[derive(Debug)]
@@ -129,8 +129,13 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok(out)
   }
 
-  pub fn cost(&self, data: Dataset<T, T::Precision>, criteria: Criteria) -> Result<Matrix<T::Precision>, CostError>
-    where T::Precision: Copy {
+  /// Calculates the cost of a batch of data expressed as a [`Dataset`].
+  pub fn cost(&self, 
+    data: Dataset<T, T::Precision>,
+    cost_model: ComplexCostModel,
+    criteria: Criteria
+  ) -> Result<Matrix<T::Precision>, CostError> {
+
     /* do shape error handling */
     match self.get_input_shape().unwrap() {
       IOShape::Vector(len) => {
@@ -148,7 +153,9 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
                 /* add the output cost */
                 match self.forward(IOType::Vector(body.to_vec())).unwrap() {
                   /* calculate cost */
-                  IOType::Vector(pred) => { T::cost(&pred[..], target, &criteria) },
+                  IOType::Vector(prediction) => { 
+                    T::cost(&prediction[..], target, &cost_model, &criteria) 
+                  },
                   _ => { return Err(CostError::InconsistentIO) }
                 }
               ).unwrap();

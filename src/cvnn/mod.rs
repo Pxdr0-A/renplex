@@ -7,3 +7,7 @@ pub enum Criteria {
   Norm,
   Phase
 }
+
+pub enum ComplexCostModel {
+  Conventional
+}
