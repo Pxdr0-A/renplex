@@ -1,7 +1,9 @@
+use std::fmt::Debug;
 use std::ops::{AddAssign, SubAssign, Add, Mul};
 use std::default::Default;
 
-use crate::cvnn::Criteria;
+use crate::rvnn::CostModel;
+use crate::cvnn::{ComplexCostModel, Criteria};
 use crate::err::PredicionError;
 use crate::init::PredictModel;
 
@@ -12,9 +14,12 @@ pub mod matrix;
 pub mod random;
 pub mod cfloat;
 
-pub trait BasicOperations<T>: AddAssign + SubAssign + Add<Output=T> + Mul<Output=T> + Default + Copy {}
+const SIGMOID_THRESHOLD_F32: f32 = 15.0;
+const SIGMOID_THRESHOLD_F64: f64 = 30.0;
 
-impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + Add<Output=T> + Mul<Output=T> + Default + Copy {}
+pub trait BasicOperations<T>: AddAssign + SubAssign + Add<Output=T> + Mul<Output=T> + Default + Debug + Copy {}
+
+impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + Add<Output=T> + Mul<Output=T> + Default + Debug + Copy {}
 
 /// Trait containing utilities for RVNNs
 pub trait Real 
@@ -23,6 +28,8 @@ pub trait Real
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
   fn gen_pred(size: usize, index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
+
+  fn cost(preditcion: &[Self], target: &[Self], cost_model: &CostModel) -> Vec<Self>;
 
   fn sigmoid(self) -> Self;
 }
@@ -47,8 +54,26 @@ impl Real for f32 {
     }
   }
 
+  fn cost(prediction: &[Self], target: &[Self], cost_model: &CostModel) -> Vec<Self> {
+    prediction
+      .iter()
+      .zip(target)
+      .map(|(pred, targ)| {
+        match cost_model {
+          CostModel::Conventional => { (pred - targ).powi(2) }
+        }
+      })
+      .collect()
+  }
+
   fn sigmoid(self) -> Self {
-    self.exp() / (1.0 + self.exp())
+    if self >= SIGMOID_THRESHOLD_F32 {
+      1.0
+    } else if self <= -SIGMOID_THRESHOLD_F32 {
+      0.0
+    } else {
+      self.exp() / (1.0 + self.exp())
+    }
   }
 }
 impl Real for f64 {
@@ -71,8 +96,26 @@ impl Real for f64 {
     }
   }
 
+  fn cost(prediction: &[Self], target: &[Self], cost_model: &CostModel) -> Vec<Self> {
+    prediction
+      .iter()
+      .zip(target)
+      .map(|(pred, targ)| {
+        match cost_model {
+          CostModel::Conventional => { (pred - targ).powi(2) }
+        }
+      })
+      .collect()
+  }
+
   fn sigmoid(self) -> Self {
-    self.exp() / (1.0 + self.exp())
+    if self >= SIGMOID_THRESHOLD_F64 {
+      1.0
+    } else if self <= -SIGMOID_THRESHOLD_F64 {
+      0.0
+    } else {
+      self.exp() / (1.0 + self.exp())
+    }
   }
 }
 
@@ -83,7 +126,7 @@ pub trait Complex where Self: Sized {
 
   fn rit_sigmoid(self) -> Self;
 
-  fn cost(pred: &[Self], target: &[Self::Precision], criteria: &Criteria) -> Vec<Self::Precision>;
+  fn cost(prediction: &[Self], target: &[Self::Precision], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision>;
 }
 
 impl Complex for Cf32 {
@@ -100,21 +143,25 @@ impl Complex for Cf32 {
 
   fn rit_sigmoid(self) -> Self {
     Cf32 {
-      x: self.x.exp() / (1.0 + self.x.exp()),
-      y: self.y.exp() / (1.0 + self.y.exp())
+      x: self.x.sigmoid(),
+      y: self.y.sigmoid()
     }
   }
 
-  fn cost(prediction: &[Self], target: &[Self::Precision], criteria: &Criteria) -> Vec<Self::Precision> {    
+  fn cost(prediction: &[Self], target: &[Self::Precision], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision> {    
     prediction
       .iter()
       .zip(target)
       .map(|(pred, targ)| {
-        match criteria {
-          Criteria::Norm => { (pred.norm() - targ).powi(2) },
-          Criteria::Phase => { (pred.phase() - targ).powi(2) },
-          Criteria::Real => { (pred.re() - targ).powi(2) },
-          Criteria::Imaginary => { (pred.im() - targ).powi(2) }
+        match cost_model {
+          ComplexCostModel::Conventional => {
+            match criteria {
+              Criteria::Norm => { (pred.norm() - targ).powi(2) },
+              Criteria::Phase => { (pred.phase() - targ).powi(2) },
+              Criteria::Real => { (pred.re() - targ).powi(2) },
+              Criteria::Imaginary => { (pred.im() - targ).powi(2) }
+            }
+          }
         }
       })
       .collect()
@@ -135,21 +182,25 @@ impl Complex for Cf64 {
 
   fn rit_sigmoid(self) -> Self {
     Cf64 {
-      x: self.x.exp() / (1.0 + self.x.exp()),
-      y: self.y.exp() / (1.0 + self.y.exp())
+      x: self.x.sigmoid(),
+      y: self.y.sigmoid()
     }
   }
 
-  fn cost(prediction: &[Self], target: &[Self::Precision], criteria: &Criteria) -> Vec<Self::Precision> {
+  fn cost(prediction: &[Self], target: &[Self::Precision], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision> {
     prediction
       .iter()
       .zip(target)
       .map(|(pred, targ)| {
-        match criteria {
-          Criteria::Norm => { (pred.norm() - targ).powi(2) },
-          Criteria::Phase => { (pred.phase() - targ).powi(2) },
-          Criteria::Real => { (pred.re() - targ).powi(2) },
-          Criteria::Imaginary => { (pred.im() - targ).powi(2) }
+        match cost_model {
+          ComplexCostModel::Conventional => {
+            match criteria {
+              Criteria::Norm => { (pred.norm() - targ).powi(2) },
+              Criteria::Phase => { (pred.phase() - targ).powi(2) },
+              Criteria::Real => { (pred.re() - targ).powi(2) },
+              Criteria::Imaginary => { (pred.im() - targ).powi(2) }
+            }
+          }
         }
       })
       .collect()
