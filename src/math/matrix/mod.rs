@@ -26,7 +26,7 @@ pub struct Matrix<T> {
   capacity: [usize; 2],
 }
 
-impl<T: Copy> Matrix<T> {
+impl<T> Matrix<T> {
   pub fn new() -> Matrix<T> {
     let body = Vec::new();
     let shape = [0_usize, 0];
@@ -76,10 +76,8 @@ impl<T: Copy> Matrix<T> {
   }
 
   pub fn dealloc(&mut self) {
-    
     self.body.shrink_to_fit();
     self.capacity = self.shape;
-
   }
 
   /// Returns a reference to the generic element in position i, j of a `Matrix<T>`.
@@ -113,19 +111,6 @@ impl<T: Copy> Matrix<T> {
     Ok(&self.body[init..end])
   }
 
-  pub fn row_into_slice(&self, i: usize, result: &mut [T]) -> Result<(), OperationError> {
-    if i >= self.shape[0] { return Err(OperationError::OutOfBounds); }
-
-    if result.len() != self.shape[1] { return Err(OperationError::InconsistentShape); }
-
-    let init = i * self.shape[1];
-    let end = i * self.shape[1] + self.shape[1];
-
-    result.copy_from_slice(&self.body[init..end]);
-
-    Ok(())
-  }
-
   pub fn row_as_mut(&mut self, i: usize) -> Result<&mut [T], AccessError> {
     if i >= self.shape[0] {
       return Err(AccessError::OutOfBounds);
@@ -135,28 +120,6 @@ impl<T: Copy> Matrix<T> {
     let end = i * self.shape[1] + self.shape[1];
 
     Ok(&mut self.body[init..end])
-  }
-
-  /// Returns a `Vec` of references correspondent 
-  /// to the elements of the `j`th column of a `Matrix<T>`.
-  /// 
-  /// # Arguments
-  /// 
-  /// * `j` - reference to a `usize` representing the column's index.
-  /// 
-  /// # Notes
-  /// 
-  /// Not very performant. Use this method outside heavy computation, if possible.
-  pub fn col_into_slice(&self, j: usize, result: &mut [T]) -> Result<(), OperationError> {
-    if j >= self.shape[1] { return Err(OperationError::OutOfBounds); }
-
-    if result.len() != self.shape[0] { return Err(OperationError::InconsistentShape); }
-
-    for i in 0..self.shape[0] {
-      result[i] = self.body[i * self.shape[1] + j];
-    }
-
-    Ok(())
   }
 
   /// Updates the body of a `Matrix<T>` by adding a 
@@ -266,10 +229,44 @@ impl<T: Copy> Matrix<T> {
   }
 }
 
-impl<T> Matrix<T> 
-  where 
-    T: BasicOperations<T> {
+impl<T: Copy> Matrix<T> {
+  pub fn row_into_slice(&self, i: usize, result: &mut [T]) -> Result<(), OperationError> {
+    if i >= self.shape[0] { return Err(OperationError::OutOfBounds); }
 
+    if result.len() != self.shape[1] { return Err(OperationError::InconsistentShape); }
+
+    let init = i * self.shape[1];
+    let end = i * self.shape[1] + self.shape[1];
+
+    result.copy_from_slice(&self.body[init..end]);
+
+    Ok(())
+  }
+
+  /// Returns a `Vec` of references correspondent 
+  /// to the elements of the `j`th column of a `Matrix<T>`.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `j` - reference to a `usize` representing the column's index.
+  /// 
+  /// # Notes
+  /// 
+  /// Not very performant. Use this method outside heavy computation, if possible.
+  pub fn col_into_slice(&self, j: usize, result: &mut [T]) -> Result<(), OperationError> {
+    if j >= self.shape[1] { return Err(OperationError::OutOfBounds); }
+
+    if result.len() != self.shape[0] { return Err(OperationError::InconsistentShape); }
+
+    for i in 0..self.shape[0] {
+      result[i] = self.body[i * self.shape[1] + j];
+    }
+
+    Ok(())
+  }
+}
+
+impl<T: BasicOperations<T>> Matrix<T> {
   pub fn add_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
     if self.shape != rhs.shape { 
       return Err(OperationError::InconsistentShape);
