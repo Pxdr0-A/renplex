@@ -24,6 +24,7 @@ pub enum LayerAdditionError {
   IncompatibleIO
 }
 
+#[derive(Debug)]
 pub enum CostError {
   IncompatibleDataset,
   InconsistentIO

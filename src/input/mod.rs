@@ -6,6 +6,7 @@ pub enum IOType<T> {
   Matrix(Matrix<T>)
 }
 
+#[derive(Debug)]
 pub enum IOShape {
   Vector(usize),
   Matrix([usize; 2])
