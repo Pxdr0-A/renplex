@@ -136,16 +136,15 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
               .fold(T::default(), |acc, (weight, input)| { acc + *weight * *input })
           );
         }
+        let res_mut = &mut res[..];
 
         /* add the biases to the result */
-        res[..]
+        res_mut
           .add_slice(&self.biases[..])
           .unwrap();
 
         /* calculate the activations */
-        self.func
-          .compute(&mut res[..])
-          .unwrap();
+        T::activate_mut(res_mut, &self.func);
 
         /* layer returns a vector */
         Ok(IOType::Vector(res))
@@ -163,15 +162,15 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
           .mul_slice(&input[..])
           .unwrap();
 
+        let res_mut = &mut res[..];
+
         /* add the biases to the result */
-        res[..]
+        res_mut
           .add_slice(&self.biases[..])
           .unwrap();
 
         /* calculate the activations */
-        self.func
-          .compute(&mut res[..])
-          .unwrap();
+        T::activate_mut(res_mut, &self.func);
 
         /* layer returns a vector */
         Ok(IOType::Vector(res))

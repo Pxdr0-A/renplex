@@ -2,6 +2,7 @@ use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use std::default::Default;
 
+use crate::act::{ActFunc, ComplexActFunc};
 use crate::opt::ComplexLossFunc;
 use crate::opt::LossFunc;
 use crate::err::PredicionError;
@@ -17,6 +18,32 @@ pub mod cfloat;
 const SIGMOID_THRESHOLD_F32: f32 = 15.0;
 const SIGMOID_THRESHOLD_F64: f64 = 30.0;
 
+fn sigmoid_f32(val: f32) -> f32 {
+  if val >= SIGMOID_THRESHOLD_F32 { 1.0 } 
+  else if val <= -SIGMOID_THRESHOLD_F32 { 0.0 } 
+  else { val.exp() / (1.0 + val.exp()) }
+}
+
+fn sigmoid_f64(val: f64) -> f64 {
+  if val >= SIGMOID_THRESHOLD_F64 { 1.0 } 
+  else if val <= -SIGMOID_THRESHOLD_F64 { 0.0 } 
+  else { val.exp() / (1.0 + val.exp()) }
+}
+
+fn ritsigmoid_cf32(val: Cf32) -> Cf32 {
+  Cf32 {
+    x: sigmoid_f32(val.x), 
+    y: sigmoid_f32(val.y)
+  }
+}
+
+fn ritsigmoid_cf64(val: Cf64) -> Cf64 {
+  Cf64 {
+    x: sigmoid_f64(val.x), 
+    y: sigmoid_f64(val.y)
+  }
+}
+
 pub trait BasicOperations<T>: AddAssign + SubAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
 
 impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
@@ -25,28 +52,16 @@ impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + Add<Output=
 pub trait Real 
   where Self: Sized {
 
-  fn pow(&self, n: i32) -> Self;
-
-  fn log(&self) -> Self;
-
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
   fn gen_pred(size: usize, index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
 
-  fn loss(preditcion: &[Self], target: &[Self], loss_func: &LossFunc) -> Self;
+  fn activate_mut(vals: &mut [Self], func: &ActFunc);
 
-  fn sigmoid(self) -> Self;
+  fn loss(preditcion: &[Self], target: &[Self], loss_func: &LossFunc) -> Self;
 }
 
 impl Real for f32 {
-  fn pow(&self, n: i32) -> Self {
-    self.powi(n)
-  }
-
-  fn log(&self) -> Self {
-    self.ln()
-  }
-
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as f32;
 
@@ -66,6 +81,18 @@ impl Real for f32 {
     }
   }
 
+  fn activate_mut(vals: &mut [Self], func: &ActFunc) {
+    let act_func = match func {
+      ActFunc::Sigmoid => {
+        sigmoid_f32
+      }
+    };
+
+    for val in vals.iter_mut() {
+      *val = act_func(*val);
+    }
+  } 
+
   fn loss(prediction: &[Self], target: &[Self], loss_func: &LossFunc) -> Self {
     let func = match loss_func {
       LossFunc::Conventional => {
@@ -81,27 +108,9 @@ impl Real for f32 {
       .map(func)
       .fold(Self::default(), |acc, elm| { acc + elm })
   }
-
-  fn sigmoid(self) -> Self {
-    if self >= SIGMOID_THRESHOLD_F32 {
-      1.0
-    } else if self <= -SIGMOID_THRESHOLD_F32 {
-      0.0
-    } else {
-      self.exp() / (1.0 + self.exp())
-    }
-  }
 }
 
 impl Real for f64 {
-  fn pow(&self, n: i32) -> Self {
-    self.powi(n)
-  }
-
-  fn log(&self) -> Self {
-    self.ln()
-  }
-
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as f64;
 
@@ -121,6 +130,18 @@ impl Real for f64 {
     }
   }
 
+  fn activate_mut(vals: &mut [Self], func: &ActFunc) {
+    let act_func = match func {
+      ActFunc::Sigmoid => {
+        sigmoid_f64
+      }
+    };
+
+    for val in vals.iter_mut() {
+      *val = act_func(*val);
+    }
+  } 
+
   fn loss(prediction: &[Self], target: &[Self], loss_func: &LossFunc) -> Self {
     let func = match loss_func {
       LossFunc::Conventional => {
@@ -135,16 +156,6 @@ impl Real for f64 {
       .zip(target)
       .map(func)
       .fold(Self::default(), |acc, elm| { acc + elm })
-  }
-
-  fn sigmoid(self) -> Self {
-    if self >= SIGMOID_THRESHOLD_F64 {
-      1.0
-    } else if self <= -SIGMOID_THRESHOLD_F64 {
-      0.0
-    } else {
-      self.exp() / (1.0 + self.exp())
-    }
   }
 }
 
@@ -165,7 +176,7 @@ pub trait Complex where Self: Sized {
 
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
-  fn rit_sigmoid(self) -> Self;
+  fn activate_mut(vals: &mut [Self], func: &ComplexActFunc);
 
   fn loss(prediction: &[Self], target: &[Self], loss_func: &ComplexLossFunc) -> Self::Precision;
 }
@@ -206,12 +217,17 @@ impl Complex for Cf32 {
     }
   }
 
-  fn rit_sigmoid(self) -> Self {
-    Self {
-      x: self.x.sigmoid(),
-      y: self.y.sigmoid()
+  fn activate_mut(vals: &mut [Self], func: &ComplexActFunc) {
+    let act_func = match func {
+      ComplexActFunc::RITSigmoid => {
+        ritsigmoid_cf32
+      }
+    };
+
+    for val in vals.iter_mut() {
+      *val = act_func(*val);
     }
-  }
+  } 
 
   fn loss(prediction: &[Self], target: &[Self], loss_func: &ComplexLossFunc) -> Self::Precision {
     let func = match loss_func {
@@ -270,12 +286,17 @@ impl Complex for Cf64 {
     }
   }
 
-  fn rit_sigmoid(self) -> Self {
-    Self {
-      x: self.x.sigmoid(),
-      y: self.y.sigmoid()
+  fn activate_mut(vals: &mut [Self], func: &ComplexActFunc) {
+    let act_func = match func {
+      ComplexActFunc::RITSigmoid => {
+        ritsigmoid_cf64
+      }
+    };
+
+    for val in vals.iter_mut() {
+      *val = act_func(*val)
     }
-  }
+  } 
 
   fn loss(prediction: &[Self], target: &[Self], loss_func: &ComplexLossFunc) -> Self::Precision {
     let func = match loss_func {

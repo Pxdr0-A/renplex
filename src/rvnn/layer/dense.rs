@@ -137,16 +137,15 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
               .fold(T::default(), |acc, (weight, input)| { acc + *weight * *input })
           );
         }
+        let res_mut = &mut res[..];
 
         /* add the biases to the result */
-        res[..]
+        res_mut
           .add_slice(&self.biases[..])
           .unwrap();
 
         /* calculate the activations */
-        self.func
-          .compute(&mut res[..])
-          .unwrap();
+        T::activate_mut(res_mut, &self.func);
         
         /* layer returns a vector */
         Ok(IOType::Vector(res))
@@ -161,18 +160,17 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
       IOType::Vector(input) => {
         /* instantiate the result (it is going to be a column matrix) */
         let mut res = self.weights
-          .mul_slice(&input[..])
+          .mul_vec(input)
           .unwrap();
+        let res_mut = &mut res[..];
 
         /* add the biases to the result */
-        res[..]
+        res_mut
           .add_slice(&self.biases[..])
           .unwrap();
 
         /* calculate the activations */
-        self.func
-          .compute(&mut res[..])
-          .unwrap();
+        T::activate_mut(res_mut, &self.func);
 
         /* layer returns a vector */
         Ok(IOType::Vector(res))

@@ -151,15 +151,6 @@ mod basic_tests {
   }
 
   #[test]
-  fn sigmoid_test() {
-    use math::Real;
-
-    let a: f32= 220.33234;
-
-    println!("{}", a.sigmoid());
-  }
-
-  #[test]
   fn dataset_tests() {
     use dataset::Dataset;
     use init::PredictModel;

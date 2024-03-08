@@ -344,6 +344,26 @@ impl<T: BasicOperations<T>> Matrix<T> {
   }
 
   /// Usefull for multiplying columns or rows with a matrix
+  pub fn mul_vec(&self, rhs: Vec<T>) -> Result<Vec<T>, OperationError> {
+    if self.shape[1] != rhs.len() { return Err(OperationError::InvalidRHS); }
+
+    let mut result_body = vec![T::default(); self.shape[0]];
+    
+    let row_buf = &mut vec![T::default(); self.shape[1]][..];
+    for r in 0..self.shape[0] {
+      self.row_into_slice(r, row_buf).unwrap();
+
+      result_body[r] = (0..self.shape[1])
+        .fold(T::default(), |acc, k| {
+          /* go through columns of matrix and rows of vector (same value) */
+          acc + row_buf[k] * rhs[k]
+      });
+    }
+
+    Ok(result_body)
+  }
+
+  /// Usefull for multiplying columns or rows with a matrix
   pub fn mul_slice(&self, rhs: &[T]) -> Result<Vec<T>, OperationError> {
     if self.shape[1] != rhs.len() { return Err(OperationError::InvalidRHS); }
 
