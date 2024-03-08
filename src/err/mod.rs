@@ -25,7 +25,7 @@ pub enum LayerAdditionError {
 }
 
 #[derive(Debug)]
-pub enum CostError {
+pub enum LossCalcError {
   IncompatibleDataset,
   InconsistentIO
 }

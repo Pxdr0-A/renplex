@@ -101,7 +101,6 @@ mod basic_tests {
     use rvnn::network::Network;
     use rvnn::layer::dense::DenseLayer;
     use rvnn::layer::LayerLike;
-    use rvnn::CostModel;
     use act::ActFunc;
     use input::IOShape;
     use init::InitMethod;
@@ -149,9 +148,6 @@ mod basic_tests {
       InitMethod::Random(scale), 
       seed
     ).unwrap();
-
-    let cost = net.cost(data, CostModel::Conventional).unwrap();
-    cost.to_csv().unwrap();
   }
 
   #[test]
