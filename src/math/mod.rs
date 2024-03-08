@@ -2,8 +2,8 @@ use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use std::default::Default;
 
-use crate::rvnn::CostModel;
-use crate::cvnn::{ComplexCostModel, Criteria};
+use crate::opt::ComplexLossFunc;
+use crate::opt::LossFunc;
 use crate::err::PredicionError;
 use crate::init::PredictModel;
 
@@ -33,7 +33,7 @@ pub trait Real
 
   fn gen_pred(size: usize, index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
 
-  fn cost(preditcion: &[Self], target: &[Self], cost_model: &CostModel) -> Vec<Self>;
+  fn loss(preditcion: &[Self], target: &[Self], loss_func: &LossFunc) -> Self;
 
   fn sigmoid(self) -> Self;
 }
@@ -66,16 +66,20 @@ impl Real for f32 {
     }
   }
 
-  fn cost(prediction: &[Self], target: &[Self], cost_model: &CostModel) -> Vec<Self> {
+  fn loss(prediction: &[Self], target: &[Self], loss_func: &LossFunc) -> Self {
+    let func = match loss_func {
+      LossFunc::Conventional => {
+        |data: (&Self, &Self)| { 
+          ( data.0 - data.1 ).powi(2)
+        }
+      }
+    };
+
     prediction
       .iter()
       .zip(target)
-      .map(|(pred, targ)| {
-        match cost_model {
-          CostModel::Conventional => { (pred - targ).powi(2) }
-        }
-      })
-      .collect()
+      .map(func)
+      .fold(Self::default(), |acc, elm| { acc + elm })
   }
 
   fn sigmoid(self) -> Self {
@@ -88,6 +92,7 @@ impl Real for f32 {
     }
   }
 }
+
 impl Real for f64 {
   fn pow(&self, n: i32) -> Self {
     self.powi(n)
@@ -116,16 +121,20 @@ impl Real for f64 {
     }
   }
 
-  fn cost(prediction: &[Self], target: &[Self], cost_model: &CostModel) -> Vec<Self> {
+  fn loss(prediction: &[Self], target: &[Self], loss_func: &LossFunc) -> Self {
+    let func = match loss_func {
+      LossFunc::Conventional => {
+        |data: (&Self, &Self)| { 
+          ( data.0 - data.1 ).powi(2)
+        }
+      }
+    };
+
     prediction
       .iter()
       .zip(target)
-      .map(|(pred, targ)| {
-        match cost_model {
-          CostModel::Conventional => { (pred - targ).powi(2) }
-        }
-      })
-      .collect()
+      .map(func)
+      .fold(Self::default(), |acc, elm| { acc + elm })
   }
 
   fn sigmoid(self) -> Self {
@@ -158,9 +167,7 @@ pub trait Complex where Self: Sized {
 
   fn rit_sigmoid(self) -> Self;
 
-  fn cost(prediction: &[Self], target: &[Self::Precision], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision>;
-
-  fn raw_cost(prediction: &[Self], target: &[Self], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision>;
+  fn loss(prediction: &[Self], target: &[Self], loss_func: &ComplexLossFunc) -> Self::Precision;
 }
 
 impl Complex for Cf32 {
@@ -206,24 +213,24 @@ impl Complex for Cf32 {
     }
   }
 
-  fn cost(prediction: &[Self], target: &[Self::Precision], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision> {    
-    prediction
-      .iter()
-      .zip(target)
-      .map(|(pred, targ)| {
-        cost_model.compute(pred, targ, criteria) 
-      })
-      .collect()
-  }
+  fn loss(prediction: &[Self], target: &[Self], loss_func: &ComplexLossFunc) -> Self::Precision {
+    let func = match loss_func {
+      ComplexLossFunc::Conventional => {
+        |acc: Self::Precision, data: (&Self, &Self)| {
+          acc + ( data.0 - data.1 ).norm_sq()
+        }
+      },
+      ComplexLossFunc::Log => {
+        |acc: Self::Precision, data: (&Self, &Self)| { 
+          acc + ((data.0.norm_sq() / data.1.norm_sq()).ln() + (data.0.phase() - data.1.phase()).powi(2)) * 0.5
+        }
+      }
+    };
 
-  fn raw_cost(prediction: &[Self], target: &[Self], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision> {    
     prediction
       .iter()
       .zip(target)
-      .map(|(pred, targ)| { 
-        cost_model.compute_raw(pred, targ, criteria) 
-      })
-      .collect()
+      .fold(Self::Precision::default(), func)
   }
 }
 
@@ -270,23 +277,24 @@ impl Complex for Cf64 {
     }
   }
 
-  fn cost(prediction: &[Self], target: &[Self::Precision], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision> {    
-    prediction
-      .iter()
-      .zip(target)
-      .map(|(pred, targ)| {
-        cost_model.compute(pred, targ, criteria)
-      })
-      .collect()
-  }
+  fn loss(prediction: &[Self], target: &[Self], loss_func: &ComplexLossFunc) -> Self::Precision {
+    let func = match loss_func {
+      ComplexLossFunc::Conventional => {
+        |data: (&Self, &Self)| { 
+          ( data.0 - data.1 ).norm_sq() 
+        }
+      },
+      ComplexLossFunc::Log => {
+        |data: (&Self, &Self)| { 
+          ((data.0.norm_sq() / data.1.norm_sq()).ln() + (data.0.phase() - data.1.phase()).powi(2)) * 0.5
+        }
+      }
+    };
 
-  fn raw_cost(prediction: &[Self], target: &[Self], cost_model: &ComplexCostModel, criteria: &Criteria) -> Vec<Self::Precision> {    
     prediction
       .iter()
       .zip(target)
-      .map(|(pred, targ)| {
-        cost_model.compute_raw(pred, targ, criteria)
-      })
-      .collect()
+      .map(func)
+      .fold(Self::Precision::default(), |acc, elm| { acc + elm })
   }
 }

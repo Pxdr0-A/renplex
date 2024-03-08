@@ -2,6 +2,7 @@ use std::fmt::{Debug, Display};
 use std::fs::File;
 use std::io::Write;
 use std::ops::{AddAssign, SubAssign};
+use std::slice::Chunks;
 use super::BasicOperations;
 
 mod err;
@@ -228,6 +229,10 @@ impl<T> Matrix<T> {
     }
 
     Ok(())
+  }
+
+  pub fn rows_as_iter(&self) -> Chunks<'_, T> {
+    self.body.chunks(self.shape[1])
   }
 }
 

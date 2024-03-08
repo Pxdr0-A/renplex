@@ -1,14 +1,12 @@
 use crate::dataset::Dataset;
 use crate::input::{IOShape, IOType};
-use crate::math::matrix::Matrix;
 use crate::math::{BasicOperations, Complex};
 use crate::cvnn::layer::CLayer;
 use crate::init::InitMethod;
-use crate::err::{CostError, ForwardError, LayerAdditionError};
+use crate::err::{LossCalcError, ForwardError, LayerAdditionError};
+use crate::opt::ComplexLossFunc;
 
 use super::layer::CLayerLike;
-use super::{ComplexCostModel, Criteria};
-
 
 #[derive(Debug)]
 pub struct CNetwork<T> {
@@ -129,101 +127,35 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok(out)
   }
 
-  /// Calculates the cost of a batch of data expressed as a [`Dataset`].
-  pub fn cost(&self, 
-    data: Dataset<T, T::Precision>,
-    cost_model: ComplexCostModel,
-    criteria: Criteria
-  ) -> Result<Matrix<T::Precision>, CostError> {
+  pub fn loss(&self, 
+    data: Dataset<T, T>, 
+    loss_func: ComplexLossFunc) -> Result<Vec<T::Precision>, LossCalcError> {
 
-    /* do shape error handling */
+    let mut loss_vals = Vec::with_capacity(data.body.get_shape()[0]);
     match self.get_input_shape().unwrap() {
-      IOShape::Vector(len) => {
-        let body_shape = data.body.get_shape();
-        let target_shape = data.target.get_shape();
-        if len != body_shape[1] { return Err(CostError::IncompatibleDataset) }
-        /* check output shape */
+      IOShape::Vector(len_in) => {
+        let (body_chunks, target_chunks) = data.rows_as_iter();
+        if len_in != data.body.get_shape()[1] { return Err(LossCalcError::IncompatibleDataset) }
+
         match self.get_output_shape().unwrap() {
-          IOShape::Vector(len) => {
-            let data_chunks = data.body.get_body().chunks(body_shape[1]);
-            let target_chunks = data.target.get_body().chunks(target_shape[1]);
-            let mut cost_func = Matrix::with_capacity([data_chunks.len(), len]);
-            for (body, target) in data_chunks.zip(target_chunks) {
-              cost_func.add_row(
-                /* add the output cost */
-                match self.forward(IOType::Vector(body.to_vec())).unwrap() {
-                  /* calculate cost */
-                  IOType::Vector(prediction) => { 
-                    T::cost(&prediction[..], target, &cost_model, &criteria) 
-                  },
-                  _ => { return Err(CostError::InconsistentIO) }
-                }
-              ).unwrap();
+          IOShape::Vector(_len_out) => {
+            let mut prediction;
+            for (body, target) in body_chunks.zip(target_chunks) {
+              prediction = self
+                .forward(IOType::Vector(body.to_vec()))
+                .unwrap()
+                .release_vec()
+                .unwrap();
+
+              loss_vals.push(T::loss(prediction.as_slice(), target, &loss_func));
             }
-            Ok(cost_func)
+
+            Ok(loss_vals)
           },
-          IOShape::Matrix(_shape) => { 
-            /* output of the network is a Matrix whose input is a vector */ 
-            /* calculate cost accordingly */
-            unimplemented!() 
-          }
+          IOShape::Matrix(_size) => { unimplemented!() }
         }
       },
-      IOShape::Matrix(_shape) => { 
-        /* input of the network is a Matrix */
-        /* check the output shape */
-        /* calculate cost based on output shape */
-        unimplemented!() 
-      }
-    }
-  }
-
-  /// Calculates the cost of a batch of data expressed as a [`Dataset`].
-  pub fn raw_cost(&self, 
-    data: Dataset<T, T>,
-    cost_model: ComplexCostModel,
-    criteria: Criteria
-  ) -> Result<Matrix<T::Precision>, CostError> {
-
-    /* do shape error handling */
-    match self.get_input_shape().unwrap() {
-      IOShape::Vector(len) => {
-        let body_shape = data.body.get_shape();
-        let target_shape = data.target.get_shape();
-        if len != body_shape[1] { return Err(CostError::IncompatibleDataset) }
-        /* check output shape */
-        match self.get_output_shape().unwrap() {
-          IOShape::Vector(len) => {
-            let data_chunks = data.body.get_body().chunks(body_shape[1]);
-            let target_chunks = data.target.get_body().chunks(target_shape[1]);
-            let mut cost_func = Matrix::with_capacity([data_chunks.len(), len]);
-            for (body, target) in data_chunks.zip(target_chunks) {
-              cost_func.add_row(
-                /* add the output cost */
-                match self.forward(IOType::Vector(body.to_vec())).unwrap() {
-                  /* calculate cost */
-                  IOType::Vector(prediction) => { 
-                    T::raw_cost(&prediction[..], target, &cost_model, &criteria) 
-                  },
-                  _ => { return Err(CostError::InconsistentIO) }
-                }
-              ).unwrap();
-            }
-            Ok(cost_func)
-          },
-          IOShape::Matrix(_shape) => { 
-            /* output of the network is a Matrix whose input is a vector */ 
-            /* calculate cost accordingly */
-            unimplemented!() 
-          }
-        }
-      },
-      IOShape::Matrix(_shape) => { 
-        /* input of the network is a Matrix */
-        /* check the output shape */
-        /* calculate cost based on output shape */
-        unimplemented!() 
-      }
+      IOShape::Matrix(_size) => { unimplemented!() }
     }
   }
 }
