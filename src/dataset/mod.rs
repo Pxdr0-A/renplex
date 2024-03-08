@@ -1,6 +1,6 @@
 mod err;
 
-use std::{any::TypeId, fmt::Debug, fs::File, io::Write};
+use std::{any::TypeId, fmt::Debug, fs::File, io::Write, slice::Chunks};
 
 use crate::{init::PredictModel, math::{matrix::Matrix, random::lcgi, BasicOperations, Complex, Real}};
 use err::DatasetSampleError;
@@ -14,6 +14,12 @@ pub struct Dataset<B, T> {
     pub body: Matrix<B>,
     /// Represents the intended output of the network, i.e. the output layer desired results.
     pub target: Matrix<T>
+}
+
+impl<B, T> Dataset<B, T> {
+  pub fn rows_as_iter(&self) -> (Chunks<'_, B>, Chunks<'_, T>) {
+    (self.body.rows_as_iter(), self.target.rows_as_iter())
+  }
 }
 
 impl<B: Debug, T: Debug + PartialOrd + Copy> Dataset<B, T> {
