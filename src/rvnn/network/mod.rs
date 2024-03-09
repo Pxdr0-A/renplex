@@ -144,6 +144,8 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     /* initialize correctly the matrices */
     let mut dldw_per_layer = vec![Matrix::new(); n_layers];
     let mut dldb_per_layer = vec![Matrix::new(); n_layers];
+    /* general counter */
+    let mut count = T::default();
     for (input, target) in inputs.zip(targets) {
       previous_act =  input.clone();
       /* initial value of loss derivative */
@@ -181,8 +183,10 @@ impl<T: Real + BasicOperations<T>> Network<T> {
         dldw_per_layer[n_layers-l-1].add_mut(&dldw).unwrap();
         dldb_per_layer[n_layers-l-1].add_mut(&dldb).unwrap();
       }
+
+      count += T::unit();
     }
-    /* divide the gradient by the number of datapoints */
+    /* divide the gradient by the count */
     /* update the weights */
     unimplemented!()
   }
