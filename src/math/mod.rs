@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign};
 use std::default::Default;
 
 use crate::act::{ActFunc, ComplexActFunc};
@@ -66,13 +66,15 @@ fn log_err_cf32(data: (Cf32, Cf32)) -> f32 { ((data.0.norm_sq() / data.1.norm_sq
 fn log_err_cf64(data: (Cf64, Cf64)) -> f64 { ((data.0.norm_sq() / data.1.norm_sq()).ln() + (data.0.phase() - data.1.phase()).powi(2)) * 0.5 }
 fn conv_err_cf64(data: (Cf64, Cf64)) -> f64 { ( data.0 - data.1 ).norm_sq() }
 
-pub trait BasicOperations<T>: AddAssign + SubAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
+pub trait BasicOperations<T>: AddAssign + SubAssign + MulAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
 
-impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
+impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + MulAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
 
 /// Trait containing utilities for RVNNs
 pub trait Real 
   where Self: Sized {
+  
+  fn unit() -> Self;
 
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
@@ -84,10 +86,14 @@ pub trait Real
 
   fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Self, LossCalcError>;
 
-  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Vec<Self>, LossCalcError>;
+  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<IOType<Self>, LossCalcError>;
 }
 
 impl Real for f32 {
+  fn unit() -> Self {
+    1.0
+  }
+
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as f32;
 
@@ -172,7 +178,7 @@ impl Real for f32 {
     }
   }
 
-  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Vec<Self>, LossCalcError> {
+  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<IOType<Self>, LossCalcError> {
     let func = match loss_func {
       LossFunc::Conventional => {
         d_conv_err_f32
@@ -183,13 +189,12 @@ impl Real for f32 {
       IOType::Vector(pred) => {
         match target {
           IOType::Vector(targ) => {
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ)
-                .map(func)
-                .collect()
-            )
+            let vec = pred
+              .into_iter()
+              .zip(targ)
+              .map(func)
+              .collect::<Vec<Self>>();
+            Ok(IOType::Vector(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -197,13 +202,12 @@ impl Real for f32 {
       IOType::Matrix(pred) => {
         match target {
           IOType::Matrix(targ) => {
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ.into_iter())
-                .map(func)
-                .collect()
-            )
+            let vec = pred
+              .into_iter()
+              .zip(targ.into_iter())
+              .map(func)
+              .collect::<Vec<Self>>();
+            Ok(IOType::Vector(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -213,6 +217,10 @@ impl Real for f32 {
 }
 
 impl Real for f64 {
+  fn unit() -> Self {
+    1.0
+  }
+
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as f64;
 
@@ -297,7 +305,7 @@ impl Real for f64 {
     }
   }
 
-  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Vec<Self>, LossCalcError> {
+  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<IOType<Self>, LossCalcError> {
     let func = match loss_func {
       LossFunc::Conventional => {
         d_conv_err_f64
@@ -308,13 +316,12 @@ impl Real for f64 {
       IOType::Vector(pred) => {
         match target {
           IOType::Vector(targ) => {
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ)
-                .map(func)
-                .collect()
-            )
+            let vec = pred
+              .into_iter()
+              .zip(targ)
+              .map(func)
+              .collect::<Vec<Self>>();
+            Ok(IOType::Vector(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -322,13 +329,12 @@ impl Real for f64 {
       IOType::Matrix(pred) => {
         match target {
           IOType::Matrix(targ) => {
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ.into_iter())
-                .map(func)
-                .collect()
-            )
+            let vec = pred
+              .into_iter()
+              .zip(targ.into_iter())
+              .map(func)
+              .collect::<Vec<Self>>();
+            Ok(IOType::Vector(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
