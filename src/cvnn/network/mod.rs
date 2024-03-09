@@ -128,34 +128,22 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
   }
 
   pub fn loss(&self, 
-    data: Dataset<T, T>, 
-    loss_func: ComplexLossFunc) -> Result<Vec<T::Precision>, LossCalcError> {
+    data: Dataset<T, T>,
+    loss_func: ComplexLossFunc,
+  ) -> Result<Vec<T::Precision>, LossCalcError> {
 
-    let mut loss_vals = Vec::with_capacity(data.body.get_shape()[0]);
-    match self.get_input_shape().unwrap() {
-      IOShape::Vector(len_in) => {
-        let (body_chunks, target_chunks) = data.rows_as_iter();
-        if len_in != data.body.get_shape()[1] { return Err(LossCalcError::IncompatibleDataset) }
+    let mut loss_vals = Vec::with_capacity(data.get_n_points());
+    
+    let (input_chunks, target_chunks) = data.points_into_iter();
+    let mut prediction;
+    for (input, target) in input_chunks.zip(target_chunks) {
+      prediction = self
+        .forward(input)
+        .unwrap();
 
-        match self.get_output_shape().unwrap() {
-          IOShape::Vector(_len_out) => {
-            let mut prediction;
-            for (body, target) in body_chunks.zip(target_chunks) {
-              prediction = self
-                .forward(IOType::Vector(body.to_vec()))
-                .unwrap()
-                .release_vec()
-                .unwrap();
-
-              loss_vals.push(T::loss(prediction.as_slice(), target, &loss_func));
-            }
-
-            Ok(loss_vals)
-          },
-          IOShape::Matrix(_size) => { unimplemented!() }
-        }
-      },
-      IOShape::Matrix(_size) => { unimplemented!() }
+      loss_vals.push(T::loss(prediction, target, &loss_func).unwrap());
     }
+
+    Ok(loss_vals)
   }
 }

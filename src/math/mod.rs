@@ -3,9 +3,10 @@ use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use std::default::Default;
 
 use crate::act::{ActFunc, ComplexActFunc};
+use crate::input::IOType;
 use crate::opt::ComplexLossFunc;
 use crate::opt::LossFunc;
-use crate::err::PredicionError;
+use crate::err::{LossCalcError, PredicionError};
 use crate::init::PredictModel;
 
 use self::cfloat::{Cf32, Cf64};
@@ -15,6 +16,8 @@ pub mod matrix;
 pub mod random;
 pub mod cfloat;
 
+
+/* Activation functions. Will soon be moved. */
 const SIGMOID_THRESHOLD_F32: f32 = 15.0;
 const SIGMOID_THRESHOLD_F64: f64 = 30.0;
 
@@ -28,6 +31,14 @@ fn sigmoid_f64(val: f64) -> f64 {
   if val >= SIGMOID_THRESHOLD_F64 { 1.0 } 
   else if val <= -SIGMOID_THRESHOLD_F64 { 0.0 } 
   else { val.exp() / (1.0 + val.exp()) }
+}
+
+fn d_sigmoid_f32(val: f32) -> f32 {
+  sigmoid_f32(val) * (1.0 - sigmoid_f32(val))
+}
+
+fn d_sigmoid_f64(val: f64) -> f64 {
+  sigmoid_f64(val) * (1.0 - sigmoid_f64(val))
 }
 
 fn ritsigmoid_cf32(val: Cf32) -> Cf32 {
@@ -44,6 +55,17 @@ fn ritsigmoid_cf64(val: Cf64) -> Cf64 {
   }
 }
 
+/* Loss Functions. Will soon be moved. */
+
+fn conv_err_f32(data: (f32, f32)) -> f32 { ( data.0 - data.1 ).powi(2) }
+fn conv_err_f64(data: (f64, f64)) -> f64 { ( data.0 - data.1 ).powi(2) }
+fn d_conv_err_f32(data: (f32, f32)) -> f32 { 2.0 * ( data.0 - data.1 ) }
+fn d_conv_err_f64(data: (f64, f64)) -> f64 { 2.0 * ( data.0 - data.1 ) }
+fn conv_err_cf32(data: (Cf32, Cf32)) -> f32 { ( data.0 - data.1 ).norm_sq() }
+fn log_err_cf32(data: (Cf32, Cf32)) -> f32 { ((data.0.norm_sq() / data.1.norm_sq()).ln() + (data.0.phase() - data.1.phase()).powi(2)) * 0.5 }
+fn log_err_cf64(data: (Cf64, Cf64)) -> f64 { ((data.0.norm_sq() / data.1.norm_sq()).ln() + (data.0.phase() - data.1.phase()).powi(2)) * 0.5 }
+fn conv_err_cf64(data: (Cf64, Cf64)) -> f64 { ( data.0 - data.1 ).norm_sq() }
+
 pub trait BasicOperations<T>: AddAssign + SubAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
 
 impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
@@ -54,11 +76,15 @@ pub trait Real
 
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
-  fn gen_pred(size: usize, index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
+  fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
 
   fn activate_mut(vals: &mut [Self], func: &ActFunc);
 
-  fn loss(preditcion: &[Self], target: &[Self], loss_func: &LossFunc) -> Self;
+  fn d_activate_mut(vals: &mut [Self], func: &ActFunc);
+
+  fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Self, LossCalcError>;
+
+  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Vec<Self>, LossCalcError>;
 }
 
 impl Real for f32 {
@@ -91,22 +117,98 @@ impl Real for f32 {
     for val in vals.iter_mut() {
       *val = act_func(*val);
     }
-  } 
+  }
 
-  fn loss(prediction: &[Self], target: &[Self], loss_func: &LossFunc) -> Self {
-    let func = match loss_func {
-      LossFunc::Conventional => {
-        |data: (&Self, &Self)| { 
-          ( data.0 - data.1 ).powi(2)
-        }
+  fn d_activate_mut(vals: &mut [Self], func: &ActFunc) {
+    let act_func = match func {
+      ActFunc::Sigmoid => {
+        d_sigmoid_f32
       }
     };
 
-    prediction
-      .iter()
-      .zip(target)
-      .map(func)
-      .fold(Self::default(), |acc, elm| { acc + elm })
+    for val in vals.iter_mut() {
+      *val = act_func(*val);
+    }
+  }
+
+  fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Self, LossCalcError> {
+    let func = match loss_func {
+      LossFunc::Conventional => {
+        conv_err_f32
+      }
+    };
+
+    match prediction {
+      IOType::Vector(pred) => {
+        match target {
+          IOType::Vector(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ)
+                .fold(Self::default(),|acc, data| {
+                  acc + func(data)
+                })
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      },
+      IOType::Matrix(pred) => {
+        match target {
+          IOType::Matrix(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ.into_iter())
+                .fold(Self::default(),|acc, data| {
+                  acc + func(data)
+                })
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      }
+    }
+  }
+
+  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Vec<Self>, LossCalcError> {
+    let func = match loss_func {
+      LossFunc::Conventional => {
+        d_conv_err_f32
+      }
+    };
+
+    match prediction {
+      IOType::Vector(pred) => {
+        match target {
+          IOType::Vector(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ)
+                .map(func)
+                .collect()
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      },
+      IOType::Matrix(pred) => {
+        match target {
+          IOType::Matrix(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ.into_iter())
+                .map(func)
+                .collect()
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      }
+    }
   }
 }
 
@@ -140,22 +242,98 @@ impl Real for f64 {
     for val in vals.iter_mut() {
       *val = act_func(*val);
     }
-  } 
+  }
 
-  fn loss(prediction: &[Self], target: &[Self], loss_func: &LossFunc) -> Self {
-    let func = match loss_func {
-      LossFunc::Conventional => {
-        |data: (&Self, &Self)| { 
-          ( data.0 - data.1 ).powi(2)
-        }
+  fn d_activate_mut(vals: &mut [Self], func: &ActFunc) {
+    let act_func = match func {
+      ActFunc::Sigmoid => {
+        d_sigmoid_f64
       }
     };
 
-    prediction
-      .iter()
-      .zip(target)
-      .map(func)
-      .fold(Self::default(), |acc, elm| { acc + elm })
+    for val in vals.iter_mut() {
+      *val = act_func(*val);
+    }
+  }
+
+  fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Self, LossCalcError> {
+    let func = match loss_func {
+      LossFunc::Conventional => {
+        conv_err_f64
+      }
+    };
+
+    match prediction {
+      IOType::Vector(pred) => {
+        match target {
+          IOType::Vector(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ)
+                .fold(Self::default(),|acc, data| {
+                  acc + func(data)
+                })
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      },
+      IOType::Matrix(pred) => {
+        match target {
+          IOType::Matrix(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ.into_iter())
+                .fold(Self::default(),|acc, data| {
+                  acc + func(data)
+                })
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      }
+    }
+  }
+
+  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Vec<Self>, LossCalcError> {
+    let func = match loss_func {
+      LossFunc::Conventional => {
+        d_conv_err_f64
+      }
+    };
+
+    match prediction {
+      IOType::Vector(pred) => {
+        match target {
+          IOType::Vector(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ)
+                .map(func)
+                .collect()
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      },
+      IOType::Matrix(pred) => {
+        match target {
+          IOType::Matrix(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ.into_iter())
+                .map(func)
+                .collect()
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      }
+    }
   }
 }
 
@@ -176,9 +354,11 @@ pub trait Complex where Self: Sized {
 
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
+  fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
+
   fn activate_mut(vals: &mut [Self], func: &ComplexActFunc);
 
-  fn loss(prediction: &[Self], target: &[Self], loss_func: &ComplexLossFunc) -> Self::Precision;
+  fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError>;
 }
 
 impl Complex for Cf32 {
@@ -217,6 +397,19 @@ impl Complex for Cf32 {
     }
   }
 
+  fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError> {
+    if size < critical_index { return Err(PredicionError::CriticalIndexOverflow) }
+
+    match pred_method {
+      PredictModel::Sparse => { 
+        let mut one_hot_vec = vec![Self::default(); size];
+        one_hot_vec[critical_index] += Self { x: 1.0, y: 1.0 };
+
+        Ok(one_hot_vec)
+      }
+    }
+  }
+
   fn activate_mut(vals: &mut [Self], func: &ComplexActFunc) {
     let act_func = match func {
       ComplexActFunc::RITSigmoid => {
@@ -229,24 +422,48 @@ impl Complex for Cf32 {
     }
   } 
 
-  fn loss(prediction: &[Self], target: &[Self], loss_func: &ComplexLossFunc) -> Self::Precision {
+  fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError> {
     let func = match loss_func {
       ComplexLossFunc::Conventional => {
-        |acc: Self::Precision, data: (&Self, &Self)| {
-          acc + ( data.0 - data.1 ).norm_sq()
-        }
+        conv_err_cf32
       },
       ComplexLossFunc::Log => {
-        |acc: Self::Precision, data: (&Self, &Self)| { 
-          acc + ((data.0.norm_sq() / data.1.norm_sq()).ln() + (data.0.phase() - data.1.phase()).powi(2)) * 0.5
-        }
+        log_err_cf32
       }
     };
 
-    prediction
-      .iter()
-      .zip(target)
-      .fold(Self::Precision::default(), func)
+    match prediction {
+      IOType::Vector(pred) => {
+        match target {
+          IOType::Vector(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ)
+                .fold(Self::Precision::default(),|acc, data| {
+                  acc + func(data)
+                })
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      },
+      IOType::Matrix(pred) => {
+        match target {
+          IOType::Matrix(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ.into_iter())
+                .fold(Self::Precision::default(),|acc, data| {
+                  acc + func(data)
+                })
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      }
+    }
   }
 }
 
@@ -286,6 +503,19 @@ impl Complex for Cf64 {
     }
   }
 
+  fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError> {
+    if size < critical_index { return Err(PredicionError::CriticalIndexOverflow) }
+
+    match pred_method {
+      PredictModel::Sparse => { 
+        let mut one_hot_vec = vec![Self::default(); size];
+        one_hot_vec[critical_index] += Self { x: 1.0, y: 1.0 };
+
+        Ok(one_hot_vec)
+      }
+    }
+  }
+
   fn activate_mut(vals: &mut [Self], func: &ComplexActFunc) {
     let act_func = match func {
       ComplexActFunc::RITSigmoid => {
@@ -298,24 +528,47 @@ impl Complex for Cf64 {
     }
   } 
 
-  fn loss(prediction: &[Self], target: &[Self], loss_func: &ComplexLossFunc) -> Self::Precision {
+  fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError> {
     let func = match loss_func {
       ComplexLossFunc::Conventional => {
-        |data: (&Self, &Self)| { 
-          ( data.0 - data.1 ).norm_sq() 
-        }
+        conv_err_cf64
       },
       ComplexLossFunc::Log => {
-        |data: (&Self, &Self)| { 
-          ((data.0.norm_sq() / data.1.norm_sq()).ln() + (data.0.phase() - data.1.phase()).powi(2)) * 0.5
-        }
+        log_err_cf64
       }
     };
 
-    prediction
-      .iter()
-      .zip(target)
-      .map(func)
-      .fold(Self::Precision::default(), |acc, elm| { acc + elm })
+    match prediction {
+      IOType::Vector(pred) => {
+        match target {
+          IOType::Vector(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ)
+                .fold(Self::Precision::default(),|acc, data| {
+                  acc + func(data)
+                })
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      },
+      IOType::Matrix(pred) => {
+        match target {
+          IOType::Matrix(targ) => {
+            Ok(
+              pred
+                .into_iter()
+                .zip(targ.into_iter())
+                .fold(Self::Precision::default(),|acc, data| {
+                  acc + func(data)
+                })
+            )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      }
+    }
   }
 }

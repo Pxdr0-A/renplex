@@ -129,38 +129,57 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     Ok(out)
   }
 
+  pub fn backward(&mut self, data: Dataset<T, T>, loss_func: LossFunc) -> Result<(), ForwardError> {
+    if self.layers.len() <= 1 { return Err(ForwardError::MissingLayers) }
+
+    let (inputs, targets) = data.points_into_iter();
+    let mut previous_prediction: IOType<T>;
+    let mut current_prediction;
+    for (input, target) in inputs.zip(targets) {
+      previous_prediction =  input.clone();
+      current_prediction = input.clone();
+      /* propagate the signal until the last two layers */
+      /* decrease the number of layers to go through by one until you reach the input */
+      for l in 0..self.layers.len() {
+        let mut layers_iter = self.layers
+          .iter()
+          .rev()
+          .skip(l)
+          .rev();
+
+        let input_layer = layers_iter.next().unwrap();
+        current_prediction = input_layer.trigger(input.clone()).unwrap();
+        for layer in layers_iter {
+          previous_prediction = current_prediction;
+          current_prediction = layer.foward(input.clone()).unwrap();
+        }
+        /* do the logic that analyzes the last two outputs before updating prediction */
+        /* logic that analyzes the previous_prediction versus current_prediction */
+        /* you might need information about previous and current layer IO */
+        /* calculate general derivatives weights, bias and previous layer */
+        /* update parameters? */
+      }
+    }
+    unimplemented!()
+  }
+
   pub fn loss(&self, 
     data: Dataset<T, T>,
     loss_func: LossFunc,
   ) -> Result<Vec<T>, LossCalcError> {
 
-    let mut loss_vals = Vec::with_capacity(data.body.get_shape()[0]);
-    match self.get_input_shape().unwrap() {
-      IOShape::Vector(len_in) => {
-        let (body_chunks, target_chunks) = data.rows_as_iter();
-        if len_in != data.body.get_shape()[1] { return Err(LossCalcError::IncompatibleDataset) }
+    let mut loss_vals = Vec::with_capacity(data.get_n_points());
 
-        match self.get_output_shape().unwrap() {
-          IOShape::Vector(_len_out) => {
-            let mut prediction;
-            for (body, target) in body_chunks.zip(target_chunks) {
-              prediction = self
-                .forward(IOType::Vector(body.to_vec()))
-                .unwrap()
-                .release_vec()
-                .unwrap();
+    let (input_chunks, target_chunks) = data.points_into_iter();
+    let mut prediction;
+    for (input, target) in input_chunks.zip(target_chunks) {
+      prediction = self
+        .forward(input)
+        .unwrap();
 
-              loss_vals.push(
-                T::loss(prediction.as_slice(), target, &loss_func)
-              );
-            }
-
-            Ok(loss_vals)
-          },
-          IOShape::Matrix(_size) => { unimplemented!() }
-        }
-      },
-      IOShape::Matrix(_size) => { unimplemented!() }
+      loss_vals.push(T::loss(prediction, target, &loss_func).unwrap());
     }
+
+    Ok(loss_vals)
   }
 }

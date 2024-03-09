@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::ops::{AddAssign, SubAssign};
 use std::slice::Chunks;
+use std::vec::IntoIter;
 use super::BasicOperations;
 
 mod err;
@@ -233,6 +234,10 @@ impl<T> Matrix<T> {
 
   pub fn rows_as_iter(&self) -> Chunks<'_, T> {
     self.body.chunks(self.shape[1])
+  }
+
+  pub fn into_iter(self) -> IntoIter<T> {
+    self.body.into_iter()
   }
 }
 

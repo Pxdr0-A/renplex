@@ -5,7 +5,7 @@ pub enum ReleaseError {
   InvalidType
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum IOType<T> {
   Vector(Vec<T>),
   Matrix(Matrix<T>)
@@ -25,6 +25,17 @@ impl<T> IOType<T> {
       _ => { Err(ReleaseError::InvalidType) }
     }
   }
+}
+
+
+pub enum ConnectError {
+  InvalidType,
+  InvalidLen,
+  InvalidSize
+}
+
+pub enum TranferError {
+  IncompatibleType
 }
 
 #[derive(Debug)]

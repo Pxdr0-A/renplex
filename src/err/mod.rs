@@ -16,6 +16,10 @@ pub enum ForwardError {
   MissingLayers
 }
 
+pub enum BackwardError {
+  MissingLayers
+}
+
 #[derive(Debug)]
 pub enum LayerAdditionError {
   MissingInput,

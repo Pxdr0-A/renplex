@@ -17,6 +17,14 @@ pub struct DenseLayer<T> {
 /* the activation function is what makes this layer real or complex */
 /* the implementations are almost the same tho */
 impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
+  fn new(func: ActFunc) -> Self {
+    DenseLayer {
+      weights: Matrix::new(),
+      biases: Vec::new(),
+      func
+    }
+  }
+
   fn is_empty(&self) -> bool {
     if (self.weights.get_shape() == [0_usize, 0]) && (self.biases.len() == 0) {
       true
@@ -32,14 +40,6 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
 
   fn get_output_shape(&self) -> IOShape {
     IOShape::Vector(self.biases.len())
-  }
-
-  fn new(func: ActFunc) -> Self {
-    DenseLayer {
-      weights: Matrix::new(),
-      biases: Vec::new(),
-      func
-    }
   }
 
   fn init(
