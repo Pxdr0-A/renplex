@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display};
 use std::fs::File;
 use std::io::Write;
 use std::ops::{AddAssign, SubAssign};
-use std::slice::Chunks;
+use std::slice::{Chunks, ChunksMut};
 use std::vec::IntoIter;
 use super::BasicOperations;
 
@@ -69,6 +69,10 @@ impl<T> Matrix<T> {
 
   pub fn get_body(&self) -> &[T] {
     &self.body[..]
+  }
+
+  pub fn get_body_as_mut(&mut self) -> &mut [T] {
+    &mut self.body[..]
   }
 
   pub fn get_shape(&self) -> &[usize] {
@@ -236,6 +240,10 @@ impl<T> Matrix<T> {
     self.body.chunks(self.shape[1])
   }
 
+  pub fn rows_as_iter_mut(&mut self) -> ChunksMut<'_, T> {
+    self.body.chunks_mut(self.shape[1])
+  }
+
   pub fn into_iter(self) -> IntoIter<T> {
     self.body.into_iter()
   }
@@ -275,6 +283,17 @@ impl<T: Copy> Matrix<T> {
     }
 
     Ok(())
+  }
+  
+  pub fn copy_col_into_vec(&self, j: usize) -> Result<Vec<T>, OperationError> {
+    if j >= self.shape[1] { return Err(OperationError::OutOfBounds); }
+
+    let mut result = Vec::with_capacity(self.shape[0]);
+    for i in 0..self.shape[0] {
+      result.push(self.body[i * self.shape[1] + j]);
+    }
+
+    Ok(result)
   }
 }
 
@@ -368,6 +387,18 @@ impl<T: BasicOperations<T>> Matrix<T> {
     Ok(result_body)
   }
 
+  pub fn mul_elm_vec(&mut self, rhs: &Vec<T>) -> Result<(), OperationError> {
+    if self.shape[1] != rhs.len() { return Err(OperationError::InvalidRHS); }
+
+    for row in self.rows_as_iter_mut() {
+      for (elm, other) in row.into_iter().zip(rhs) {
+        *elm *= *other;
+      }
+    }
+
+    Ok(())
+  }
+
   /// Usefull for multiplying columns or rows with a matrix
   pub fn mul_slice(&self, rhs: &[T]) -> Result<Vec<T>, OperationError> {
     if self.shape[1] != rhs.len() { return Err(OperationError::InvalidRHS); }
@@ -396,6 +427,7 @@ pub trait SliceOps<T> {
 }
 
 impl<T: Copy + AddAssign + SubAssign> SliceOps<T> for [T] {
+  /// Element-wise assignment summation.
   fn add_slice(&mut self, rhs: &Self) -> Result<(), OperationError> {
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
     
