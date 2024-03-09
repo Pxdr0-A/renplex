@@ -13,3 +13,9 @@ pub enum ComplexLossFunc {
   Conventional,
   Log
 }
+
+#[derive(Debug)]
+pub enum GradientError {
+  InconsistentShape,
+  Unimplemented
+}
