@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use crate::input::{IOShape, IOType};
+use crate::math::matrix::Matrix;
 use crate::math::{BasicOperations, Real};
 use crate::dataset::Dataset;
 use crate::rvnn::layer::Layer;
@@ -133,14 +134,27 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     if self.layers.len() <= 1 { return Err(ForwardError::MissingLayers) }
 
     let (inputs, targets) = data.points_into_iter();
-    let mut previous_prediction: IOType<T>;
-    let mut current_prediction;
+    let n_layers = self.layers.len();
+    let mut previous_act;
+    let mut current_act;
+    let mut current_layer;
+    let mut dldw;
+    let mut dldb;
+    /* derivatives to accumulate */
+    /* initialize correctly the matrices */
+    let mut dldw_per_layer = vec![Matrix::new(); n_layers];
+    let mut dldb_per_layer = vec![Matrix::new(); n_layers];
     for (input, target) in inputs.zip(targets) {
-      previous_prediction =  input.clone();
-      current_prediction = input.clone();
-      /* propagate the signal until the last two layers */
+      previous_act =  input.clone();
+      /* initial value of loss derivative */
+      let mut dlda = T::d_loss(
+        self.forward(input.clone()).unwrap(), 
+        target.clone(), 
+        &loss_func
+      ).unwrap().to_vec();
       /* decrease the number of layers to go through by one until you reach the input */
-      for l in 0..self.layers.len() {
+      for l in 0..self.layers.len()-1 {
+        /* process for getting to adjacent layer signals back to input */
         let mut layers_iter = self.layers
           .iter()
           .rev()
@@ -148,18 +162,28 @@ impl<T: Real + BasicOperations<T>> Network<T> {
           .rev();
 
         let input_layer = layers_iter.next().unwrap();
-        current_prediction = input_layer.trigger(input.clone()).unwrap();
+        current_layer = Some(input_layer);
+
+        current_act = input_layer.trigger(input.clone()).unwrap();
         for layer in layers_iter {
-          previous_prediction = current_prediction;
-          current_prediction = layer.foward(input.clone()).unwrap();
+          previous_act = current_act;
+
+          current_layer = Some(layer);
+          current_act = layer.foward(input.clone()).unwrap();
         }
-        /* do the logic that analyzes the last two outputs before updating prediction */
-        /* logic that analyzes the previous_prediction versus current_prediction */
-        /* you might need information about previous and current layer IO */
-        /* calculate general derivatives weights, bias and previous layer */
-        /* update parameters? */
+        /* do the logic that analyzes the last two outputs */
+        /* dadq for all of the layer's neurons */
+        let layer1 = current_layer.unwrap();
+
+        (dldw, dldb, dlda) = layer1.compute_derivatives(&previous_act, dlda).unwrap();
+
+        /* open exception to the operation */
+        dldw_per_layer[n_layers-l-1].add_mut(&dldw).unwrap();
+        dldb_per_layer[n_layers-l-1].add_mut(&dldb).unwrap();
       }
     }
+    /* divide the gradient by the number of datapoints */
+    /* update the weights */
     unimplemented!()
   }
 

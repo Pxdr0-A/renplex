@@ -5,6 +5,7 @@ use crate::math::matrix::{Matrix, SliceOps};
 use crate::math::{BasicOperations, Real};
 use crate::input::{IOShape, IOType};
 use crate::init::InitMethod;
+use crate::opt::GradientError;
 use super::{Layer, LayerForwardError, LayerLike, LayerInitError};
 
 #[derive(Debug)]
@@ -176,6 +177,71 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
         Ok(IOType::Vector(res))
       },
       _ => { Err(LayerForwardError::InvalidInput) }
+    }
+  }
+
+  fn get_act(&self) -> &ActFunc {
+      &self.func
+  }
+
+  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
+    let weight_shape = self.weights.get_shape();
+    if dlda.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) } 
+    match previous_act {
+      IOType::Vector(input) => {
+        /* determine q */
+        let mut q = self.weights.mul_vec(input.clone()).unwrap();
+        q.add_slice(&self.biases).unwrap();
+        let mut dadq = q;
+        /* determine dadq */
+        T::d_activate_mut(
+          &mut dadq[..], 
+          &self.func
+        );
+
+        /* determine dqdw */
+        /* this is repeated to all neurons */
+        let dqdw = input.clone();
+
+        /* determine dqdb */
+        let _dqdb = T::unit();
+
+        /* determine dqda (not really iter of the weights, but happens to be so) */
+        let mut dqda = self.weights.rows_as_iter();
+
+        /* calculate dldw */
+        let vals = dlda
+          .iter()
+          .zip(&dadq[..])
+          .map(|(lhs, rhs)| {*lhs * *rhs});
+        let mut dldw = Matrix::with_capacity([weight_shape[0], weight_shape[1]]);
+        /* calculate dldb */
+        let mut dldb = Vec::with_capacity(weight_shape[0]);
+        let mut new_dlda: Vec<T> = vec![T::default(); weight_shape[1]];
+        for val in vals {
+          dldw.add_row(
+            dqdw
+            .iter()
+            .map(|elm| { *elm * val })
+            .collect::<Vec<T>>()
+          ).unwrap();
+
+          dldb.push(val);
+
+          let current_dqda_row: Vec<T> = dqda
+            .next()
+            .unwrap()
+            .iter()
+            .map(|elm| { *elm * val })
+            .collect();
+          /* accumulate the sum */
+          new_dlda.add_slice(&current_dqda_row).unwrap();
+        }
+
+        /* update dlda and return it */
+        Ok((dldw, Matrix::from_body(dldb, [weight_shape[0], 1]), new_dlda))
+      },
+      _ => { panic!("Something went terribily wrong!") }
     }
   }
 

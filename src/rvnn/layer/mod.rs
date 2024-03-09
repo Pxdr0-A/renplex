@@ -1,8 +1,10 @@
 use crate::input::{IOShape, IOType}; 
+use crate::math::matrix::Matrix;
 use crate::math::{BasicOperations, Real};
 use crate::act::ActFunc;
 use crate::init::InitMethod;
 use crate::err::{LayerInitError, LayerForwardError};
+use crate::opt::GradientError;
 
 use self::dense::DenseLayer;
 
@@ -25,6 +27,10 @@ pub trait LayerLike<T> where Self: Sized {
   fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError>;
 
   fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError>;
+
+  fn get_act(&self) -> &ActFunc;
+
+  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError>;
 
   fn wrap(self) -> Layer<T>;
 }
@@ -65,6 +71,18 @@ impl<T: Real + BasicOperations<T>> Layer<T> {
     /* deconstruct what type of layer it is */
     match self {
       Layer::Dense(l) => { l.forward(input_type) }
+    }
+  }
+
+  pub fn get_act(&self) -> &ActFunc {
+    match self {
+      Layer::Dense(l) => { l.get_act() }
+    }
+  }
+
+  pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
+    match self {
+      Layer::Dense(l) => { l.compute_derivatives(previous_act, dlda) }
     }
   }
 }
