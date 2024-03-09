@@ -25,6 +25,22 @@ impl<T> IOType<T> {
       _ => { Err(ReleaseError::InvalidType) }
     }
   }
+
+  pub fn as_mut(&mut self) -> &mut [T] {
+    match self {
+      IOType::Vector(vec) => { &mut vec[..] },
+      IOType::Matrix(mat) => { mat.get_body_as_mut() }
+    }
+  }
+}
+
+impl<T: Copy> IOType<T> {
+  pub fn to_vec(self) -> Vec<T> {
+    match self {
+      IOType::Vector(vec) => { vec },
+      IOType::Matrix(mat) => { mat.get_body().to_vec() }
+    }
+  }
 }
 
 
