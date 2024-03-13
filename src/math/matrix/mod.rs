@@ -57,6 +57,14 @@ impl<T> Matrix<T> {
     Matrix { body, shape, capacity }
   }
 
+  pub fn is_empty(&self) -> bool {
+    if self.body.len() == 0 && self.shape == [0, 0] && self.capacity == [0, 0] {
+      true
+    } else {
+      false
+    }
+  }
+
   pub fn from_body(mut body: Vec<T>, shape: [usize; 2]) -> Matrix<T> {
     body.shrink_to_fit();
 
@@ -299,16 +307,28 @@ impl<T: Copy> Matrix<T> {
 
 impl<T: BasicOperations<T>> Matrix<T> {
   pub fn add_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
-    if self.shape != rhs.shape { 
+    
+    if self.shape != rhs.shape && (!self.is_empty() && !rhs.is_empty()) { 
       return Err(OperationError::InconsistentShape);
     }
 
-    self.body
-      .iter_mut()
-      .zip(&rhs.body)
-      .for_each(|(lhs, rhs)| { *lhs += *rhs });
+    if self.is_empty() {
+      self.body = rhs.body.clone();
+      self.shape = [rhs.get_shape()[0], rhs.get_shape()[1]];
+      self.capacity = [rhs.get_capacity()[0], rhs.get_capacity()[1]];
 
-    Ok(())
+      Ok(())
+    } else if rhs.is_empty() {
+
+      Ok(())
+    } else {
+      self.body
+        .iter_mut()
+        .zip(&rhs.body)
+        .for_each(|(lhs, rhs)| { *lhs += *rhs });
+
+      Ok(())
+    }
   }
 
   /// Usefull for adding columns with columns or rows with rows
@@ -417,6 +437,22 @@ impl<T: BasicOperations<T>> Matrix<T> {
     }
 
     Ok(result_body)
+  }
+
+  pub fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
+    for elm in self.body.iter_mut() {
+      *elm *= rhs;
+    }
+    
+    Ok(())
+  }
+
+  pub fn div_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
+    for elm in self.body.iter_mut() {
+      *elm /= rhs;
+    }
+
+    Ok(())
   }
 }
 
