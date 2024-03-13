@@ -9,7 +9,7 @@ use err::DatasetSampleError;
 /// A very low-level and simple dataset representation.
 /// Body contains the input that will be feed directly onto a Network.
 /// Target contains the expected output to be directly used in calculating the cost function.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Dataset<B, T> {
     inputs: Vec<IOType<B>>,
     /// Represents the intended output of the network, i.e. the output layer desired results.
@@ -95,6 +95,7 @@ impl<T: Real + BasicOperations<T>> Dataset<T, T> {
       sample_body.push(IOType::Vector(added_row.clone()));
       labels.push(IOType::Vector(one_hot_vec.clone()));
 
+      added_row.drain(..);
     }
 
     Ok(
