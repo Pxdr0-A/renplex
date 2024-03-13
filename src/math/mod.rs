@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::default::Default;
 
 use crate::act::{ActFunc, ComplexActFunc};
@@ -17,7 +17,7 @@ pub mod random;
 pub mod cfloat;
 
 
-/* Activation functions. Will soon be moved. */
+/* Activation functions. Will soon be moved do act module. */
 const SIGMOID_THRESHOLD_F32: f32 = 15.0;
 const SIGMOID_THRESHOLD_F64: f64 = 30.0;
 
@@ -55,7 +55,7 @@ fn ritsigmoid_cf64(val: Cf64) -> Cf64 {
   }
 }
 
-/* Loss Functions. Will soon be moved. */
+/* Loss Functions. Will soon be moved to opt module. */
 
 fn conv_err_f32(data: (f32, f32)) -> f32 { ( data.0 - data.1 ).powi(2) }
 fn conv_err_f64(data: (f64, f64)) -> f64 { ( data.0 - data.1 ).powi(2) }
@@ -66,9 +66,9 @@ fn log_err_cf32(data: (Cf32, Cf32)) -> f32 { ((data.0.norm_sq() / data.1.norm_sq
 fn log_err_cf64(data: (Cf64, Cf64)) -> f64 { ((data.0.norm_sq() / data.1.norm_sq()).ln() + (data.0.phase() - data.1.phase()).powi(2)) * 0.5 }
 fn conv_err_cf64(data: (Cf64, Cf64)) -> f64 { ( data.0 - data.1 ).norm_sq() }
 
-pub trait BasicOperations<T>: AddAssign + SubAssign + MulAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
+pub trait BasicOperations<T>: AddAssign + SubAssign + MulAssign + DivAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
 
-impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + MulAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
+impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + MulAssign + DivAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + Default + Debug + Copy {}
 
 /// Trait containing utilities for RVNNs
 pub trait Real 
