@@ -34,6 +34,10 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
     }
   }
 
+  fn is_trainable(&self) -> bool {
+      true
+  }
+
   fn get_input_shape(&self) -> IOShape {
     let weight_shape = self.weights.get_shape();
     IOShape::Vector(weight_shape[0] * weight_shape[1])
@@ -122,7 +126,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
       IOType::Vector(input) => {
         let shape = self.weights.get_shape();
 
-        if input.len() != shape[0] * shape[1] { return Err(LayerForwardError::InvalidInput) }
+        if input.len() != shape[0] * shape[1] { println!("{:?}", shape); println!("{}", input.len()); return Err(LayerForwardError::InvalidInput) }
 
         /* instantiate the result (it is going to be a column matrix) */
         let mut res = Vec::with_capacity(input.len());
@@ -156,6 +160,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
   }
 
   fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+    /* consider using a reference to a IOType<T> */
     match input_type {
       /* dense layer should receive a vector */
       IOType::Vector(input) => {
@@ -186,7 +191,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
 
   fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
     let weight_shape = self.weights.get_shape();
-    if dlda.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) } 
+    if dlda.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) }
     match previous_act {
       IOType::Vector(input) => {
         /* determine q */
@@ -209,13 +214,12 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
         /* determine dqda (not really iter of the weights, but happens to be so) */
         let mut dqda = self.weights.rows_as_iter();
 
-        /* calculate dldw */
+        /* first two sub-derivatives */
         let vals = dlda
           .iter()
           .zip(&dadq[..])
           .map(|(lhs, rhs)| {*lhs * *rhs});
         let mut dldw = Matrix::with_capacity([weight_shape[0], weight_shape[1]]);
-        /* calculate dldb */
         let mut dldb = Vec::with_capacity(weight_shape[0]);
         let mut new_dlda: Vec<T> = vec![T::default(); weight_shape[1]];
         for val in vals {
@@ -243,6 +247,35 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
       },
       _ => { panic!("Something went terribily wrong!") }
     }
+  }
+
+  fn gradient_adjustment(&mut self, dldw: Matrix<T>, dldb: Matrix<T>) -> Result<(), GradientError> {
+    let weight_shape = self.weights.get_shape();
+    let dldw_shape = dldw.get_shape();
+    let dldb_shape = dldb.get_shape();
+    if dldb_shape[0] != 1 && dldb_shape[1] != 1 {
+      return Err(GradientError::InvalidBiasShape)
+    } 
+    if dldb_shape[0] != self.biases.len() && dldb_shape[1] != self.biases.len() {
+      return Err(GradientError::InconsistentShape)
+    } 
+    if dldw_shape != weight_shape {
+      return Err(GradientError::InconsistentShape)
+    }
+
+
+    
+    for (weights, dw_slice) in self.weights.rows_as_iter_mut().zip(dldw.rows_as_iter()) {
+      for (weight, dw) in weights.into_iter().zip(dw_slice) {
+        *weight -= *dw
+      }
+    }
+
+    for (bias, db) in self.biases.iter_mut().zip(dldb.get_body()) {
+      *bias -= *db
+    }
+
+    Ok(())
   }
 
   fn wrap(self) -> Layer<T> {

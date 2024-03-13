@@ -13,6 +13,8 @@ pub mod dense;
 pub trait LayerLike<T> where Self: Sized {
   fn is_empty(&self) -> bool;
 
+  fn is_trainable(&self) -> bool;
+
   fn get_input_shape(&self) -> IOShape;
 
   fn get_output_shape(&self) -> IOShape;
@@ -32,6 +34,8 @@ pub trait LayerLike<T> where Self: Sized {
 
   fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError>;
 
+  fn gradient_adjustment(&mut self, dldw: Matrix<T>, dldb: Matrix<T>) -> Result<(), GradientError>;
+
   fn wrap(self) -> Layer<T>;
 }
 
@@ -45,6 +49,12 @@ impl<T: Real + BasicOperations<T>> Layer<T> {
   pub fn is_empty(&self) -> bool {
     match self {
       Layer::Dense(l) => { l.is_empty() }
+    }
+  }
+
+  pub fn is_trainable(&self) -> bool {
+    match self {
+      Layer::Dense(l) => { l.is_trainable() }
     }
   }
 
@@ -83,6 +93,12 @@ impl<T: Real + BasicOperations<T>> Layer<T> {
   pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
     match self {
       Layer::Dense(l) => { l.compute_derivatives(previous_act, dlda) }
+    }
+  }
+
+  pub fn gradient_adjustment(&mut self, dldw: Matrix<T>, dldb: Matrix<T>) -> Result<(), GradientError> {
+    match self {
+      Layer::Dense(l) => { l.gradient_adjustment(dldw, dldb) }
     }
   }
 }

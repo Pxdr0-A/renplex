@@ -11,7 +11,9 @@ pub mod cvnn;
 #[cfg(test)]
 mod basic_tests {
 
-  use super::*;
+  use crate::opt::LossFunc;
+
+use super::*;
 
   #[test]
   fn net_ops() {
@@ -167,5 +169,71 @@ mod basic_tests {
     ).unwrap();
 
     data.to_csv().unwrap();
+  }
+
+  #[test]
+  fn gradient_descent_test() {
+    use dataset::Dataset;
+    use init::PredictModel;
+    use rvnn::network::Network;
+    use rvnn::layer::dense::DenseLayer;
+    use rvnn::layer::LayerLike;
+    use act::ActFunc;
+    use input::IOShape;
+    use init::InitMethod;
+
+    let ref mut seed = 91239812_u128;
+
+    let n_input_dendrits: usize = 2;
+    let n_input_units: usize = 2;
+    let input_len = n_input_dendrits * n_input_units;
+    let scale: usize = 4;
+
+    let data: Dataset<f32, f32> = Dataset::sample(
+      [128, input_len], 
+      3, 
+      100, 
+      10, 
+      PredictModel::Sparse, 
+      seed
+    ).unwrap();
+
+    let mut net: Network<f32> = Network::new();
+    net.add_input(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      IOShape::Vector(n_input_dendrits), 
+      n_input_units,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      16,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      64, 
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      3,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+
+    let mut loss = net.loss(data.clone(), LossFunc::Conventional).unwrap();
+    println!("{:?}", loss.into_iter().sum::<f32>());
+
+    let n_batches: usize = 128;
+    for _ in 0..n_batches {
+      net.gradient_opt(data.clone(), LossFunc::Conventional, 10e-3).unwrap();
+
+      loss = net.loss(data.clone(), LossFunc::Conventional).unwrap();
+      println!("{:?}", loss.into_iter().sum::<f32>());
+    }
   }
 }

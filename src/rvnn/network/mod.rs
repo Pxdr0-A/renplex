@@ -130,7 +130,8 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     Ok(out)
   }
 
-  pub fn backward(&mut self, data: Dataset<T, T>, loss_func: LossFunc) -> Result<(), ForwardError> {
+  pub fn gradient_opt(&mut self, data: Dataset<T, T>, loss_func: LossFunc, lr: T) -> Result<(), ForwardError> {
+    /* check the algo works for one layer */
     if self.layers.len() <= 1 { return Err(ForwardError::MissingLayers) }
 
     let (inputs, targets) = data.points_into_iter();
@@ -141,7 +142,6 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     let mut dldw;
     let mut dldb;
     /* derivatives to accumulate */
-    /* initialize correctly the matrices */
     let mut dldw_per_layer = vec![Matrix::new(); n_layers];
     let mut dldb_per_layer = vec![Matrix::new(); n_layers];
     /* general counter */
@@ -149,13 +149,14 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     for (input, target) in inputs.zip(targets) {
       previous_act =  input.clone();
       /* initial value of loss derivative */
+      let initial_pred = self.forward(input.clone()).unwrap();
       let mut dlda = T::d_loss(
-        self.forward(input.clone()).unwrap(), 
+        initial_pred,
         target.clone(), 
         &loss_func
       ).unwrap().to_vec();
       /* decrease the number of layers to go through by one until you reach the input */
-      for l in 0..self.layers.len()-1 {
+      for l in 0..self.layers.len() {
         /* process for getting to adjacent layer signals back to input */
         let mut layers_iter = self.layers
           .iter()
@@ -168,27 +169,45 @@ impl<T: Real + BasicOperations<T>> Network<T> {
 
         current_act = input_layer.trigger(input.clone()).unwrap();
         for layer in layers_iter {
-          previous_act = current_act;
+          previous_act = current_act.clone();
 
           current_layer = Some(layer);
-          current_act = layer.foward(input.clone()).unwrap();
+          current_act = layer.foward(current_act).unwrap();
         }
+
+
         /* do the logic that analyzes the last two outputs */
         /* dadq for all of the layer's neurons */
         let layer1 = current_layer.unwrap();
+        if !layer1.is_trainable() {
+          /* layer is not trainable, do not waste time */
+          continue;
+        }
 
         (dldw, dldb, dlda) = layer1.compute_derivatives(&previous_act, dlda).unwrap();
 
-        /* open exception to the operation */
         dldw_per_layer[n_layers-l-1].add_mut(&dldw).unwrap();
         dldb_per_layer[n_layers-l-1].add_mut(&dldb).unwrap();
       }
 
       count += T::unit();
     }
-    /* divide the gradient by the count */
-    /* update the weights */
-    unimplemented!()
+
+    /* divide the gradient by the count of data samples */
+    let scale_param = lr / count;
+    for ((mut dldw_l, mut dldb_l), layer) in dldw_per_layer.into_iter().zip(dldb_per_layer).zip(self.layers.iter_mut()) {
+      if !layer.is_trainable() {
+        continue;
+      }
+      
+      dldw_l.mul_mut_scalar(scale_param).unwrap();
+      dldb_l.mul_mut_scalar(scale_param).unwrap();
+
+      /* update the weights of layer l */
+      layer.gradient_adjustment(dldw_l, dldb_l).unwrap();
+    }
+
+    Ok(())
   }
 
   pub fn loss(&self, 
