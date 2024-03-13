@@ -17,5 +17,7 @@ pub enum ComplexLossFunc {
 #[derive(Debug)]
 pub enum GradientError {
   InconsistentShape,
+  InvalidBiasShape,
+  InvalidWeightShape,
   Unimplemented
 }
