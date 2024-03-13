@@ -1,5 +1,5 @@
-# Rust Complex Valued Neural Networks
-A library capable of handling complex valued neural network alternatives built with Rust.
+# RVNN and CVNN library in Rust!
+A library built with Rust capable of handling real and complex valued neural networks.
 
 It aims to be used as an engine/backend to ML projects.
 
