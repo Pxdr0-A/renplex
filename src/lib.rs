@@ -11,9 +11,10 @@ pub mod cvnn;
 #[cfg(test)]
 mod basic_tests {
 
-  use crate::opt::LossFunc;
-
-use super::*;
+  use std::time::Duration;
+  use std::thread;
+  use std::io::Write;
+  use super::*;
 
   #[test]
   fn net_ops() {
@@ -181,6 +182,7 @@ use super::*;
     use act::ActFunc;
     use input::IOShape;
     use init::InitMethod;
+    use opt::LossFunc;
 
     let ref mut seed = 91239812_u128;
 
@@ -225,15 +227,54 @@ use super::*;
       seed
     ).unwrap();
 
-    let mut loss = net.loss(data.clone(), LossFunc::Conventional).unwrap();
-    println!("{:?}", loss.into_iter().sum::<f32>());
+    let (loss, _) = net.loss(data.clone(), &LossFunc::Conventional).unwrap();
+    println!("{:?}", loss);
 
     let n_batches: usize = 128;
     for _ in 0..n_batches {
-      net.gradient_opt(data.clone(), LossFunc::Conventional, 10e-3).unwrap();
+      net.gradient_opt(data.clone(), LossFunc::Conventional, 10e-2).unwrap();
 
-      loss = net.loss(data.clone(), LossFunc::Conventional).unwrap();
-      println!("{:?}", loss.into_iter().sum::<f32>());
+      let (loss, _) = net.loss(data.clone(), &LossFunc::Conventional).unwrap();
+      println!("{:?}", loss);
     }
+
+  }
+
+  #[test]
+  fn misc() {
+    let total_iterations = 100;
+    let mut progress = 0;
+
+    // Simulate a time-consuming task
+    for _ in 0..total_iterations {
+        // Do some work
+        thread::sleep(Duration::from_millis(50));
+
+        // Update progress
+        progress += 1;
+
+        // Calculate percentage completion
+        let percentage = progress as f32 / total_iterations as f32 * 100.0;
+
+        // Print progress bar
+        print!("\r[");
+        for j in 0..50 {
+            if (j as f32) < percentage / 2.0 {
+                print!("•");
+            } else {
+                print!("-");
+            }
+        }
+        print!("] {:.2}% ", percentage);
+
+        // Flush output to ensure immediate display
+        std::io::stdout().flush().unwrap();
+    }
+
+    // Print new line to separate progress bar from loss information
+    println!();
+
+    // Print loss information
+    println!("Loss: {:.4}", 0.1234);
   }
 }

@@ -76,6 +76,8 @@ pub trait Real
   
   fn unit() -> Self;
 
+  fn usize_to_real(num: usize) -> Self;
+
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
@@ -92,6 +94,10 @@ pub trait Real
 impl Real for f32 {
   fn unit() -> Self {
     1.0
+  }
+
+  fn usize_to_real(num: usize) -> Self {
+    num as Self
   }
 
   fn gen(seed: &mut u128, scale: usize) -> Self {
@@ -219,6 +225,10 @@ impl Real for f32 {
 impl Real for f64 {
   fn unit() -> Self {
     1.0
+  }
+
+  fn usize_to_real(num: usize) -> Self {
+    num as Self
   }
 
   fn gen(seed: &mut u128, scale: usize) -> Self {

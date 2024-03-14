@@ -110,6 +110,7 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     }
   }
 
+  /// Forwards a signal through the [`Network`].
   pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, ForwardError> {
     if self.layers.len() == 0 { return Err(ForwardError::MissingLayers) }
 
@@ -130,6 +131,31 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     Ok(out)
   }
 
+  pub fn loss(&self, 
+    data: Dataset<T, T>,
+    loss_func: &LossFunc,
+  ) -> Result<(T, Vec<T>), LossCalcError> {
+
+    let mut loss_vals = Vec::with_capacity(data.get_n_points());
+
+    let (input_chunks, target_chunks) = data.points_into_iter();
+    let mut prediction;
+    for (input, target) in input_chunks.zip(target_chunks) {
+      prediction = self
+        .forward(input)
+        .unwrap();
+
+      loss_vals.push(T::loss(prediction, target, &loss_func).unwrap());
+    }
+
+    let loss_len = loss_vals.len();
+    let mean = loss_vals
+      .iter()
+      .fold(T::default(), |acc, elm| { acc + *elm }) / T::usize_to_real(loss_len);
+    
+    Ok((mean, loss_vals))
+  }
+
   pub fn gradient_opt(&mut self, data: Dataset<T, T>, loss_func: LossFunc, lr: T) -> Result<(), ForwardError> {
     /* check the algo works for one layer */
     if self.layers.len() <= 1 { return Err(ForwardError::MissingLayers) }
@@ -144,8 +170,9 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     /* derivatives to accumulate */
     let mut dldw_per_layer = vec![Matrix::new(); n_layers];
     let mut dldb_per_layer = vec![Matrix::new(); n_layers];
-    /* general counter */
+    /* generic counter */
     let mut count = T::default();
+
     for (input, target) in inputs.zip(targets) {
       previous_act =  input.clone();
       /* initial value of loss derivative */
@@ -208,25 +235,5 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     }
 
     Ok(())
-  }
-
-  pub fn loss(&self, 
-    data: Dataset<T, T>,
-    loss_func: LossFunc,
-  ) -> Result<Vec<T>, LossCalcError> {
-
-    let mut loss_vals = Vec::with_capacity(data.get_n_points());
-
-    let (input_chunks, target_chunks) = data.points_into_iter();
-    let mut prediction;
-    for (input, target) in input_chunks.zip(target_chunks) {
-      prediction = self
-        .forward(input)
-        .unwrap();
-
-      loss_vals.push(T::loss(prediction, target, &loss_func).unwrap());
-    }
-
-    Ok(loss_vals)
   }
 }
