@@ -149,6 +149,8 @@ pub trait Complex where Self: Sized {
 
   fn phase(&self) -> Self::Precision;
 
+  fn conj(&self) -> Self;
+
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
@@ -159,7 +161,7 @@ pub trait Complex where Self: Sized {
   
   fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError>;
 
-  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<IOType<Self>, LossCalcError>;
+  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<IOType<Self>, LossCalcError>;
 }
 
 impl Complex for Cf32 {
@@ -193,6 +195,13 @@ impl Complex for Cf32 {
     (self.y / self.x).tan()
   }
 
+  fn conj(&self) -> Self {
+    Self {
+      x: self.x,
+      y: -self.y
+    }
+  }
+
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as Self::Precision;
 
@@ -224,11 +233,11 @@ impl Complex for Cf32 {
   }
 
   fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError> {
-    loss_func.compute_f32(prediction, target)
+    loss_func.compute_cf32(prediction, target)
   }
 
-  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<IOType<Self>, LossCalcError> {
-    unimplemented!()
+  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<IOType<Self>, LossCalcError> {
+    loss_func.compute_d_cf32(prediction, target)
   }
 }
 
@@ -263,6 +272,13 @@ impl Complex for Cf64 {
     (self.y / self.x).tan()
   }
 
+  fn conj(&self) -> Self {
+    Self {
+      x: self.x,
+      y: -self.y
+    }
+  }
+
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as Self::Precision;
 
@@ -294,10 +310,10 @@ impl Complex for Cf64 {
   }
 
   fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError> {
-    loss_func.compute_f64(prediction, target)
+    loss_func.compute_cf64(prediction, target)
   }
 
-  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<IOType<Self>, LossCalcError> {
-    unimplemented!()
+  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<IOType<Self>, LossCalcError> {
+    loss_func.compute_d_cf64(prediction, target)
   }
 }

@@ -9,9 +9,21 @@ fn conv_err_f64(data: (f64, f64)) -> f64 { ( data.0 - data.1 ).powi(2) }
 fn d_conv_err_f32(data: (f32, f32)) -> f32 { 2.0 * ( data.0 - data.1 ) }
 fn d_conv_err_f64(data: (f64, f64)) -> f64 { 2.0 * ( data.0 - data.1 ) }
 fn conv_err_cf32(data: (Cf32, Cf32)) -> f32 { ( data.0 - data.1 ).norm_sq() }
+fn conv_err_cf64(data: (Cf64, Cf64)) -> f64 { ( data.0 - data.1 ).norm_sq() }
+fn d_conv_err_cf32(data: (Cf32, Cf32)) -> Cf32 { data.0.conj() - data.1.conj() }
+fn d_conv_err_cf64(data: (Cf64, Cf64)) -> Cf64 { data.0.conj() - data.1.conj() }
 fn log_err_cf32(data: (Cf32, Cf32)) -> f32 { ((data.0.norm_sq() / data.1.norm_sq()).ln() + (data.0.phase() - data.1.phase()).powi(2)) * 0.5 }
 fn log_err_cf64(data: (Cf64, Cf64)) -> f64 { ((data.0.norm_sq() / data.1.norm_sq()).ln() + (data.0.phase() - data.1.phase()).powi(2)) * 0.5 }
-fn conv_err_cf64(data: (Cf64, Cf64)) -> f64 { ( data.0 - data.1 ).norm_sq() }
+fn d_log_err_cf32(data: (Cf32, Cf32)) -> Cf32 { 
+  ( Cf32::new(2.0, 0.0) * (Cf32::new(data.0.norm(), 0.0) * data.0.conj() ) / Cf32::new(data.0.norm_sq(), 0.0) ) +
+  ( Cf32::new(2.0, 0.0) * (Cf32::new(data.0.phase(), 0.0) - Cf32::new(data.1.phase(), 0.0)) * 
+    Cf32::new(- data.0.im() / data.0.norm_sq(), data.0.re() / data.0.norm_sq()) ) 
+}
+fn d_log_err_cf64(data: (Cf64, Cf64)) -> Cf64 { 
+  ( Cf64::new(2.0, 0.0) * (Cf64::new(data.0.norm(), 0.0) * data.0.conj() ) / Cf64::new(data.0.norm_sq(), 0.0) ) +
+  ( Cf64::new(2.0, 0.0) * (Cf64::new(data.0.phase(), 0.0) - Cf64::new(data.1.phase(), 0.0)) * 
+  Cf64::new(- data.0.im() / data.0.norm_sq(), data.0.re() / data.0.norm_sq()) ) 
+}
 
 pub enum LossFunc {
   Conventional
@@ -181,7 +193,7 @@ pub enum ComplexLossFunc {
 }
 
 impl ComplexLossFunc {
-  pub fn compute_f32(&self, prediction: IOType<Cf32>, target: IOType<Cf32>) -> Result<f32, LossCalcError> {
+  pub fn compute_cf32(&self, prediction: IOType<Cf32>, target: IOType<Cf32>) -> Result<f32, LossCalcError> {
     let func = match self {
       ComplexLossFunc::Conventional => {
         conv_err_cf32
@@ -225,7 +237,7 @@ impl ComplexLossFunc {
     }
   }
 
-  pub fn compute_f64(&self, prediction: IOType<Cf64>, target: IOType<Cf64>) -> Result<f64, LossCalcError> {
+  pub fn compute_cf64(&self, prediction: IOType<Cf64>, target: IOType<Cf64>) -> Result<f64, LossCalcError> {
     let func = match self {
       ComplexLossFunc::Conventional => {
         conv_err_cf64
@@ -262,6 +274,86 @@ impl ComplexLossFunc {
                   acc + func(data)
                 })
             )
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      }
+    }
+  }
+
+  pub fn compute_d_cf32(&self, prediction: IOType<Cf32>, target: IOType<Cf32>) -> Result<IOType<Cf32>, LossCalcError> {
+    let func = match self {
+      ComplexLossFunc::Conventional => {
+        d_conv_err_cf32
+      },
+      ComplexLossFunc::Log => {
+        d_log_err_cf32
+      }
+    };
+
+    match prediction {
+      IOType::Vector(pred) => {
+        match target {
+          IOType::Vector(targ) => {
+            let vec = pred
+              .into_iter()
+              .zip(targ)
+              .map(func)
+              .collect::<Vec<Cf32>>();
+            Ok(IOType::Vector(vec))
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      },
+      IOType::Matrix(pred) => {
+        match target {
+          IOType::Matrix(targ) => {
+            let vec = pred
+              .into_iter()
+              .zip(targ.into_iter())
+              .map(func)
+              .collect::<Vec<Cf32>>();
+            Ok(IOType::Vector(vec))
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      }
+    }
+  }
+
+  pub fn compute_d_cf64(&self, prediction: IOType<Cf64>, target: IOType<Cf64>) -> Result<IOType<Cf64>, LossCalcError> {
+    let func = match self {
+      ComplexLossFunc::Conventional => {
+        d_conv_err_cf64
+      },
+      ComplexLossFunc::Log => {
+        d_log_err_cf64
+      }
+    };
+
+    match prediction {
+      IOType::Vector(pred) => {
+        match target {
+          IOType::Vector(targ) => {
+            let vec = pred
+              .into_iter()
+              .zip(targ)
+              .map(func)
+              .collect::<Vec<Cf64>>();
+            Ok(IOType::Vector(vec))
+          },
+          _ => { Err(LossCalcError::InconsistentIO) }
+        }
+      },
+      IOType::Matrix(pred) => {
+        match target {
+          IOType::Matrix(targ) => {
+            let vec = pred
+              .into_iter()
+              .zip(targ.into_iter())
+              .map(func)
+              .collect::<Vec<Cf64>>();
+            Ok(IOType::Vector(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }

@@ -40,15 +40,15 @@ fn ritsigmoid_cf64(val: Cf64) -> Cf64 {
 
 fn d_ritsigmoid_cf32(val: Cf32) -> Cf32 {
   Cf32 {
-    x: d_sigmoid_f32(val.x), 
-    y: d_sigmoid_f32(val.y)
+    x: (d_sigmoid_f32(val.x) + d_sigmoid_f32(val.y)) * 0.5, 
+    y: 0.0
   }
 }
 
 fn d_ritsigmoid_cf64(val: Cf64) -> Cf64 {
   Cf64 {
-    x: d_sigmoid_f64(val.x), 
-    y: d_sigmoid_f64(val.y)
+    x: (d_sigmoid_f64(val.x) + d_sigmoid_f64(val.y)) * 0.5, 
+    y: 0.0
   }
 }
 
