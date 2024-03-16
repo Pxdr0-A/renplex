@@ -3,6 +3,7 @@ use crate::math::matrix::{Matrix, SliceOps};
 use crate::math::{BasicOperations, Complex};
 use crate::input::{IOShape, IOType};
 use crate::init::InitMethod;
+use crate::err::GradientError;
 
 use super::{CLayer, LayerForwardError, CLayerLike, LayerInitError};
 
@@ -177,6 +178,14 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
       },
       _ => { Err(LayerForwardError::InvalidInput) }
     }
+  }
+
+  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
+    unimplemented!()
+  }
+
+  fn gradient_adjustment(&mut self, dldw: Matrix<T>, dldb: Matrix<T>) -> Result<(), GradientError> {
+    unimplemented!()
   }
 
   fn wrap(self) -> CLayer<T> {

@@ -1,8 +1,10 @@
 use crate::input::{IOShape, IOType}; 
+use crate::math::matrix::Matrix;
 use crate::math::{BasicOperations, Complex};
 use crate::act::ComplexActFunc;
 use crate::init::InitMethod;
 use crate::err::{LayerInitError, LayerForwardError};
+use crate::err::GradientError;
 
 use self::dense::DenseCLayer;
 
@@ -25,6 +27,10 @@ pub trait CLayerLike<T> where Self: Sized {
   fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError>;
 
   fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError>;
+
+  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError>;
+
+  fn gradient_adjustment(&mut self, dldw: Matrix<T>, dldb: Matrix<T>) -> Result<(), GradientError>;
 
   fn wrap(self) -> CLayer<T>;
 }

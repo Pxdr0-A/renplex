@@ -38,3 +38,11 @@ pub enum LossCalcError {
 pub enum PredicionError {
   CriticalIndexOverflow
 }
+
+#[derive(Debug)]
+pub enum GradientError {
+  InconsistentShape,
+  InvalidBiasShape,
+  InvalidWeightShape,
+  Unimplemented
+}

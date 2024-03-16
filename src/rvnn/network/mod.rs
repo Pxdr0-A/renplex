@@ -14,7 +14,7 @@ use crate::opt::LossFunc;
 
 #[derive(Debug)]
 pub struct Network<T> {
-  layers: Vec<Layer<T>>,
+  layers: Vec<Layer<T>>
 }
 
 impl<T: Real + BasicOperations<T>> Network<T> {

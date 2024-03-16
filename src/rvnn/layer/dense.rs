@@ -5,7 +5,7 @@ use crate::math::matrix::{Matrix, SliceOps};
 use crate::math::{BasicOperations, Real};
 use crate::input::{IOShape, IOType};
 use crate::init::InitMethod;
-use crate::opt::GradientError;
+use crate::err::GradientError;
 use super::{Layer, LayerForwardError, LayerLike, LayerInitError};
 
 #[derive(Debug)]
@@ -185,10 +185,6 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
     }
   }
 
-  fn get_act(&self) -> &ActFunc {
-      &self.func
-  }
-
   fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
     let weight_shape = self.weights.get_shape();
     if dlda.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) }
@@ -205,7 +201,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
         );
 
         /* determine dqdw */
-        /* this is repeated to all neurons */
+        /* this is repeated to all neurons (implicitly) */
         let dqdw = input.clone();
 
         /* determine dqdb */
