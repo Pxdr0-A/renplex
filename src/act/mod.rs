@@ -1,6 +1,8 @@
 use crate::math::cfloat::{Cf32, Cf64};
 
 /* Activation functions. */
+
+/* Sigmoid */
 const SIGMOID_THRESHOLD_F32: f32 = 15.0;
 const SIGMOID_THRESHOLD_F64: f64 = 30.0;
 
@@ -24,6 +26,7 @@ fn d_sigmoid_f64(val: f64) -> f64 {
   sigmoid_f64(val) * (1.0 - sigmoid_f64(val))
 }
 
+/* Real Imaginary Type Sigmoid */
 fn ritsigmoid_cf32(val: Cf32) -> Cf32 {
   Cf32 {
     x: sigmoid_f32(val.x), 
@@ -52,8 +55,20 @@ fn d_ritsigmoid_cf64(val: Cf64) -> Cf64 {
   }
 }
 
-#[derive(Debug)]
-pub enum ActError {}
+fn d_conj_ritsigmoid_cf32(val: Cf32) -> Cf32 {
+  Cf32 {
+    x: (d_sigmoid_f32(val.x) - d_sigmoid_f32(val.y)) * 0.5, 
+    y: 0.0
+  }
+}
+
+fn d_conj_ritsigmoid_cf64(val: Cf64) -> Cf64 {
+  Cf64 {
+    x: (d_sigmoid_f64(val.x) - d_sigmoid_f64(val.y)) * 0.5, 
+    y: 0.0
+  }
+}
+
 
 #[derive(Debug)]
 pub enum ActFunc {
@@ -156,6 +171,30 @@ impl ComplexActFunc {
     let act_func = match self {
       ComplexActFunc::RITSigmoid => {
         d_ritsigmoid_cf64
+      }
+    };
+
+    for val in vals.iter_mut() {
+      *val = act_func(*val);
+    }
+  }
+
+  pub fn compute_d_conj_cf32(&self, vals: &mut [Cf32]) {
+    let act_func = match self {
+      ComplexActFunc::RITSigmoid => {
+        d_conj_ritsigmoid_cf32
+      }
+    };
+
+    for val in vals.iter_mut() {
+      *val = act_func(*val);
+    }
+  }
+
+  pub fn compute_d_conj_cf64(&self, vals: &mut [Cf64]) {
+    let act_func = match self {
+      ComplexActFunc::RITSigmoid => {
+        d_conj_ritsigmoid_cf64
       }
     };
 

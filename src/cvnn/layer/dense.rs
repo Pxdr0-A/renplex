@@ -181,6 +181,24 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
   }
 
   fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
+    let weight_shape = self.weights.get_shape();
+    if dlda.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) }
+
+    match previous_act {
+      IOType::Vector(input) => { 
+        /* determine q */
+
+        /* determine dadq */
+        
+        /* determine dqdw */
+        
+        /* determine dqdb */
+
+        /* determine dqda */
+      },
+      _ => { panic!("Something went terribily wrong.") }
+    }
+
     unimplemented!()
   }
 
