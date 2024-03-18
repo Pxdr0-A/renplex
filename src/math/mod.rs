@@ -158,6 +158,8 @@ pub trait Complex where Self: Sized {
   fn activate_mut(vals: &mut [Self], func: &ComplexActFunc);
 
   fn d_activate_mut(vals: &mut [Self], func: &ComplexActFunc);
+
+  fn d_conj_activate_mut(vals: &mut [Self], func: &ComplexActFunc);
   
   fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError>;
 
@@ -230,6 +232,10 @@ impl Complex for Cf32 {
 
   fn d_activate_mut(vals: &mut [Self], func: &ComplexActFunc) {
     func.compute_d_cf32(vals);
+  }
+
+  fn d_conj_activate_mut(vals: &mut [Self], func: &ComplexActFunc) {
+    func.compute_d_conj_cf32(vals)
   }
 
   fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError> {
@@ -307,6 +313,10 @@ impl Complex for Cf64 {
 
   fn d_activate_mut(vals: &mut [Self], func: &ComplexActFunc) {
     func.compute_d_cf64(vals);
+  }
+
+  fn d_conj_activate_mut(vals: &mut [Self], func: &ComplexActFunc) {
+    func.compute_d_conj_cf64(vals);
   }
 
   fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError> {

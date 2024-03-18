@@ -28,7 +28,7 @@ pub trait CLayerLike<T> where Self: Sized {
 
   fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError>;
 
-  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError>;
+  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError>;
 
   fn gradient_adjustment(&mut self, dldw: Matrix<T>, dldb: Matrix<T>) -> Result<(), GradientError>;
 

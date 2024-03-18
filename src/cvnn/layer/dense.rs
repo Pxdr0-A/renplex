@@ -180,21 +180,51 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     }
   }
 
-  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
+  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
     let weight_shape = self.weights.get_shape();
     if dlda.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) }
+    if dlda_conj.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) }
 
     match previous_act {
-      IOType::Vector(input) => { 
-        /* determine q */
+      IOType::Vector(input) => {
+        /* determine q and q* */
+        let mut q = self.weights.mul_vec(input.clone()).unwrap();
+        q.add_slice(&self.biases).unwrap();
+  
+        /* determine dadq, dadq*, da*dq and da*dq* */
+        let mut dadq = q.clone();
+        let mut dadq_conj = q;
+        T::d_activate_mut(
+          &mut dadq[..], 
+          &self.func
+        );
 
-        /* determine dadq */
+        T::d_conj_activate_mut(
+          &mut dadq_conj[..], 
+          &self.func
+        );
+
+        let da_conj_dq = dadq_conj
+          .iter()
+          .map(|elm| { elm.conj() })
+          .collect::<Vec<T>>();
+
+        let da_conj_dq_conj = dadq
+          .iter()
+          .map(|elm| { elm.conj() })
+          .collect::<Vec<T>>();
         
-        /* determine dqdw */
-        
-        /* determine dqdb */
+        /* determine dqdw and dq*dw */
+        let dqdw = input.clone();
+        let dq_conj_dw = T::default();
+
+        /* determine dqdb and dq*db */
+        let dqdb = T::unit();
+        let dq_conj_db = T::default();
 
         /* determine dqda */
+        let dqda = self.weights.rows_as_iter();
+        let dq_conj_da = T::default();
       },
       _ => { panic!("Something went terribily wrong.") }
     }
