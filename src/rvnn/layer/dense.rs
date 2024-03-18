@@ -221,9 +221,9 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
         for val in vals {
           dldw.add_row(
             dqdw
-            .iter()
-            .map(|elm| { *elm * val })
-            .collect::<Vec<T>>()
+              .iter()
+              .map(|elm| { *elm * val })
+              .collect::<Vec<T>>()
           ).unwrap();
 
           dldb.push(val);
