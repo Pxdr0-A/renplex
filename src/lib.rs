@@ -255,7 +255,7 @@ use super::*;
     use math::cfloat::Cf32;
     use math::Complex;
 
-    let ref mut seed = 3753829384_u128;
+    let ref mut seed = 1196773467683_u128;
 
     let n_input_dendrits: usize = 2;
     let n_input_units: usize = 2;
@@ -263,7 +263,7 @@ use super::*;
     let scale: usize = 4;
 
     let data: Dataset<Cf32, Cf32> = Dataset::sample_complex(
-      [256, input_len], 
+      [128, input_len], 
       3, 
       100, 
       10, 
@@ -303,7 +303,7 @@ use super::*;
 
     let n_batches: usize = 128;
     for _ in 0..n_batches {
-      net.gradient_opt(data.clone(), ComplexLossFunc::Conventional, Cf32::new(10e-2, 10e-2)).unwrap();
+      net.gradient_opt(data.clone(), ComplexLossFunc::Conventional, Cf32::new(10e-2, 0.0)).unwrap();
 
       let (loss, _) = net.loss(data.clone(), &ComplexLossFunc::Conventional).unwrap();
       println!("{:?}", loss);
