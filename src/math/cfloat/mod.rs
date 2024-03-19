@@ -99,9 +99,9 @@ impl Div for Cf32 {
     type Output = Cf32;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+        let den = rhs.x * rhs.x + rhs.y * rhs.y;
 
-        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+        if den == 0.0 { panic!("Division by zero encountered in complex numbers.") }
 
         Cf32 { 
             x: (self.x * rhs.x + self.y * rhs.y) / den, 
@@ -138,9 +138,9 @@ impl MulAssign for Cf32 {
 impl DivAssign for Cf32 {
     
     fn div_assign(&mut self, rhs: Self) {
-        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+        let den = rhs.x * rhs.x + rhs.y * rhs.y;
 
-        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+        if den == 0.0 { panic!("Division by zero encountered in complex numbers.") }
 
         self.x = (self.x * rhs.x + self.y * rhs.y) / den;
         self.y = (self.y * rhs.x - self.x * rhs.y) / den;
@@ -190,9 +190,9 @@ impl<'a, 'b> Div<&'b Cf32> for &'a Cf32 {
     type Output = Cf32;
 
     fn div(self, rhs: &'b Cf32) -> Self::Output{
-        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+        let den = rhs.x * rhs.x + rhs.y * rhs.y;
 
-        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+        if den == 0.0 { panic!("Division by zero encountered in complex numbers.") }
 
         Cf32 { 
             x: (self.x * rhs.x + self.y * rhs.y) / den, 
@@ -246,9 +246,9 @@ impl Div for Cf64 {
     type Output = Cf64;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+        let den = rhs.x * rhs.x + rhs.y * rhs.y;
 
-        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+        if den == 0.0 { panic!("Division by zero encountered in complex numbers.") }
 
         Cf64 { 
             x: (self.x * rhs.x + self.y * rhs.y) / den, 
@@ -286,9 +286,9 @@ impl MulAssign for Cf64 {
 impl DivAssign for Cf64 {
     
     fn div_assign(&mut self, rhs: Self) {
-        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+        let den = rhs.x * rhs.x + rhs.y * rhs.y;
 
-        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+        if den == 0.0 { panic!("Division by zero encountered in complex numbers.") }
 
         self.x = (self.x * rhs.x + self.y * rhs.y) / den;
         self.y = (self.y * rhs.x - self.x * rhs.y) / den;
@@ -338,9 +338,9 @@ impl<'a, 'b> Div<&'b Cf64> for &'a Cf64 {
     type Output = Cf64;
 
     fn div(self, rhs: &'b Cf64) -> Self::Output{
-        let den = rhs.x * rhs.x - rhs.y * rhs.y;
+        let den = rhs.x * rhs.x + rhs.y * rhs.y;
 
-        if den != 0.0 { panic!("Division by zero encountered in complex numbers.") }
+        if den == 0.0 { panic!("Division by zero encountered in complex numbers.") }
 
         Cf64 { 
             x: (self.x * rhs.x + self.y * rhs.y) / den, 
