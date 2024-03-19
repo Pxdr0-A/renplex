@@ -126,7 +126,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
       IOType::Vector(input) => {
         let shape = self.weights.get_shape();
 
-        if input.len() != shape[0] * shape[1] { println!("{:?}", shape); println!("{}", input.len()); return Err(LayerForwardError::InvalidInput) }
+        if input.len() != shape[0] * shape[1] { return Err(LayerForwardError::InvalidInput) }
 
         /* instantiate the result (it is going to be a column matrix) */
         let mut res = Vec::with_capacity(input.len());
@@ -258,8 +258,6 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
     if dldw_shape != weight_shape {
       return Err(GradientError::InconsistentShape)
     }
-
-
     
     for (weights, dw_slice) in self.weights.rows_as_iter_mut().zip(dldw.rows_as_iter()) {
       for (weight, dw) in weights.into_iter().zip(dw_slice) {
