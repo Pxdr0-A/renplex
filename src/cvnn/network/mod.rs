@@ -1,6 +1,7 @@
 use crate::dataset::Dataset;
 use crate::input::{IOShape, IOType};
-use crate::math::{BasicOperations, Complex};
+use crate::math::matrix::Matrix;
+use crate::math::{BasicOperations, Real, Complex};
 use crate::cvnn::layer::CLayer;
 use crate::init::InitMethod;
 use crate::err::{LossCalcError, ForwardError, LayerAdditionError};
@@ -111,6 +112,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
 
     let mut layers_iter = self.layers.iter();
     let input_layer = layers_iter.next().unwrap();
+    
     /* feed input */
     let mut out = input_layer
       .trigger(input_type)
@@ -129,11 +131,11 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
 
   pub fn loss(&self, 
     data: Dataset<T, T>,
-    loss_func: ComplexLossFunc,
-  ) -> Result<Vec<T::Precision>, LossCalcError> {
+    loss_func: &ComplexLossFunc,
+  ) -> Result<(T::Precision, Vec<T::Precision>), LossCalcError> {
 
     let mut loss_vals = Vec::with_capacity(data.get_n_points());
-    
+
     let (input_chunks, target_chunks) = data.points_into_iter();
     let mut prediction;
     for (input, target) in input_chunks.zip(target_chunks) {
@@ -144,6 +146,98 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       loss_vals.push(T::loss(prediction, target, &loss_func).unwrap());
     }
 
-    Ok(loss_vals)
+    let loss_len = loss_vals.len();
+    let mean = loss_vals
+      .iter()
+      .fold(T::Precision::default(), |acc, elm| { acc + *elm }) / T::Precision::usize_to_real(loss_len);
+    
+    Ok((mean, loss_vals))
+  }
+
+  pub fn gradient_opt(&mut self, data: Dataset<T, T>, loss_func: ComplexLossFunc, lr: T) -> Result<(), ForwardError> {
+    /* check the algo works for one layer */
+    if self.layers.len() <= 1 { return Err(ForwardError::MissingLayers) }
+
+    let (inputs, targets) = data.points_into_iter();
+    let n_layers = self.layers.len();
+    let mut previous_act;
+    let mut current_act;
+    let mut current_layer;
+    let mut dldw;
+    let mut dldb;
+    /* derivatives to accumulate */
+    let mut dldw_per_layer = vec![Matrix::new(); n_layers];
+    let mut dldb_per_layer = vec![Matrix::new(); n_layers];
+    /* generic counter */
+    let mut count = T::default();
+
+    for (input, target) in inputs.zip(targets) {
+      previous_act =  input.clone();
+      /* initial value of loss derivative */
+      /* for now, the output layer must output a vector */
+      let initial_pred = self.forward(input.clone()).unwrap();
+      let mut dlda = T::d_loss(
+        initial_pred.clone(),
+        target.clone(), 
+        &loss_func
+      ).unwrap().to_vec();
+      let mut dlda_conj = T::d_conj_loss(
+        initial_pred, 
+        target.clone(), 
+        &loss_func
+      ).unwrap().to_vec();
+      /* decrease the number of layers to go through by one until you reach the input */
+      for l in 0..self.layers.len() {
+        /* process for getting to adjacent layer signals back to input */
+        let mut layers_iter = self.layers
+          .iter()
+          .rev()
+          .skip(l)
+          .rev();
+
+        let input_layer = layers_iter.next().unwrap();
+        current_layer = Some(input_layer);
+
+        current_act = input_layer.trigger(input.clone()).unwrap();
+        for layer in layers_iter {
+          previous_act = current_act.clone();
+
+          current_layer = Some(layer);
+          current_act = layer.foward(current_act).unwrap();
+        }
+
+
+        /* do the logic that analyzes the last two outputs */
+        /* dadq for all of the layer's neurons */
+        let layer1 = current_layer.unwrap();
+        if !layer1.is_trainable() {
+          /* layer is not trainable, do not waste time */
+          continue;
+        }
+
+        (dldw, dldb, dlda, dlda_conj) = layer1.compute_derivatives(&previous_act, dlda, dlda_conj).unwrap();
+
+        dldw_per_layer[n_layers-l-1].add_mut(&dldw).unwrap();
+        dldb_per_layer[n_layers-l-1].add_mut(&dldb).unwrap();
+      }
+
+      count += T::unit();
+    }
+
+    /* divide the gradient by the count of data samples */
+    let scale_param = lr / count;
+    for ((mut dldw_l, mut dldb_l), layer) in dldw_per_layer.into_iter().zip(dldb_per_layer).zip(self.layers.iter_mut()) {
+      if !layer.is_trainable() {
+        continue;
+      }
+      
+      dldw_l.mul_mut_scalar(scale_param).unwrap();
+      dldb_l.mul_mut_scalar(scale_param).unwrap();
+
+      /* update the weights of layer l */
+      layer.gradient_adjustment(dldw_l, dldb_l).unwrap();
+    }
+
+    Ok(())
   }
 }

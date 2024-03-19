@@ -14,7 +14,12 @@ mod basic_tests {
   use std::time::Duration;
   use std::thread;
   use std::io::Write;
-  use super::*;
+  use crate::act::ComplexActFunc;
+use crate::cvnn::layer::dense::DenseCLayer;
+use crate::cvnn::network::CNetwork;
+use crate::opt::ComplexLossFunc;
+
+use super::*;
 
   #[test]
   fn net_ops() {
@@ -235,6 +240,72 @@ mod basic_tests {
       net.gradient_opt(data.clone(), LossFunc::Conventional, 10e-2).unwrap();
 
       let (loss, _) = net.loss(data.clone(), &LossFunc::Conventional).unwrap();
+      println!("{:?}", loss);
+    }
+
+  }
+
+  #[test]
+  fn complex_gradient_descent_test() {
+    use dataset::Dataset;
+    use init::PredictModel;
+    use input::IOShape;
+    use init::InitMethod;
+    use cvnn::layer::CLayerLike;
+    use math::cfloat::Cf32;
+    use math::Complex;
+
+    let ref mut seed = 3753829384_u128;
+
+    let n_input_dendrits: usize = 2;
+    let n_input_units: usize = 2;
+    let input_len = n_input_dendrits * n_input_units;
+    let scale: usize = 4;
+
+    let data: Dataset<Cf32, Cf32> = Dataset::sample_complex(
+      [256, input_len], 
+      3, 
+      100, 
+      10, 
+      PredictModel::Sparse, 
+      seed
+    ).unwrap();
+
+    let mut net: CNetwork<Cf32> = CNetwork::new();
+    net.add_input(
+      DenseCLayer::new(ComplexActFunc::RITSigmoid).wrap(), 
+      IOShape::Vector(n_input_dendrits), 
+      n_input_units,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseCLayer::new(ComplexActFunc::RITSigmoid).wrap(), 
+      16,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseCLayer::new(ComplexActFunc::RITSigmoid).wrap(), 
+      64, 
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseCLayer::new(ComplexActFunc::RITSigmoid).wrap(), 
+      3,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+
+    let (loss, _) = net.loss(data.clone(), &ComplexLossFunc::Conventional).unwrap();
+    println!("{:?}", loss);
+
+    let n_batches: usize = 128;
+    for _ in 0..n_batches {
+      net.gradient_opt(data.clone(), ComplexLossFunc::Conventional, Cf32::new(10e-2, 10e-2)).unwrap();
+
+      let (loss, _) = net.loss(data.clone(), &ComplexLossFunc::Conventional).unwrap();
       println!("{:?}", loss);
     }
 
