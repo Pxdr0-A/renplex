@@ -213,6 +213,8 @@ impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
       // add_row will clean the added_row vec
       labels.push(IOType::Vector(one_hot_vec.clone()));
       sample_body.push(IOType::Vector(added_row.clone()));
+
+      added_row.drain(..);
     }
 
     Ok(
