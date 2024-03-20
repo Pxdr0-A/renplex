@@ -1,6 +1,8 @@
 mod err;
 
-use std::{fmt::{Debug, Display}, slice::Iter, vec::IntoIter};
+use std::fmt::Display;
+use std::{fmt::Debug, fs::File, slice::Iter, vec::IntoIter};
+use std::io::Write;
 
 use crate::{init::PredictModel, input::IOType, math::{matrix::Matrix, random::lcgi, BasicOperations, Complex, Real}};
 use err::DatasetSampleError;
@@ -16,9 +18,29 @@ pub struct Dataset<B, T> {
     target: Vec<IOType<T>>
 }
 
-impl<T: Display> Dataset<T, T> {
+impl<T: Display + Copy> Dataset<T, T> {
   pub fn to_csv(&self) -> std::io::Result<()> {
-    unimplemented!()
+    let mut file = File::create("dataset.csv")?;
+
+    let (inputs_iter, targets_iter) = self.points_as_iter();
+    let mut string_row_input;
+    let mut string_row_target;
+    for (input, target) in inputs_iter.zip(targets_iter) {
+      let mut input_iter = input.to_vec().into_iter();
+      write!(file, "{}", input_iter.next().unwrap())?;
+      for elm_input in input_iter {
+        string_row_input = format!(",{}", elm_input);
+        write!(file, "{}", string_row_input)?;
+      }
+      for elm_input in target.to_vec().into_iter() {
+        string_row_target = format!(",{}", elm_input);
+        write!(file, "{}", string_row_target)?;
+      }
+
+      writeln!(file, "")?;
+    }
+
+    Ok(())
   }
 }
 
@@ -80,7 +102,6 @@ impl<T: Real + BasicOperations<T>> Dataset<T, T> {
       
     // spray focal points
     let centers = Dataset::<T, T>::gen_centers(dims[1], degree, macro_scale, seed);
-    
 
     let mut class_center: &[T];
     let mut selected_class: usize;
@@ -95,7 +116,7 @@ impl<T: Real + BasicOperations<T>> Dataset<T, T> {
       class_center = centers.row(selected_class).unwrap();
       for col in 0..dims[1] {
         added_row.push(
-          class_center[col] + T::gen(seed, micro_scale)
+          ( class_center[col] + T::gen(seed, micro_scale) ) / T::usize_to_real(macro_scale)
         );
       }
       
@@ -206,7 +227,7 @@ impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
       class_center = centers.row(selected_class).unwrap();
       for col in 0..dims[1] {
         added_row.push(
-          class_center[col] + T::gen(seed, micro_scale)
+          ( class_center[col] + T::gen(seed, micro_scale) ) / T::usize_to_complex(macro_scale)
         );
       }
       
