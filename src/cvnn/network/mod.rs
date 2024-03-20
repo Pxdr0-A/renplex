@@ -158,23 +158,24 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     /* check the algo works for one layer */
     if self.layers.len() <= 1 { return Err(ForwardError::MissingLayers) }
 
-    let (inputs, targets) = data.points_into_iter();
     let n_layers = self.layers.len();
     let mut previous_act;
     let mut current_act;
     let mut current_layer;
     let mut dldw;
     let mut dldb;
+    
     /* derivatives to accumulate */
     let mut dldw_per_layer = vec![Matrix::new(); n_layers];
     let mut dldb_per_layer = vec![Matrix::new(); n_layers];
+
     /* generic counter */
     let mut count = T::default();
 
+    let (inputs, targets) = data.points_into_iter();
     for (input, target) in inputs.zip(targets) {
       previous_act =  input.clone();
       /* initial value of loss derivative */
-      /* for now, the output layer must output a vector */
       let initial_pred = self.forward(input.clone()).unwrap();
       let mut dlda = T::d_loss(
         initial_pred.clone(),

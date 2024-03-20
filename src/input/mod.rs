@@ -35,9 +35,9 @@ impl<T> IOType<T> {
 }
 
 impl<T: Copy> IOType<T> {
-  pub fn to_vec(self) -> Vec<T> {
+  pub fn to_vec(&self) -> Vec<T> {
     match self {
-      IOType::Vector(vec) => { vec },
+      IOType::Vector(vec) => { vec.clone() },
       IOType::Matrix(mat) => { mat.get_body().to_vec() }
     }
   }
