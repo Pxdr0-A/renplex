@@ -255,11 +255,12 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
               .collect::<Vec<T>>()
           ).unwrap();
 
-          dldb.push(val * conj_val);
+          dldb.push(val + conj_val);
 
           current_dqda_row = dqda
             .next()
             .unwrap();
+
           
           addition = current_dqda_row
             .iter()
@@ -296,17 +297,15 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     if dldw_shape != weight_shape {
       return Err(GradientError::InconsistentShape)
     }
-
-
     
     for (weights, dw_slice) in self.weights.rows_as_iter_mut().zip(dldw.rows_as_iter()) {
       for (weight, dw) in weights.into_iter().zip(dw_slice) {
-        *weight -= *dw
+        *weight -= *dw;
       }
     }
 
     for (bias, db) in self.biases.iter_mut().zip(dldb.get_body()) {
-      *bias -= *db
+      *bias -= *db;
     }
 
     Ok(())
