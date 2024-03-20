@@ -17,6 +17,7 @@ mod basic_tests {
   use crate::act::ComplexActFunc;
 use crate::cvnn::layer::dense::DenseCLayer;
 use crate::cvnn::network::CNetwork;
+use crate::input::IOType;
 use crate::opt::ComplexLossFunc;
 
 use super::*;
@@ -189,12 +190,12 @@ use super::*;
     use init::InitMethod;
     use opt::LossFunc;
 
-    let ref mut seed = 91239812_u128;
+    let ref mut seed = 9182873278436_u128;
 
     let n_input_dendrits: usize = 2;
     let n_input_units: usize = 2;
     let input_len = n_input_dendrits * n_input_units;
-    let scale: usize = 4;
+    let scale: usize = 1;
 
     let data: Dataset<f32, f32> = Dataset::sample(
       [128, input_len], 
@@ -204,6 +205,7 @@ use super::*;
       PredictModel::Sparse, 
       seed
     ).unwrap();
+    data.to_csv().unwrap();
 
     let mut net: Network<f32> = Network::new();
     net.add_input(
@@ -242,7 +244,6 @@ use super::*;
       let (loss, _) = net.loss(data.clone(), &LossFunc::Conventional).unwrap();
       println!("{:?}", loss);
     }
-
   }
 
   #[test]
@@ -255,12 +256,12 @@ use super::*;
     use math::cfloat::Cf32;
     use math::Complex;
 
-    let ref mut seed = 1196773467683_u128;
+    let ref mut seed = 654563652176_u128;
 
     let n_input_dendrits: usize = 2;
     let n_input_units: usize = 2;
     let input_len = n_input_dendrits * n_input_units;
-    let scale: usize = 4;
+    let scale: usize = 1;
 
     let data: Dataset<Cf32, Cf32> = Dataset::sample_complex(
       [128, input_len], 
@@ -270,6 +271,7 @@ use super::*;
       PredictModel::Sparse, 
       seed
     ).unwrap();
+    data.to_csv().unwrap();
 
     let mut net: CNetwork<Cf32> = CNetwork::new();
     net.add_input(
@@ -300,6 +302,12 @@ use super::*;
 
     let (loss, _) = net.loss(data.clone(), &ComplexLossFunc::Conventional).unwrap();
     println!("{:?}", loss);
+    let out11 = net.forward(IOType::Vector(
+      vec![Cf32{x:95.536255,y:-26.449991},Cf32{x:-42.735924,y:-24.005106},Cf32{x:-40.12258,y:-70.390945},Cf32{x:33.66077,y:2.7951088}]
+    )).unwrap();
+    let out12 = net.forward(IOType::Vector(
+      vec![Cf32{x:2.4383535,y:-79.10635},Cf32{x:-82.78201,y:-51.568462},Cf32{x:-14.222808,y:-37.603},Cf32{x:-77.137405,y:53.557404}]
+    )).unwrap();
 
     let n_batches: usize = 128;
     for _ in 0..n_batches {
@@ -309,6 +317,14 @@ use super::*;
       println!("{:?}", loss);
     }
 
+    let out21 = net.forward(IOType::Vector(
+      vec![Cf32{x:95.536255,y:-26.449991},Cf32{x:-42.735924,y:-24.005106},Cf32{x:-40.12258,y:-70.390945},Cf32{x:33.66077,y:2.7951088}]
+    )).unwrap();
+    println!("{:?}\n{:?}", out11, out21);
+    let out22 = net.forward(IOType::Vector(
+      vec![Cf32{x:2.4383535,y:-79.10635},Cf32{x:-82.78201,y:-51.568462},Cf32{x:-14.222808,y:-37.603},Cf32{x:-77.137405,y:53.557404}]
+    )).unwrap();
+    println!("{:?}\n{:?}", out12, out22);
   }
 
   #[test]
@@ -347,5 +363,13 @@ use super::*;
 
     // Print loss information
     println!("Loss: {:.4}", 0.1234);
+
+    let num = 3.14159265359; // Your float number
+    let precision = 2; // Number of decimal places to round to
+    
+    let multiplier = 10_f64.powi(precision);
+    let rounded = (num * multiplier).round() / multiplier;
+    
+    println!("Rounded number: {}", rounded)
   }
 }
