@@ -7,7 +7,6 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::fmt::Display;
 
-use super::Complex;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Cf32 {
@@ -23,17 +22,31 @@ pub struct Cf64 {
 
 impl Display for Cf32 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let norm = self.norm_sq();
-    let phase = self.phase();
+    /*
+    let precision = 2;
+    let multi = 10_f32.powi(precision);
+    let norm = ( self.norm() * multi ).round() / multi;
+    let phase = ( self.phase() * multi ).round() / multi;
     write!(f, "{}ø{}", norm, phase)
+    */
+    let precision = 2;
+    let multi = 10_f32.powi(precision);
+    write!(f, "{} {}i", (self.x * multi).round() / multi, (self.y * multi).round() / multi)
   }
 }
 
 impl Display for Cf64 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let norm = self.norm_sq();
-    let phase = self.phase();
+    /*
+    let precision = 2;
+    let multi = 10_f64.powi(precision);
+    let norm = ( self.norm() * multi ).round() / multi;
+    let phase = ( self.phase() * multi ).round() / multi;
     write!(f, "{}ø{}", norm, phase)
+    */
+    let precision = 2;
+    let multi = 10_f64.powi(precision);
+    write!(f, "{} {}i", (self.x * multi).round() / multi, (self.y * multi).round() / multi)
   }
 }
 
