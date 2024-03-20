@@ -137,6 +137,8 @@ pub trait Complex where Self: Sized {
 
   fn new(re: Self::Precision, im: Self::Precision) -> Self;
 
+  fn usize_to_complex(num: usize) -> Self;
+
   fn unit() -> Self;
 
   fn re(&self) -> Self::Precision;
@@ -175,6 +177,10 @@ impl Complex for Cf32 {
     Self { x: re, y: im }
   }
 
+  fn usize_to_complex(num: usize) -> Self {
+    Self { x: num as Self::Precision, y: 0.0 }
+  }
+
   fn unit() -> Self {
     Self { x: 1.0, y: 0.0 }
   }
@@ -196,7 +202,7 @@ impl Complex for Cf32 {
   }
 
   fn phase(&self) -> Self::Precision {
-    (self.y / self.x).tan()
+    (self.y / self.x).atan()
   }
 
   fn conj(&self) -> Self {
@@ -221,7 +227,7 @@ impl Complex for Cf32 {
     match pred_method {
       PredictModel::Sparse => { 
         let mut one_hot_vec = vec![Self::default(); size];
-        one_hot_vec[critical_index] += Self { x: 1.0, y: 1.0 };
+        one_hot_vec[critical_index] += Self::unit();
 
         Ok(one_hot_vec)
       }
@@ -260,6 +266,10 @@ impl Complex for Cf64 {
     Self { x: re, y: im }
   }
 
+  fn usize_to_complex(num: usize) -> Self {
+    Self { x: num as Self::Precision, y: 0.0 }
+  }
+
   fn unit() -> Self {
     Self { x: 1.0, y: 0.0 }
   }
@@ -281,7 +291,7 @@ impl Complex for Cf64 {
   }
 
   fn phase(&self) -> Self::Precision {
-    (self.y / self.x).tan()
+    (self.y / self.x).atan()
   }
 
   fn conj(&self) -> Self {
@@ -306,7 +316,7 @@ impl Complex for Cf64 {
     match pred_method {
       PredictModel::Sparse => { 
         let mut one_hot_vec = vec![Self::default(); size];
-        one_hot_vec[critical_index] += Self { x: 1.0, y: 1.0 };
+        one_hot_vec[critical_index] += Self::unit();
 
         Ok(one_hot_vec)
       }
