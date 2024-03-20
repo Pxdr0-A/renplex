@@ -35,13 +35,16 @@ impl LossFunc {
       IOType::Vector(pred) => {
         match target {
           IOType::Vector(targ) => {
+            let pred_len = pred.len();
+            if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
+
             Ok(
               pred
                 .into_iter()
                 .zip(targ)
-                .fold(0.0,|acc, data| {
+                .fold(f32::default(),|acc, data| {
                   acc + func(data)
-                })
+                }) / ( pred_len as f32 )
             )
           },
           _ => { Err(LossCalcError::InconsistentIO) }
@@ -50,13 +53,17 @@ impl LossFunc {
       IOType::Matrix(pred) => {
         match target {
           IOType::Matrix(targ) => {
+            let mut pred_shape = [0_usize, 0];
+            pred_shape.copy_from_slice(pred.get_shape());
+            if pred_shape != targ.get_shape() { return Err(LossCalcError::InconsistentIO) }
+
             Ok(
               pred
                 .into_iter()
                 .zip(targ.into_iter())
-                .fold(0.0,|acc, data| {
+                .fold(f32::default(),|acc, data| {
                   acc + func(data)
-                })
+                }) / ( (pred_shape[0] * pred_shape[1]) as f32 )
             )
           },
           _ => { Err(LossCalcError::InconsistentIO) }
@@ -76,13 +83,16 @@ impl LossFunc {
       IOType::Vector(pred) => {
         match target {
           IOType::Vector(targ) => {
+            let pred_len = pred.len();
+            if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
+
             Ok(
               pred
                 .into_iter()
                 .zip(targ)
-                .fold(0.0,|acc, data| {
+                .fold(f64::default(),|acc, data| {
                   acc + func(data)
-                })
+                }) / ( pred_len as f64 )
             )
           },
           _ => { Err(LossCalcError::InconsistentIO) }
@@ -91,13 +101,17 @@ impl LossFunc {
       IOType::Matrix(pred) => {
         match target {
           IOType::Matrix(targ) => {
+            let mut pred_shape = [0_usize, 0];
+            pred_shape.copy_from_slice(pred.get_shape());
+            if pred_shape != targ.get_shape() { return Err(LossCalcError::InconsistentIO) }
+
             Ok(
               pred
                 .into_iter()
                 .zip(targ.into_iter())
-                .fold(0.0,|acc, data| {
+                .fold(f64::default(),|acc, data| {
                   acc + func(data)
-                })
+                }) / ( (pred_shape[0] * pred_shape[1]) as f64 )
             )
           },
           _ => { Err(LossCalcError::InconsistentIO) }
@@ -197,13 +211,16 @@ impl ComplexLossFunc {
       IOType::Vector(pred) => {
         match target {
           IOType::Vector(targ) => {
+            let pred_len = pred.len();
+            if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
+
             Ok(
               pred
                 .into_iter()
                 .zip(targ)
                 .fold(f32::default(),|acc, data| {
                   acc + func(data)
-                })
+                }) / ( pred_len as f32 )
             )
           },
           _ => { Err(LossCalcError::InconsistentIO) }
@@ -212,13 +229,17 @@ impl ComplexLossFunc {
       IOType::Matrix(pred) => {
         match target {
           IOType::Matrix(targ) => {
+            let mut pred_shape = [0_usize, 0];
+            pred_shape.copy_from_slice(pred.get_shape());
+            if pred_shape != targ.get_shape() { return Err(LossCalcError::InconsistentIO) }
+
             Ok(
               pred
                 .into_iter()
                 .zip(targ.into_iter())
                 .fold(f32::default(),|acc, data| {
                   acc + func(data)
-                })
+                }) / ( (pred_shape[0] * pred_shape[1]) as f32 )
             )
           },
           _ => { Err(LossCalcError::InconsistentIO) }
@@ -238,13 +259,16 @@ impl ComplexLossFunc {
       IOType::Vector(pred) => {
         match target {
           IOType::Vector(targ) => {
+            let pred_len = pred.len();
+            if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
+
             Ok(
               pred
                 .into_iter()
                 .zip(targ)
                 .fold(f64::default(),|acc, data| {
                   acc + func(data)
-                })
+                }) / ( pred_len as f64 )
             )
           },
           _ => { Err(LossCalcError::InconsistentIO) }
@@ -253,13 +277,17 @@ impl ComplexLossFunc {
       IOType::Matrix(pred) => {
         match target {
           IOType::Matrix(targ) => {
+            let mut pred_shape = [0_usize, 0];
+            pred_shape.copy_from_slice(pred.get_shape());
+            if pred_shape != targ.get_shape() { return Err(LossCalcError::InconsistentIO) }
+
             Ok(
               pred
                 .into_iter()
                 .zip(targ.into_iter())
                 .fold(f64::default(),|acc, data| {
                   acc + func(data)
-                })
+                }) / ( (pred_shape[0] * pred_shape[1]) as f64 )
             )
           },
           _ => { Err(LossCalcError::InconsistentIO) }
