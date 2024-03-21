@@ -13,7 +13,8 @@ pub enum LayerInitError {
 
 #[derive(Debug)]
 pub enum ForwardError {
-  MissingLayers
+  MissingLayers,
+  InvalidLayerIndex
 }
 
 pub enum BackwardError {
