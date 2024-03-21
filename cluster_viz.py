@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def main():
-  df = pd.read_csv("data.csv")
+  df = pd.read_csv("dataset.csv")
   
   plt.figure()
   for i in np.unique(df["class"]):
