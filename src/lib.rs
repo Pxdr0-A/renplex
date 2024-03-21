@@ -15,10 +15,10 @@ mod basic_tests {
   use std::thread;
   use std::io::Write;
   use crate::act::ComplexActFunc;
-use crate::cvnn::layer::dense::DenseCLayer;
-use crate::cvnn::network::CNetwork;
-use crate::input::IOType;
-use crate::opt::ComplexLossFunc;
+  use crate::cvnn::layer::dense::DenseCLayer;
+  use crate::cvnn::network::CNetwork;
+  use crate::math::matrix::Matrix;
+  use crate::opt::ComplexLossFunc;
 
 use super::*;
 
@@ -190,12 +190,13 @@ use super::*;
     use init::InitMethod;
     use opt::LossFunc;
 
-    let ref mut seed = 9182873278436_u128;
+    let ref mut seed = 37832656_u128;
 
     let n_input_dendrits: usize = 2;
     let n_input_units: usize = 2;
     let input_len = n_input_dendrits * n_input_units;
     let scale: usize = 1;
+    let n_batches: usize = 1024;
 
     let data: Dataset<f32, f32> = Dataset::sample(
       [128, input_len], 
@@ -223,12 +224,6 @@ use super::*;
     ).unwrap();
     net.add(
       DenseLayer::new(ActFunc::Sigmoid).wrap(), 
-      64, 
-      InitMethod::Random(scale), 
-      seed
-    ).unwrap();
-    net.add(
-      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
       3,
       InitMethod::Random(scale), 
       seed
@@ -237,13 +232,19 @@ use super::*;
     let (loss, _) = net.loss(data.clone(), &LossFunc::Conventional).unwrap();
     println!("{:?}", loss);
 
-    let n_batches: usize = 128;
+    let mut mean_loss_vec = Vec::new();
+    mean_loss_vec.push(loss);
+
     for _ in 0..n_batches {
       net.gradient_opt(data.clone(), LossFunc::Conventional, 10e-2).unwrap();
 
       let (loss, _) = net.loss(data.clone(), &LossFunc::Conventional).unwrap();
       println!("{:?}", loss);
+      mean_loss_vec.push(loss);
     }
+
+    let rows = mean_loss_vec.len();
+    Matrix::from_body(mean_loss_vec, [rows, 1]).to_csv().unwrap();
   }
 
   #[test]
@@ -256,16 +257,19 @@ use super::*;
     use math::cfloat::Cf32;
     use math::Complex;
 
-    let ref mut seed = 654563652176_u128;
+    let ref mut seed = 634976253_u128;
 
     let n_input_dendrits: usize = 2;
-    let n_input_units: usize = 2;
+    let n_input_units: usize = 1;
+    let degree: usize = 2;
     let input_len = n_input_dendrits * n_input_units;
     let scale: usize = 1;
+    let batch_size: usize = 256;
+    let n_batches: usize = 2000;
 
     let data: Dataset<Cf32, Cf32> = Dataset::sample_complex(
-      [128, input_len], 
-      3, 
+      [batch_size, input_len], 
+      degree, 
       100, 
       10, 
       PredictModel::Sparse, 
@@ -289,42 +293,24 @@ use super::*;
     ).unwrap();
     net.add(
       DenseCLayer::new(ComplexActFunc::RITSigmoid).wrap(), 
-      64, 
-      InitMethod::Random(scale), 
-      seed
-    ).unwrap();
-    net.add(
-      DenseCLayer::new(ComplexActFunc::RITSigmoid).wrap(), 
-      3,
+      degree,
       InitMethod::Random(scale), 
       seed
     ).unwrap();
 
     let (loss, _) = net.loss(data.clone(), &ComplexLossFunc::Conventional).unwrap();
-    println!("{:?}", loss);
-    let out11 = net.forward(IOType::Vector(
-      vec![Cf32{x:95.536255,y:-26.449991},Cf32{x:-42.735924,y:-24.005106},Cf32{x:-40.12258,y:-70.390945},Cf32{x:33.66077,y:2.7951088}]
-    )).unwrap();
-    let out12 = net.forward(IOType::Vector(
-      vec![Cf32{x:2.4383535,y:-79.10635},Cf32{x:-82.78201,y:-51.568462},Cf32{x:-14.222808,y:-37.603},Cf32{x:-77.137405,y:53.557404}]
-    )).unwrap();
+    let mut mean_loss_vec = Vec::new();
 
-    let n_batches: usize = 128;
+    mean_loss_vec.push(loss);
     for _ in 0..n_batches {
-      net.gradient_opt(data.clone(), ComplexLossFunc::Conventional, Cf32::new(10e-2, 0.0)).unwrap();
+      net.gradient_opt(data.clone(), ComplexLossFunc::Conventional, Cf32::new(10e-3, 0.0)).unwrap();
 
       let (loss, _) = net.loss(data.clone(), &ComplexLossFunc::Conventional).unwrap();
-      println!("{:?}", loss);
+      mean_loss_vec.push(loss);
     }
 
-    let out21 = net.forward(IOType::Vector(
-      vec![Cf32{x:95.536255,y:-26.449991},Cf32{x:-42.735924,y:-24.005106},Cf32{x:-40.12258,y:-70.390945},Cf32{x:33.66077,y:2.7951088}]
-    )).unwrap();
-    println!("{:?}\n{:?}", out11, out21);
-    let out22 = net.forward(IOType::Vector(
-      vec![Cf32{x:2.4383535,y:-79.10635},Cf32{x:-82.78201,y:-51.568462},Cf32{x:-14.222808,y:-37.603},Cf32{x:-77.137405,y:53.557404}]
-    )).unwrap();
-    println!("{:?}\n{:?}", out12, out22);
+    let rows = mean_loss_vec.len();
+    Matrix::from_body(mean_loss_vec, [rows, 1]).to_csv().unwrap();
   }
 
   #[test]
