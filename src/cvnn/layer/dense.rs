@@ -288,10 +288,10 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     let weight_shape = self.weights.get_shape();
     let dldw_shape = dldw.get_shape();
     let dldb_shape = dldb.get_shape();
-    if dldb_shape[0] != 1 && dldb_shape[1] != 1 {
+    if dldb_shape[1] != 1 {
       return Err(GradientError::InvalidBiasShape)
     } 
-    if dldb_shape[0] != self.biases.len() && dldb_shape[1] != self.biases.len() {
+    if dldb_shape[0] != self.biases.len(){
       return Err(GradientError::InconsistentShape)
     } 
     if dldw_shape != weight_shape {
