@@ -184,54 +184,66 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     }
   }
 
-  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>, Vec<T>), GradientError> {
+  fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>, Vec<T>), GradientError> {
+    /* check dimensions of every matrix and vector */
+
     let weight_shape = self.weights.get_shape();
     if dlda.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) }
     if dlda_conj.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) }
 
     match previous_act {
       IOType::Vector(input) => {
-        /* determine q and q* */
-        let mut q = self.weights.mul_vec(input.clone()).unwrap();
-        q.add_slice(&self.biases).unwrap();
+        /* determine q (it is an holomorphic function) */
+        /* determine q */
+        let q = match is_input {
+          true => { 
+            let mut res = Vec::with_capacity(weight_shape[0]);
+
+            /* go through units */
+            for row in 0..weight_shape[0] {
+              res.push(
+                self.weights
+                  .row(row)
+                  .unwrap()
+                  .iter()
+                  .zip(&input[row*weight_shape[1]..row*weight_shape[1]+weight_shape[1]])
+                  .fold(T::default(), |acc, (weight, input)| { acc + *weight * *input })
+              );
+            }
+
+            res.add_slice(&self.biases).unwrap();
+
+            res
+          },
+          false => { 
+            let mut res = self.weights.mul_vec(input.clone()).unwrap();
+            res.add_slice(&self.biases).unwrap();
+
+            res
+          }
+        };
   
-        /* determine dadq, dadq*, da*dq and da*dq* */
+        /* determine dadq, dadq* */
         let mut dadq = q.clone();
+        T::d_activate_mut(&mut dadq[..], &self.func);
         let mut dadq_conj = q;
-        T::d_activate_mut(
-          &mut dadq[..], 
-          &self.func
-        );
-
-        T::d_conj_activate_mut(
-          &mut dadq_conj[..], 
-          &self.func
-        );
-
+        T::d_conj_activate_mut(&mut dadq_conj[..], &self.func);
         let da_conj_dq = dadq_conj
-          .iter()
-          .map(|elm| { elm.conj() })
-          .collect::<Vec<T>>();
-
-        /* in this case, it does not enter in the equations */
-        let _da_conj_dq_conj = dadq
           .iter()
           .map(|elm| { elm.conj() })
           .collect::<Vec<T>>();
         
         /* determine dqdw and dq*dw */
+        /* equal to the previous input and the same for all neurons */
         let dqdw = input.clone();
-        let _dq_conj_dw = T::default();
 
-        /* determine dqdb and dq*db */
-        let _dqdb = T::unit();
-        let _dq_conj_db = T::default();
+        /* dqdb is 1 */
 
         /* determine dqda */
         let mut dqda = self.weights.rows_as_iter();
-        let _dq_conj_da = T::default();
 
         /* first two commun derivatives */
+        /* dlda * dadq and dlda* * da*dq */
         let vals = dlda
           .iter()
           .zip(&dadq[..])
@@ -240,40 +252,56 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
           .iter()
           .zip(&da_conj_dq[..])
           .map(|(lhs, rhs)| {*lhs * *rhs});
+
+        /* current dldw and dldb derivatives */
         let mut dldw = Matrix::with_capacity([weight_shape[0], weight_shape[1]]);
         let mut dldb = Vec::with_capacity(weight_shape[0]);
+
+        /* updates on cost function derivatives (propagated backwards) */
         let mut new_dlda: Vec<T> = vec![T::default(); weight_shape[1]];
         let mut new_dlda_conj: Vec<T> = vec![T::default(); weight_shape[1]];
+
+        /* some aux vars */
         let mut current_dqda_row: &[T];
         let mut addition: Vec<T>;
+        
         /* this cycle indirectly goes through the number of neurons */
-        for (val, conj_val) in vals.into_iter().zip(vals_conj) {
-          dldw.add_row(
-            dqdw
-              .iter()
-              .map(|elm| { ( *elm * val ) + ( *elm * conj_val ) })
-              .collect::<Vec<T>>()
-          ).unwrap();
+        for (index, (val, conj_val)) in vals.into_iter().zip(vals_conj).enumerate() {
+          if is_input {
+            dldw.add_row(
+              dqdw[index*weight_shape[1]..index*weight_shape[1]+weight_shape[1]]
+                .iter()
+                .map(|elm| { *elm * ( val + conj_val ) })
+                .collect::<Vec<T>>()
+            ).unwrap();
+          } else {
+            dldw.add_row(
+              dqdw
+                .iter()
+                /* goes through columns or number of previous neurons */
+                .map(|elm| { *elm * ( val + conj_val ) })
+                .collect::<Vec<T>>()
+            ).unwrap();
+          }
 
+          /* one neuron bias derivative */
           dldb.push(val + conj_val);
 
           current_dqda_row = dqda
             .next()
             .unwrap();
-
           
           addition = current_dqda_row
             .iter()
-            .map(|elm| { ( *elm * val ) + ( *elm * conj_val ) })
+            .map(|elm| { *elm * ( val + conj_val ) })
             .collect();
           /* accumulate the sum */
           new_dlda.add_slice(&addition).unwrap();
-          
-          /* also update dlda conj */
-          addition = current_dqda_row
-            .iter()
-            .map(|elm| { ( elm.conj() * conj_val.conj() ) + ( elm.conj() * val.conj() ) })
-            .collect();
+
+          for elm in addition.iter_mut() {
+            /* happens to be like this */
+            *elm = elm.conj();
+          }
           /* accumulate the sum */
           new_dlda_conj.add_slice(&addition).unwrap();
         }

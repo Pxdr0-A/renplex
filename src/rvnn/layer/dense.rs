@@ -185,27 +185,49 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
     }
   }
 
-  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
+  fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
     let weight_shape = self.weights.get_shape();
     if dlda.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) }
     match previous_act {
       IOType::Vector(input) => {
         /* determine q */
-        let mut q = self.weights.mul_vec(input.clone()).unwrap();
-        q.add_slice(&self.biases).unwrap();
+        let q = match is_input {
+          true => { 
+            let mut res = Vec::with_capacity(weight_shape[0]);
+
+            /* go through units */
+            for row in 0..weight_shape[0] {
+              res.push(
+                self.weights
+                  .row(row)
+                  .unwrap()
+                  .iter()
+                  .zip(&input[row*weight_shape[1]..row*weight_shape[1]+weight_shape[1]])
+                  .fold(T::default(), |acc, (weight, input)| { acc + *weight * *input })
+              );
+            }
+
+            res.add_slice(&self.biases).unwrap();
+
+            res
+          },
+          false => { 
+            let mut res = self.weights.mul_vec(input.clone()).unwrap();
+            res.add_slice(&self.biases).unwrap();
+
+            res
+          }
+        };
+
         let mut dadq = q;
         /* determine dadq */
-        T::d_activate_mut(
-          &mut dadq[..], 
-          &self.func
-        );
+        T::d_activate_mut(&mut dadq[..], &self.func);
 
         /* determine dqdw */
         /* this is repeated to all neurons (implicitly) */
         let dqdw = input.clone();
 
-        /* determine dqdb */
-        let _dqdb = T::unit();
+        /* dqdb is 1 */
 
         /* determine dqda (not really iter of the weights, but happens to be so) */
         let mut dqda = self.weights.rows_as_iter();
@@ -218,13 +240,23 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
         let mut dldw = Matrix::with_capacity([weight_shape[0], weight_shape[1]]);
         let mut dldb = Vec::with_capacity(weight_shape[0]);
         let mut new_dlda: Vec<T> = vec![T::default(); weight_shape[1]];
-        for val in vals {
-          dldw.add_row(
-            dqdw
-              .iter()
-              .map(|elm| { *elm * val })
-              .collect::<Vec<T>>()
-          ).unwrap();
+        for (index, val) in vals.enumerate() {
+          /* if input has the length of the input of the network, there is a problem. */
+          if is_input {
+            dldw.add_row(
+              dqdw[index*weight_shape[1]..index*weight_shape[1]+weight_shape[1]]
+                .iter()
+                .map(|elm| { *elm * val })
+                .collect::<Vec<T>>()
+            ).unwrap();
+          } else {
+            dldw.add_row(
+              dqdw
+                .iter()
+                .map(|elm| { *elm * val })
+                .collect::<Vec<T>>()
+            ).unwrap();
+          }
 
           dldb.push(val);
 

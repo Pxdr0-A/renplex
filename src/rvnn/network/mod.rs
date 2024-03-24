@@ -131,6 +131,38 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     Ok(out)
   }
 
+  pub fn intercept(&self, input_type: IOType<T>, index: usize) -> Result<(IOType<T>, &Layer<T>), ForwardError> {
+    if index > self.layers.len() - 1 { return Err(ForwardError::InvalidLayerIndex) }
+
+    let mut layers_iter = self.layers.iter();
+    let mut previous_act = input_type.clone();
+
+    let input_layer = layers_iter.next().unwrap();
+
+    if index == 0 {
+      return Ok((previous_act, input_layer))
+    } else {
+      previous_act = input_layer.trigger(input_type.clone()).unwrap();
+      let mut current_act;
+
+      /* go through hidden layers */
+      for (current_index, layer_ref) in layers_iter.enumerate() {
+        current_act = layer_ref
+          .foward(previous_act.clone())
+          .unwrap();
+
+        /* -1 because the input layer is already gone */
+        if current_index == index-1 {
+          return Ok((previous_act, layer_ref))
+        }
+
+        previous_act = current_act;
+      }
+    }
+
+    panic!("Something went terribily wrong!");
+  }
+
   pub fn loss(&self, 
     data: Dataset<T, T>,
     loss_func: &LossFunc,
@@ -162,19 +194,16 @@ impl<T: Real + BasicOperations<T>> Network<T> {
 
     let (inputs, targets) = data.points_into_iter();
     let n_layers = self.layers.len();
-    let mut previous_act;
-    let mut current_act;
-    let mut current_layer;
     let mut dldw;
     let mut dldb;
+    
     /* derivatives to accumulate */
     let mut dldw_per_layer = vec![Matrix::new(); n_layers];
     let mut dldb_per_layer = vec![Matrix::new(); n_layers];
-    /* generic counter */
-    let mut count = T::default();
 
+    let batch_size = inputs.len();
+    let mut is_input: bool;
     for (input, target) in inputs.zip(targets) {
-      previous_act =  input.clone();
       /* initial value of loss derivative */
       let initial_pred = self.forward(input.clone()).unwrap();
       let mut dlda = T::d_loss(
@@ -185,43 +214,27 @@ impl<T: Real + BasicOperations<T>> Network<T> {
       /* decrease the number of layers to go through by one until you reach the input */
       for l in 0..self.layers.len() {
         /* process for getting to adjacent layer signals back to input */
-        let mut layers_iter = self.layers
-          .iter()
-          .rev()
-          .skip(l)
-          .rev();
-
-        let input_layer = layers_iter.next().unwrap();
-        current_layer = Some(input_layer);
-
-        current_act = input_layer.trigger(input.clone()).unwrap();
-        for layer in layers_iter {
-          previous_act = current_act.clone();
-
-          current_layer = Some(layer);
-          current_act = layer.foward(current_act).unwrap();
-        }
-
+        let (previous_act, last_layer) = self
+          .intercept(input.clone(), n_layers-l-1)
+          .unwrap();
 
         /* do the logic that analyzes the last two outputs */
         /* dadq for all of the layer's neurons */
-        let layer1 = current_layer.unwrap();
-        if !layer1.is_trainable() {
+        if !last_layer.is_trainable() {
           /* layer is not trainable, do not waste time */
           continue;
         }
 
-        (dldw, dldb, dlda) = layer1.compute_derivatives(&previous_act, dlda).unwrap();
+        is_input = if n_layers-l-1 == 0 { true } else { false };
+        (dldw, dldb, dlda) = last_layer.compute_derivatives(is_input, &previous_act, dlda).unwrap();
 
         dldw_per_layer[n_layers-l-1].add_mut(&dldw).unwrap();
         dldb_per_layer[n_layers-l-1].add_mut(&dldb).unwrap();
       }
-
-      count += T::unit();
     }
 
     /* divide the gradient by the count of data samples */
-    let scale_param = lr / count;
+    let scale_param = lr / T::usize_to_real(batch_size);
     for ((mut dldw_l, mut dldb_l), layer) in dldw_per_layer.into_iter().zip(dldb_per_layer).zip(self.layers.iter_mut()) {
       if !layer.is_trainable() {
         continue;

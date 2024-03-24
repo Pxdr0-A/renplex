@@ -198,10 +198,10 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let mut dldw_per_layer = vec![Matrix::new(); n_layers];
     let mut dldb_per_layer = vec![Matrix::new(); n_layers];
 
-    /* generic counter */
-    let mut count = T::default();
-
     let (inputs, targets) = data.points_into_iter();
+
+    let batch_size = inputs.len();
+    let mut is_input: bool;
     for (input, target) in inputs.zip(targets) {
       let initial_pred = self.forward(input.clone()).unwrap();
       /* initial value of loss derivative */
@@ -210,16 +210,15 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         target.clone(), 
         &loss_func
       ).unwrap().to_vec();
-      let mut dlda_conj = T::d_conj_loss(
-        initial_pred, 
-        target.clone(), 
-        &loss_func
-      ).unwrap().to_vec();
+      let mut dlda_conj: Vec<T> = dlda
+        .iter()
+        .map(|elm| { elm.conj() })
+        .collect();
 
       /* decrease the number of layers to go through by one until you reach the input */
       /* propagate the derivatives backwards */
       for l in 0..self.layers.len() {
-        /* process for getting to adjacent layer signals back to input */
+        /* process for getting previous signal of a layer */
         let (previous_act, last_layer) = self
           .intercept(input.clone(), n_layers-l-1)
           .unwrap();
@@ -229,17 +228,16 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
           continue;
         }
 
-        (dldw, dldb, dlda, dlda_conj) = last_layer.compute_derivatives(&previous_act, dlda, dlda_conj).unwrap();
+        is_input = if n_layers-l-1 == 0 { true } else { false };
+        (dldw, dldb, dlda, dlda_conj) = last_layer.compute_derivatives(is_input, &previous_act, dlda, dlda_conj).unwrap();
 
         dldw_per_layer[n_layers-l-1].add_mut(&dldw).unwrap();
         dldb_per_layer[n_layers-l-1].add_mut(&dldb).unwrap();
       }
-
-      count += T::unit();
     }
 
     /* divide the gradient by the count of data samples */
-    let scale_param = lr / count;
+    let scale_param = lr / T::usize_to_complex(batch_size);
     for ((mut dldw_l, mut dldb_l), layer) in dldw_per_layer.into_iter().zip(dldb_per_layer).zip(self.layers.iter_mut()) {
       if !layer.is_trainable() {
         continue;

@@ -197,10 +197,13 @@ use super::*;
     let input_len = n_input_dendrits * n_input_units;
     let scale: usize = 1;
     let n_batches: usize = 1024;
+    let total_iterations = n_batches;
+    let mut progress: usize = 0;
+    let degree = 3;
 
     let data: Dataset<f32, f32> = Dataset::sample(
       [128, input_len], 
-      3, 
+      degree, 
       100, 
       10, 
       PredictModel::Sparse, 
@@ -224,7 +227,7 @@ use super::*;
     ).unwrap();
     net.add(
       DenseLayer::new(ActFunc::Sigmoid).wrap(), 
-      3,
+      degree,
       InitMethod::Random(scale), 
       seed
     ).unwrap();
@@ -239,9 +242,29 @@ use super::*;
       net.gradient_opt(data.clone(), LossFunc::Conventional, 10e-2).unwrap();
 
       let (loss, _) = net.loss(data.clone(), &LossFunc::Conventional).unwrap();
-      println!("{:?}", loss);
       mean_loss_vec.push(loss);
+
+      // Update progress
+      progress += 1;
+
+      // Calculate percentage completion
+      let percentage = progress as f32 / total_iterations as f32 * 100.0;
+
+      // Print progress bar
+      print!("\r[");
+      for j in 0..50 {
+          if (j as f32) < percentage / 2.0 {
+              print!("•");
+          } else {
+              print!(" ");
+          }
+      }
+      print!("] loss: {:.3}", loss);
+      // Flush output to ensure immediate display
+      std::io::stdout().flush().unwrap();
     }
+
+    println!();
 
     let rows = mean_loss_vec.len();
     Matrix::from_body(mean_loss_vec, [rows, 1]).to_csv().unwrap();
@@ -257,15 +280,17 @@ use super::*;
     use math::cfloat::Cf32;
     use math::Complex;
 
-    let ref mut seed = 634976253_u128;
+    let ref mut seed = 7783736221_u128;
 
     let n_input_dendrits: usize = 2;
-    let n_input_units: usize = 1;
+    let n_input_units: usize = 2;
     let degree: usize = 2;
     let input_len = n_input_dendrits * n_input_units;
     let scale: usize = 1;
-    let batch_size: usize = 256;
+    let batch_size: usize = 128;
     let n_batches: usize = 2000;
+    let total_iterations = n_batches;
+    let mut progress: usize = 0;
 
     let data: Dataset<Cf32, Cf32> = Dataset::sample_complex(
       [batch_size, input_len], 
@@ -287,7 +312,7 @@ use super::*;
     ).unwrap();
     net.add(
       DenseCLayer::new(ComplexActFunc::RITSigmoid).wrap(), 
-      16,
+      8,
       InitMethod::Random(scale), 
       seed
     ).unwrap();
@@ -307,7 +332,27 @@ use super::*;
 
       let (loss, _) = net.loss(data.clone(), &ComplexLossFunc::Conventional).unwrap();
       mean_loss_vec.push(loss);
+
+      // Update progress
+      progress += 1;
+
+      // Calculate percentage completion
+      let percentage = progress as f32 / total_iterations as f32 * 100.0;
+
+      // Print progress bar
+      print!("\r[");
+      for j in 0..50 {
+          if (j as f32) < percentage / 2.0 {
+              print!("•");
+          } else {
+              print!(" ");
+          }
+      }
+      print!("] loss: {:.3}", loss);
+      // Flush output to ensure immediate display
+      std::io::stdout().flush().unwrap();
     }
+    println!();
 
     let rows = mean_loss_vec.len();
     Matrix::from_body(mean_loss_vec, [rows, 1]).to_csv().unwrap();

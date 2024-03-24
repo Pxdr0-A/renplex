@@ -30,7 +30,7 @@ pub trait LayerLike<T> where Self: Sized {
 
   fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError>;
 
-  fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError>;
+  fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError>;
 
   fn gradient_adjustment(&mut self, dldw: Matrix<T>, dldb: Matrix<T>) -> Result<(), GradientError>;
 
@@ -82,9 +82,9 @@ impl<T: Real + BasicOperations<T>> Layer<T> {
     }
   }
 
-  pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
+  pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>), GradientError> {
     match self {
-      Layer::Dense(l) => { l.compute_derivatives(previous_act, dlda) }
+      Layer::Dense(l) => { l.compute_derivatives(is_input, previous_act, dlda) }
     }
   }
 
