@@ -242,7 +242,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       if !layer.is_trainable() {
         continue;
       }
-      
+
       dldw_l.mul_mut_scalar(scale_param).unwrap();
       dldb_l.mul_mut_scalar(scale_param).unwrap();
 
@@ -251,5 +251,13 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     }
 
     Ok(())
+  }
+
+  pub fn split_gradient_opt(&mut self) {
+    unimplemented!()
+  }
+
+  pub fn mvn_opt(&mut self) {
+    unimplemented!()
   }
 }

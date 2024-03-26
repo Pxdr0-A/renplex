@@ -210,7 +210,6 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
                   .fold(T::default(), |acc, (weight, input)| { acc + *weight * *input })
               );
             }
-
             res.add_slice(&self.biases).unwrap();
 
             res
@@ -290,14 +289,12 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
           current_dqda_row = dqda
             .next()
             .unwrap();
-          
           addition = current_dqda_row
             .iter()
             .map(|elm| { *elm * ( val + conj_val ) })
             .collect();
           /* accumulate the sum */
           new_dlda.add_slice(&addition).unwrap();
-
           for elm in addition.iter_mut() {
             /* happens to be like this */
             *elm = elm.conj();
@@ -328,12 +325,13 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     
     for (weights, dw_slice) in self.weights.rows_as_iter_mut().zip(dldw.rows_as_iter()) {
       for (weight, dw) in weights.into_iter().zip(dw_slice) {
-        *weight -= *dw;
+        /* see why it is the conjugate */
+        *weight -= dw.conj();
       }
     }
 
     for (bias, db) in self.biases.iter_mut().zip(dldb.get_body()) {
-      *bias -= *db;
+      *bias -= db.conj();
     }
 
     Ok(())
