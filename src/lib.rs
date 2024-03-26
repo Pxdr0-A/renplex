@@ -20,6 +20,9 @@ mod basic_tests {
   use crate::math::matrix::Matrix;
   use crate::opt::ComplexLossFunc;
 
+use self::math::cfloat::Cf32;
+use self::math::Complex;
+
 use super::*;
 
   #[test]
@@ -190,7 +193,7 @@ use super::*;
     use init::InitMethod;
     use opt::LossFunc;
 
-    let ref mut seed = 37832656_u128;
+    let ref mut seed = 98897867321_u128;
 
     let n_input_dendrits: usize = 2;
     let n_input_units: usize = 2;
@@ -280,11 +283,11 @@ use super::*;
     use math::cfloat::Cf32;
     use math::Complex;
 
-    let ref mut seed = 7783736221_u128;
+    let ref mut seed = 10101010189_u128;
 
     let n_input_dendrits: usize = 2;
-    let n_input_units: usize = 2;
-    let degree: usize = 2;
+    let n_input_units: usize = 3;
+    let degree: usize = 4;
     let input_len = n_input_dendrits * n_input_units;
     let scale: usize = 1;
     let batch_size: usize = 128;
@@ -402,5 +405,16 @@ use super::*;
     let rounded = (num * multiplier).round() / multiplier;
     
     println!("Rounded number: {}", rounded)
+  }
+
+  #[test]
+  fn complex_test() {
+    let a = Cf32::new(2.3, 6.1);
+    let r = Cf32::new(2.9, 6.2);
+
+    let res1 = a * a.conj() + r * r.conj() - a * r.conj() - r * a.conj();
+    let res2 = (a - r).norm_sq();
+
+    println!("{} | {}", res1, res2);
   }
 }
