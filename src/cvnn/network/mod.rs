@@ -189,11 +189,11 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
   pub fn gradient_opt(&mut self, data: Dataset<T, T>, loss_func: ComplexLossFunc, lr: T) -> Result<(), ForwardError> {
     let n_layers = self.layers.len();
     if n_layers <= 1 { return Err(ForwardError::MissingLayers) }
-    
+
     /* main derivatives */
     let mut dldw;
     let mut dldb;
-    
+
     /* derivatives to accumulate */
     let mut dldw_per_layer = vec![Matrix::new(); n_layers];
     let mut dldb_per_layer = vec![Matrix::new(); n_layers];
@@ -203,6 +203,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let batch_size = inputs.len();
     let mut is_input: bool;
     for (input, target) in inputs.zip(targets) {
+      /* initial prediction */
       let initial_pred = self.forward(input.clone()).unwrap();
       /* initial value of loss derivative */
       let mut dlda = T::d_loss(
@@ -210,6 +211,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         target.clone(), 
         &loss_func
       ).unwrap().to_vec();
+      /* conjugate derivative of loss */
       let mut dlda_conj: Vec<T> = dlda
         .iter()
         .map(|elm| { elm.conj() })

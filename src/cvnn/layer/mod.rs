@@ -37,11 +37,13 @@ pub trait CLayerLike<T> where Self: Sized {
   fn wrap(self) -> CLayer<T>;
 }
 
+
 /// Just a general interface for a [`Network<T>`] that allows for a static personaliztion.
 #[derive(Debug)]
 pub enum CLayer<T> {
   Dense(DenseCLayer<T>)
 }
+
 
 impl<T: Complex + BasicOperations<T>> CLayer<T> {
   pub fn is_empty(&self) -> bool {
