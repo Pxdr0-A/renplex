@@ -7,14 +7,16 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::fmt::Display;
 
+use super::Complex;
 
-#[derive(Copy, Clone, Debug)]
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Cf32 {
     pub x: f32,
     pub y: f32
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Cf64 {
     pub x: f64,
     pub y: f64
@@ -65,6 +67,80 @@ impl Default for Cf64 {
       x: 0.0,
       y: 0.0
     }
+  }
+}
+
+impl PartialOrd for Cf64 {
+  fn ge(&self, other: &Self) -> bool {
+    let norm_lhs = self.norm_sq();
+    let norm_rhs = other.norm_sq();
+
+    norm_lhs >= norm_rhs
+  }
+
+  fn gt(&self, other: &Self) -> bool {
+    let norm_lhs = self.norm_sq();
+    let norm_rhs = other.norm_sq();
+
+    norm_lhs > norm_rhs
+  }
+
+  fn le(&self, other: &Self) -> bool {
+    let norm_lhs = self.norm_sq();
+    let norm_rhs = other.norm_sq();
+
+    norm_lhs <= norm_rhs
+  }
+
+  fn lt(&self, other: &Self) -> bool {
+    let norm_lhs = self.norm_sq();
+    let norm_rhs = other.norm_sq();
+
+    norm_lhs < norm_rhs
+  }
+
+  fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    let norm_lhs = self.norm_sq();
+    let norm_rhs = other.norm_sq();
+
+    norm_lhs.partial_cmp(&norm_rhs)
+  }
+}
+
+impl PartialOrd for Cf32 {
+  fn ge(&self, other: &Self) -> bool {
+    let norm_lhs = self.norm_sq();
+    let norm_rhs = other.norm_sq();
+
+    norm_lhs >= norm_rhs
+  }
+
+  fn gt(&self, other: &Self) -> bool {
+    let norm_lhs = self.norm_sq();
+    let norm_rhs = other.norm_sq();
+
+    norm_lhs > norm_rhs
+  }
+
+  fn le(&self, other: &Self) -> bool {
+    let norm_lhs = self.norm_sq();
+    let norm_rhs = other.norm_sq();
+
+    norm_lhs <= norm_rhs
+  }
+
+  fn lt(&self, other: &Self) -> bool {
+    let norm_lhs = self.norm_sq();
+    let norm_rhs = other.norm_sq();
+
+    norm_lhs < norm_rhs
+  }
+
+  fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    let norm_lhs = self.norm_sq();
+    let norm_rhs = other.norm_sq();
+
+    norm_lhs.partial_cmp(&norm_rhs)
   }
 }
 
