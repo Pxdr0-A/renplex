@@ -186,6 +186,44 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok((mean, loss_vals))
   }
 
+  pub fn max_pred_test(&self, data: Dataset<T, T>) -> (usize, usize) {
+    let (input_chunks, target_chunks) = data.points_into_iter();
+    let mut prediction;
+    let mut pred;
+    let mut targ;
+
+    let batch_len = target_chunks.len();
+    let mut results = Vec::with_capacity(batch_len);
+    for (input, target) in input_chunks.zip(target_chunks) {
+      prediction = self
+        .forward(input)
+        .unwrap();
+
+      pred = prediction.release_vec().unwrap();
+      targ = target.release_vec().unwrap();
+      let (pred_index, _) = pred
+        .into_iter()
+        .enumerate()
+        .fold((usize::default(), T::default()), |acc, elm| { 
+          if elm.1 > acc.1 { elm } else { acc } 
+        });
+
+      let (targ_index, _) = targ
+        .into_iter()
+        .enumerate()
+        .fold((usize::default(), T::default()), |acc, elm| { 
+          if elm.1 > acc.1 { elm } else { acc } 
+        });
+
+      results.push(if targ_index == pred_index {1_usize} else {0_usize});
+    }
+
+
+    let acc: usize = results.into_iter().sum();
+
+    (acc, batch_len)
+  }
+
   pub fn gradient_opt(&mut self, data: Dataset<T, T>, loss_func: ComplexLossFunc, lr: T) -> Result<(), ForwardError> {
     let n_layers = self.layers.len();
     if n_layers <= 1 { return Err(ForwardError::MissingLayers) }
