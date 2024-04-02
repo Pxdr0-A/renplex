@@ -166,8 +166,6 @@ pub trait Complex where Self: Sized {
   fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError>;
 
   fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<IOType<Self>, LossCalcError>;
-
-  fn d_conj_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<IOType<Self>, LossCalcError>;
 }
 
 impl Complex for Cf32 {
@@ -253,10 +251,6 @@ impl Complex for Cf32 {
   fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<IOType<Self>, LossCalcError> {
     loss_func.compute_d_cf32(prediction, target)
   }
-
-  fn d_conj_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<IOType<Self>, LossCalcError> {
-    loss_func.compute_d_conj_cf32(prediction, target)
-  }
 }
 
 impl Complex for Cf64 {
@@ -341,9 +335,5 @@ impl Complex for Cf64 {
 
   fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<IOType<Self>, LossCalcError> {
     loss_func.compute_d_cf64(prediction, target)
-  }
-
-  fn d_conj_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &ComplexLossFunc) -> Result<IOType<Self>, LossCalcError> {
-    loss_func.compute_d_conj_cf64(prediction, target)
   }
 }

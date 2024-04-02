@@ -202,16 +202,18 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
 
     let batch_size = inputs.len();
     let mut is_input: bool;
+
+    /* accumulate weight and bias derivative */
     for (input, target) in inputs.zip(targets) {
       /* initial prediction */
       let initial_pred = self.forward(input.clone()).unwrap();
-      /* initial value of loss derivative */
+      /* initial value of loss derivatives */
       let mut dlda = T::d_loss(
         initial_pred.clone(),
         target.clone(), 
         &loss_func
       ).unwrap().to_vec();
-      /* conjugate derivative of loss */
+      /* initial conjugate derivative of loss */
       let mut dlda_conj: Vec<T> = dlda
         .iter()
         .map(|elm| { elm.conj() })
