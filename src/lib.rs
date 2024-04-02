@@ -193,19 +193,23 @@ use super::*;
     use init::InitMethod;
     use opt::LossFunc;
 
-    let ref mut seed = 98897867321_u128;
+    /* test for overfitting */
+
+    let ref mut seed = 28233267845_u128;
 
     let n_input_dendrits: usize = 2;
     let n_input_units: usize = 2;
     let input_len = n_input_dendrits * n_input_units;
     let scale: usize = 1;
-    let n_batches: usize = 1024;
+    let batch_size: usize = 128;
+    let n_batches: usize = 2000;
+    let lr = 10e-2;
     let total_iterations = n_batches;
     let mut progress: usize = 0;
     let degree = 3;
 
     let data: Dataset<f32, f32> = Dataset::sample(
-      [128, input_len], 
+      [batch_size, input_len], 
       degree, 
       100, 
       10, 
@@ -241,8 +245,10 @@ use super::*;
     let mut mean_loss_vec = Vec::new();
     mean_loss_vec.push(loss);
 
+    println!("{:?}", net.max_pred_test(data.clone()));
+
     for _ in 0..n_batches {
-      net.gradient_opt(data.clone(), LossFunc::Conventional, 10e-2).unwrap();
+      net.gradient_opt(data.clone(), LossFunc::Conventional, lr).unwrap();
 
       let (loss, _) = net.loss(data.clone(), &LossFunc::Conventional).unwrap();
       mean_loss_vec.push(loss);
@@ -268,6 +274,7 @@ use super::*;
     }
 
     println!();
+    println!("{:?}", net.max_pred_test(data.clone()));
 
     let rows = mean_loss_vec.len();
     Matrix::from_body(mean_loss_vec, [rows, 1]).to_csv().unwrap();
@@ -283,16 +290,19 @@ use super::*;
     use math::cfloat::Cf32;
     use math::Complex;
 
-    let ref mut seed = 10101010189_u128;
+    /* test for overfitting */
+
+    let ref mut seed = 834893486234672_u128;
 
     let n_input_dendrits: usize = 2;
-    let n_input_units: usize = 3;
-    let degree: usize = 4;
+    let n_input_units: usize = 2;
+    let degree: usize = 3;
     let input_len = n_input_dendrits * n_input_units;
     let scale: usize = 1;
     let batch_size: usize = 128;
     let n_batches: usize = 2000;
     let total_iterations = n_batches;
+    let lr = Cf32::new(10e-2, 0.0);
     let mut progress: usize = 0;
 
     let data: Dataset<Cf32, Cf32> = Dataset::sample_complex(
@@ -315,7 +325,7 @@ use super::*;
     ).unwrap();
     net.add(
       DenseCLayer::new(ComplexActFunc::RITSigmoid).wrap(), 
-      8,
+      16,
       InitMethod::Random(scale), 
       seed
     ).unwrap();
@@ -330,8 +340,11 @@ use super::*;
     let mut mean_loss_vec = Vec::new();
 
     mean_loss_vec.push(loss);
+
+    println!("{:?}", net.max_pred_test(data.clone()));
+
     for _ in 0..n_batches {
-      net.gradient_opt(data.clone(), ComplexLossFunc::Conventional, Cf32::new(10e-3, 0.0)).unwrap();
+      net.gradient_opt(data.clone(), ComplexLossFunc::Conventional, lr).unwrap();
 
       let (loss, _) = net.loss(data.clone(), &ComplexLossFunc::Conventional).unwrap();
       mean_loss_vec.push(loss);
@@ -356,6 +369,7 @@ use super::*;
       std::io::stdout().flush().unwrap();
     }
     println!();
+    println!("{:?}", net.max_pred_test(data.clone()));
 
     let rows = mean_loss_vec.len();
     Matrix::from_body(mean_loss_vec, [rows, 1]).to_csv().unwrap();
