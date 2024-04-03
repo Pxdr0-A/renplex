@@ -2,7 +2,7 @@ mod err;
 
 use std::fmt::Display;
 use std::{fmt::Debug, fs::File, slice::Iter, vec::IntoIter};
-use std::io::Write;
+use std::io::{Read, Write};
 
 use crate::{init::PredictModel, input::IOType, math::{matrix::Matrix, random::lcgi, BasicOperations, Complex, Real}};
 use err::DatasetSampleError;
@@ -45,6 +45,10 @@ impl<T: Display + Copy> Dataset<T, T> {
 }
 
 impl<B, T> Dataset<B, T> {
+  pub fn new() -> Dataset<B, T> {
+    Dataset { inputs: Vec::new(), target: Vec::new() }
+  }
+
   pub fn get_n_points(&self) -> usize {
     self.inputs.len()
   }
@@ -61,12 +65,55 @@ impl<B, T> Dataset<B, T> {
     (self.inputs.into_iter(), self.target.into_iter())
   }
 
-  pub fn add_point(&mut self, point: (IOType<B>, IOType<T>))  {
+  pub fn add_point(&mut self, point: (IOType<B>, IOType<T>)) {
     self.inputs.push(point.0);
     self.target.push(point.1);
   }
 }
 
+const MINIST_DEGREE: usize = 10;
+const MINIST_TRAIN_POINTS: usize = 60000;
+const _MINIST_TEST_POINTS: usize = 10000;
+const MINIST_TRAIN_LABEL_SIZE: usize = MINIST_TRAIN_POINTS + 8;
+const _MINIST_TEST_LABEL_SIZE: usize = 4542;
+const MINIST_IMAGE_DIMS: (usize, usize) = (28, 28);
+
+impl<T: Real + BasicOperations<T>> Dataset<T, T> {
+  /// To extract a batch from MINIST tarining dataset.
+  pub fn minist_as_batch(train_data_file: &mut File, train_label_file: &mut File, batch_size: usize, tracker: &mut usize) -> Dataset<T, T> {
+    /* batch_size needs to be a multiple of the data or not? */
+    /* have not read a single byte */
+    if *tracker == 0 {
+      /* skip first 16 bytes of training image file */
+      train_data_file.read(&mut [0u8; 16]).unwrap();
+      /* skip first 8 bytes of training label file */
+      *tracker += train_label_file.read(&mut [0u8; 8]).unwrap();
+    }
+    
+    let ref mut image_buffer = [0u8; MINIST_IMAGE_DIMS.0 * MINIST_IMAGE_DIMS.1];
+    let ref mut label_buffer = [0u8; 1];
+
+    let mut data_batch = Dataset::new();
+
+
+    for _ in 0..batch_size {
+      train_data_file.read(image_buffer).unwrap();
+      *tracker += train_label_file.read(label_buffer).unwrap();
+      data_batch.add_point((
+        IOType::Vector(image_buffer.iter().map(|elm| { T::usize_to_real(*elm as usize) / T::usize_to_real(255) }).collect::<Vec<T>>()),
+        IOType::Vector(T::gen_pred(MINIST_DEGREE, label_buffer[0] as usize, &PredictModel::Sparse).unwrap())
+      ));
+
+      if *tracker == MINIST_TRAIN_LABEL_SIZE {
+        break;
+      }
+    }
+
+    data_batch
+  }
+}
+
+/* Synthetic Dataset utilities */
 impl<T: Real + BasicOperations<T>> Dataset<T, T> {
   pub fn gen_centers(features: usize, degree: usize, scale: usize, seed: &mut u128) -> Matrix<T> {
     // spray focal points
