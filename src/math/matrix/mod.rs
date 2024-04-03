@@ -514,8 +514,8 @@ impl<T: Debug> Display for Matrix<T> {
 }
 
 impl<T: Debug + Copy> Matrix<T> {
-  pub fn to_csv(&self) -> std::io::Result<()> {
-    let mut file = File::create("matrix.csv")?;
+  pub fn to_csv(&self, path: &'static str) -> std::io::Result<()> {
+    let mut file = File::create(path)?;
     
     let data_row_len = self.get_shape()[1];
     let data_chunks = self.get_body().chunks(data_row_len);
