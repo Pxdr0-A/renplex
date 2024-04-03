@@ -185,7 +185,7 @@ impl<T: Real + BasicOperations<T>> Network<T> {
     Ok((mean, loss_vals))
   }
 
-  pub fn max_pred_test(&self, data: Dataset<T, T>) -> (usize, usize) {
+  pub fn max_pred_test(&self, data: Dataset<T, T>) -> T {
     let (input_chunks, target_chunks) = data.points_into_iter();
     let mut prediction;
     let mut pred;
@@ -220,7 +220,7 @@ impl<T: Real + BasicOperations<T>> Network<T> {
 
     let acc: usize = results.into_iter().sum();
 
-    (acc, batch_len)
+    T::usize_to_real(acc) / T::usize_to_real(batch_len)
   }
 
   pub fn gradient_opt(&mut self, data: Dataset<T, T>, loss_func: LossFunc, lr: T) -> Result<(), ForwardError> {
