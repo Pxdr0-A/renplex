@@ -1,3 +1,5 @@
+use std::io::Write;
+
 pub mod math;
 pub mod dataset;
 pub mod input;
@@ -8,20 +10,47 @@ pub mod err;
 pub mod rvnn;
 pub mod cvnn;
 
+pub fn update_progress(progress: &mut usize, total_iterations: usize, loss: f32) {
+  // Update progress
+  *progress += 1;
+  // Calculate percentage completion
+  let percentage = *progress as f32 / total_iterations as f32 * 100.0;
+  // Print progress bar
+  print!("\r[");
+  for j in 0..50 {
+    if (j as f32) < percentage / 2.0 {
+        print!("•");
+    } else {
+        print!(" ");
+    }
+  }
+  print!("] loss: {:.3}", loss);
+  // Flush output to ensure immediate display
+  std::io::stdout().flush().unwrap();
+}
+
 #[cfg(test)]
 mod basic_tests {
 
-  use std::time::Duration;
+  use std::fs::File;
+use std::time::Duration;
   use std::thread;
-  use std::io::Write;
+  use std::io::{Read, Write};
   use crate::act::ComplexActFunc;
   use crate::cvnn::layer::dense::DenseCLayer;
   use crate::cvnn::network::CNetwork;
   use crate::math::matrix::Matrix;
-  use crate::opt::ComplexLossFunc;
+  use crate::opt::{ComplexLossFunc, LossFunc};
 
+use self::act::ActFunc;
+use self::dataset::Dataset;
+use self::init::InitMethod;
+use self::input::IOShape;
 use self::math::cfloat::Cf32;
 use self::math::Complex;
+use self::rvnn::layer::dense::DenseLayer;
+use self::rvnn::layer::LayerLike;
+use self::rvnn::network::Network;
 
 use super::*;
 
@@ -277,7 +306,7 @@ use super::*;
     println!("{:?}", net.max_pred_test(data.clone()));
 
     let rows = mean_loss_vec.len();
-    Matrix::from_body(mean_loss_vec, [rows, 1]).to_csv().unwrap();
+    Matrix::from_body(mean_loss_vec, [rows, 1]).to_csv("out/matrix.csv").unwrap();
   }
 
   #[test]
@@ -372,7 +401,161 @@ use super::*;
     println!("{:?}", net.max_pred_test(data.clone()));
 
     let rows = mean_loss_vec.len();
-    Matrix::from_body(mean_loss_vec, [rows, 1]).to_csv().unwrap();
+    Matrix::from_body(mean_loss_vec, [rows, 1]).to_csv("./out/matrix.csv").unwrap();
+  }
+
+  #[test]
+  fn minist_train_test() {
+    let ref mut seed = 238348892932_u128;
+
+    let n_input_dendrits: usize = 28;
+    let n_input_units: usize = 28;
+    let scale: usize = 1;
+    let batch_size = 100;
+    let n_points: usize = 60000;
+    let n_test_points: usize = 10000;
+    let n_batches: usize = n_points / batch_size;
+    let n_test_batches: usize = n_test_points / batch_size;
+    let epochs: usize = 100;
+    let lr = 10e-2;
+    let degree = 10;
+
+    let mut net: Network<f32> = Network::new();
+    net.add_input(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      IOShape::Vector(n_input_dendrits), 
+      n_input_units,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      16,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      16,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+    net.add(
+      DenseLayer::new(ActFunc::Sigmoid).wrap(), 
+      degree,
+      InitMethod::Random(scale), 
+      seed
+    ).unwrap();
+
+    /* CHECK THE NORMALIZATION OF THE DATA OR MAYBE EVEN TRY TO RECONSTRUCT THE IMAGES */
+
+    let mut train_data_file = File::open("./minist/train-images.idx3-ubyte").unwrap();
+    let mut train_label_file = File::open("./minist/train-labels.idx1-ubyte").unwrap();
+    let mut tracker = 0_usize;
+
+    let mut mean_loss = 0.0;
+    let mut mean_acc = 0.0;
+
+    let mut train_loss = Vec::new();
+    let mut test_loss = Vec::new();
+    let mut train_acc = Vec::new();
+    let mut test_acc = Vec::new();
+
+    /* initial test on entire train dataset */
+    for _ in 0..n_batches {
+      let minist_data_batch: Dataset<f32, f32> = Dataset::minist_as_batch(&mut train_data_file, &mut train_label_file, batch_size, &mut tracker);
+      let ( loss, _) = net.loss(minist_data_batch.clone(), &LossFunc::Conventional).unwrap();
+      let acc = net.max_pred_test(minist_data_batch);
+
+      mean_loss += loss;
+      mean_acc += acc;
+    }
+  
+    mean_loss /= n_batches as f32;
+    mean_acc /= n_batches as f32;
+    train_loss.push(mean_loss);
+    train_acc.push(mean_acc);
+    println!("Initial Train Values -> Loss: {:.3}, Acc: {:.3}", mean_loss, mean_acc);
+
+    /* initial test on entire test dataset */
+    let mut test_data_file = File::open("./minist/t10k-images.idx3-ubyte").unwrap();
+    let  mut test_label_file = File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
+    tracker = 0_usize;
+
+    mean_loss = 0.0;
+    mean_acc = 0.0;
+    for _ in 0..n_test_batches {
+      let minist_data_batch = Dataset::minist_as_batch(&mut test_data_file, &mut test_label_file, batch_size, &mut tracker);
+      let (loss_per_epoch, _) = net.loss(minist_data_batch.clone(), &LossFunc::Conventional).unwrap();
+      let acc = net.max_pred_test(minist_data_batch);
+
+      mean_loss += loss_per_epoch;
+      mean_acc += acc;
+    }
+
+    mean_loss /= n_test_batches as f32;
+    mean_acc /= n_test_batches as f32;
+    test_loss.push(mean_loss);
+    test_acc.push(mean_acc);
+    println!("Initial Test Values -> Loss: {:.3}, Acc: {:.3}", mean_loss, mean_acc);
+
+    /* begin training process */
+    for e in 0..epochs {
+      train_data_file = File::open("./minist/train-images.idx3-ubyte").unwrap();
+      train_label_file = File::open("./minist/train-labels.idx1-ubyte").unwrap();
+      tracker = 0_usize;
+
+      mean_loss = 0.0;
+      mean_acc = 0.0;
+
+      /* train */
+      for _ in 0..n_batches {
+        let minist_data_batch = Dataset::minist_as_batch(&mut train_data_file, &mut train_label_file, batch_size, &mut tracker);
+
+        net.gradient_opt(minist_data_batch.clone(), LossFunc::Conventional, lr).unwrap();
+        
+        let (loss_per_epoch, _) = net.loss(minist_data_batch.clone(), &LossFunc::Conventional).unwrap();
+        let acc = net.max_pred_test(minist_data_batch);
+        mean_loss += loss_per_epoch;
+        mean_acc += acc;
+      }
+
+      mean_loss /= n_batches as f32;
+      mean_acc /= n_batches as f32;
+      train_loss.push(mean_loss);
+      train_acc.push(mean_acc);
+      println!("Train Epoch {} -> Loss: {:.3}, Acc: {:.3}", e+1, mean_loss, mean_acc);
+
+      /* test */
+      test_data_file = File::open("./minist/t10k-images.idx3-ubyte").unwrap();
+      test_label_file = File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
+      tracker = 0_usize;
+
+      mean_loss = 0.0;
+      mean_acc = 0.0;
+      /* test the results of the epoch */
+      for _ in 0..n_test_batches {
+        let minist_data_batch = Dataset::minist_as_batch(&mut test_data_file, &mut test_label_file, batch_size, &mut tracker);      
+        let (loss_per_epoch, _) = net.loss(minist_data_batch.clone(), &LossFunc::Conventional).unwrap();
+        let acc = net.max_pred_test(minist_data_batch);
+
+        mean_loss += loss_per_epoch;
+        mean_acc += acc;
+      }
+
+      mean_loss /= n_test_batches as f32;
+      mean_acc /= n_test_batches as f32;
+      test_loss.push(mean_loss);
+      test_acc.push(mean_acc);
+      println!("Test Epoch {} -> Loss: {:.3}, Acc: {:.3}", e+1, mean_loss, mean_acc);
+    }
+
+    let train_epochs = train_loss.len();
+    let test_epochs = test_loss.len();
+    Matrix::from_body(train_loss, [train_epochs, 1]).to_csv("./out/lc_train_loss.csv").unwrap();
+    Matrix::from_body(train_acc, [train_epochs, 1]).to_csv("./out/lc_train_acc.csv").unwrap();
+    Matrix::from_body(test_loss, [test_epochs, 1]).to_csv("./out/lc_test_loss.csv").unwrap();
+    Matrix::from_body(test_acc, [test_epochs, 1]).to_csv("./out/lc_test_acc.csv").unwrap();
   }
 
   #[test]
@@ -430,5 +613,14 @@ use super::*;
     let res2 = (a - r).norm_sq();
 
     println!("{} | {}", res1, res2);
+  }
+
+  #[test]
+  fn read_data() {
+    let mut train_data_file = File::open("./minist/train-images.idx3-ubyte").unwrap();
+    let buf = &mut [0u8; 16];
+
+    train_data_file.read(buf).unwrap();
+    println!("{:?}", buf);
   }
 }
