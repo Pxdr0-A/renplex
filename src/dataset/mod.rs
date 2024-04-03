@@ -113,6 +113,40 @@ impl<T: Real + BasicOperations<T>> Dataset<T, T> {
   }
 }
 
+impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
+  /// To extract a batch from MINIST tarining dataset.
+  pub fn minist_as_complex_batch(train_data_file: &mut File, train_label_file: &mut File, batch_size: usize, tracker: &mut usize) -> Dataset<T, T> {
+    /* batch_size needs to be a multiple of the data or not? */
+    /* have not read a single byte */
+    if *tracker == 0 {
+      /* skip first 16 bytes of training image file */
+      train_data_file.read(&mut [0u8; 16]).unwrap();
+      /* skip first 8 bytes of training label file */
+      *tracker += train_label_file.read(&mut [0u8; 8]).unwrap();
+    }
+    
+    let ref mut image_buffer = [0u8; MINIST_IMAGE_DIMS.0 * MINIST_IMAGE_DIMS.1];
+    let ref mut label_buffer = [0u8; 1];
+
+    let mut data_batch = Dataset::new();
+
+    for _ in 0..batch_size {
+      train_data_file.read(image_buffer).unwrap();
+      *tracker += train_label_file.read(label_buffer).unwrap();
+      data_batch.add_point((
+        IOType::Vector(image_buffer.iter().map(|elm| { T::usize_to_complex(*elm as usize) / T::usize_to_complex(255) }).collect::<Vec<T>>()),
+        IOType::Vector(T::gen_pred(MINIST_DEGREE, label_buffer[0] as usize, &PredictModel::Sparse).unwrap())
+      ));
+
+      if *tracker == MINIST_TRAIN_LABEL_SIZE {
+        break;
+      }
+    }
+
+    data_batch
+  }
+}
+
 /* Synthetic Dataset utilities */
 impl<T: Real + BasicOperations<T>> Dataset<T, T> {
   pub fn gen_centers(features: usize, degree: usize, scale: usize, seed: &mut u128) -> Matrix<T> {

@@ -186,7 +186,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok((mean, loss_vals))
   }
 
-  pub fn max_pred_test(&self, data: Dataset<T, T>) -> (usize, usize) {
+  pub fn max_pred_test(&self, data: Dataset<T, T>) -> T::Precision {
     let (input_chunks, target_chunks) = data.points_into_iter();
     let mut prediction;
     let mut pred;
@@ -218,10 +218,9 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       results.push(if targ_index == pred_index {1_usize} else {0_usize});
     }
 
-
     let acc: usize = results.into_iter().sum();
 
-    (acc, batch_len)
+    T::Precision::usize_to_real(acc) / T::Precision::usize_to_real(batch_len)
   }
 
   pub fn gradient_opt(&mut self, data: Dataset<T, T>, loss_func: ComplexLossFunc, lr: T) -> Result<(), ForwardError> {
