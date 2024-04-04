@@ -417,7 +417,7 @@ use super::*;
     let n_test_points: usize = 10000;
     let n_batches: usize = n_points / batch_size;
     let n_test_batches: usize = n_test_points / batch_size;
-    let epochs: usize = 100;
+    let epochs: usize = 500;
     let lr = Cf32::new(10e-1, 0.0);
     let degree = 10;
 
@@ -571,7 +571,7 @@ use super::*;
     let n_test_points: usize = 10000;
     let n_batches: usize = n_points / batch_size;
     let n_test_batches: usize = n_test_points / batch_size;
-    let epochs: usize = 100;
+    let epochs: usize = 500;
     let lr = 10e-1;
     let degree = 10;
 
