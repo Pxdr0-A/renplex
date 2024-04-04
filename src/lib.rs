@@ -406,8 +406,8 @@ use super::*;
   }
 
   #[test]
-  fn minist_train_test() {
-    let ref mut seed = 238348892932_u128;
+  fn complex_minist_train_test() {
+    let ref mut seed = 3748512759119_u128;
 
     let n_input_dendrits: usize = 28;
     let n_input_units: usize = 28;
@@ -418,7 +418,7 @@ use super::*;
     let n_batches: usize = n_points / batch_size;
     let n_test_batches: usize = n_test_points / batch_size;
     let epochs: usize = 100;
-    let lr = Cf32::new(10e-2, 0.0);
+    let lr = Cf32::new(10e-1, 0.0);
     let degree = 10;
 
     let mut net: CNetwork<Cf32> = CNetwork::new();
@@ -560,7 +560,7 @@ use super::*;
   }
 
   #[test]
-  fn complex_minist_train_test() {
+  fn minist_train_test() {
     let ref mut seed = 238348892932_u128;
 
     let n_input_dendrits: usize = 28;
@@ -572,7 +572,7 @@ use super::*;
     let n_batches: usize = n_points / batch_size;
     let n_test_batches: usize = n_test_points / batch_size;
     let epochs: usize = 100;
-    let lr = 10e-2;
+    let lr = 10e-1;
     let degree = 10;
 
     let mut net: Network<f32> = Network::new();
@@ -601,8 +601,6 @@ use super::*;
       InitMethod::Random(scale), 
       seed
     ).unwrap();
-
-    /* CHECK THE NORMALIZATION OF THE DATA OR MAYBE EVEN TRY TO RECONSTRUCT THE IMAGES */
 
     let mut train_data_file = File::open("./minist/train-images.idx3-ubyte").unwrap();
     let mut train_label_file = File::open("./minist/train-labels.idx1-ubyte").unwrap();
