@@ -68,7 +68,7 @@ impl<T: Real + BasicOperations<T>> Network<T> {
 
       Ok(())
     } else {
-      Err(LayerAdditionError::EarlyInitialization)
+      Err(LayerAdditionError::MissingInitialization)
     }
   }
 
@@ -106,7 +106,7 @@ impl<T: Real + BasicOperations<T>> Network<T> {
       Ok(())
     } else {
       /* throw error (layer must be empty) */
-      Err(LayerAdditionError::EarlyInitialization)
+      Err(LayerAdditionError::MissingInitialization)
     }
   }
 

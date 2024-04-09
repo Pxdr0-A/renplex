@@ -25,7 +25,7 @@ pub enum BackwardError {
 pub enum LayerAdditionError {
   MissingInput,
   ExistentInput,
-  EarlyInitialization,
+  MissingInitialization,
   IncompatibleIO
 }
 

@@ -5,7 +5,7 @@ use crate::input::{IOShape, IOType};
 use crate::init::InitMethod;
 use crate::err::GradientError;
 
-use super::{CLayer, LayerForwardError, CLayerLike, LayerInitError};
+use super::{CLayer, LayerForwardError, LayerInitError};
 
 #[derive(Debug)]
 pub struct DenseCLayer<T> {
@@ -16,29 +16,29 @@ pub struct DenseCLayer<T> {
 
 /* the activation function is what makes this layer real or complex */
 /* the implementations are almost the same tho */
-impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
-  fn is_empty(&self) -> bool {
-    if (self.weights.get_shape() == [0_usize, 0]) && (self.biases.len() == 0) {
+impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
+  pub fn is_empty(&self) -> bool {
+    if (self.weights.get_shape() == [0_usize, 0]) || (self.biases.len() == 0) {
       true
     } else {
       false
     }
   }
 
-  fn is_trainable(&self) -> bool {
+  pub fn is_trainable(&self) -> bool {
     true
   }
 
-  fn get_input_shape(&self) -> IOShape {
+  pub fn get_input_shape(&self) -> IOShape {
     let weight_shape = self.weights.get_shape();
     IOShape::Vector(weight_shape[0] * weight_shape[1])
   }
 
-  fn get_output_shape(&self) -> IOShape {
+  pub fn get_output_shape(&self) -> IOShape {
     IOShape::Vector(self.biases.len())
   }
 
-  fn new(func: ComplexActFunc) -> Self {
+  pub fn new(func: ComplexActFunc) -> Self {
     DenseCLayer {
       weights: Matrix::new(),
       biases: Vec::new(),
@@ -46,7 +46,7 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     }
   }
 
-  fn init(
+  pub fn init(
     input_shape: IOShape, 
     units: usize, 
     func: ComplexActFunc, 
@@ -83,7 +83,7 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
   }
 
   /// Initializes a [`DenseLayer`] from an empty one.
-  fn init_mut(&mut self, 
+  pub fn init_mut(&mut self, 
     input_shape: IOShape, 
     units: usize, 
     method: InitMethod, 
@@ -119,7 +119,7 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     Ok(())
   }
 
-  fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+  pub fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       /* dense layer should receive a vector */
       IOType::Vector(input) => {
@@ -158,7 +158,7 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     }  
   }
 
-  fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+  pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       /* dense layer should receive a vector */
       IOType::Vector(input) => {
@@ -184,7 +184,7 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     }
   }
 
-  fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>, Vec<T>), GradientError> {
+  pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>, Vec<T>), GradientError> {
     /* check dimensions of every matrix and vector */
 
     let weight_shape = self.weights.get_shape();
@@ -309,7 +309,7 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     }
   }
 
-  fn gradient_adjustment(&mut self, dldw: Matrix<T>, dldb: Matrix<T>) -> Result<(), GradientError> {
+  pub fn gradient_adjustment(&mut self, dldw: Matrix<T>, dldb: Matrix<T>) -> Result<(), GradientError> {
     let weight_shape = self.weights.get_shape();
     let dldw_shape = dldw.get_shape();
     let dldb_shape = dldb.get_shape();
@@ -338,7 +338,7 @@ impl<T: Complex + BasicOperations<T>> CLayerLike<T> for DenseCLayer<T> {
     Ok(())
   }
 
-  fn wrap(self) -> CLayer<T> {
+  pub fn wrap(self) -> CLayer<T> {
     CLayer::Dense(self)
   }
 }

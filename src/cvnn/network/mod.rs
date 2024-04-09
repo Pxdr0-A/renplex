@@ -3,11 +3,9 @@ use crate::input::{IOShape, IOType};
 use crate::math::matrix::Matrix;
 use crate::math::{BasicOperations, Real, Complex};
 use crate::cvnn::layer::CLayer;
-use crate::init::InitMethod;
 use crate::err::{LossCalcError, ForwardError, LayerAdditionError};
 use crate::opt::ComplexLossFunc;
 
-use super::layer::CLayerLike;
 
 #[derive(Debug)]
 pub struct CNetwork<T> {
@@ -42,69 +40,27 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
   /// Represents the number of weights that each neuron is going to have.
   /// * `units` - Number of neurons, will translate into the output size of the layer.
   /// * `method` - Initialization method
-  pub fn add_input(&mut self, 
-    mut layer: CLayer<T>, 
-    input_shape: IOShape, 
-    units: usize, 
-    method: InitMethod, 
-    seed: &mut u128
-  ) -> Result<(), LayerAdditionError> {
+  pub fn add_input(&mut self, layer: CLayer<T>) -> Result<(), LayerAdditionError> {
     
     if self.layers.len() > 0 { return Err(LayerAdditionError::ExistentInput) }
 
-    if layer.is_empty() { 
-      /* check what layer is and initialize it */
-      match &mut layer {
-        CLayer::Dense(l) => {
-          l.init_mut(input_shape, units, method, seed).unwrap();
-        }
-      }
-
+    if !layer.is_empty() { 
       /* add input layer */
       self.layers.push(layer);
 
       Ok(())
     } else {
-      Err(LayerAdditionError::EarlyInitialization)
+      Err(LayerAdditionError::MissingInitialization)
     }
   }
 
-  /// Adds an empty [`Layer`] to the [`Network`] and initializes it based on previous layer. [`InputShape`] is inferred. 
-  pub fn add(&mut self, 
-    mut layer: CLayer<T>, 
-    units: usize,
-    method: InitMethod, 
-    seed: &mut u128
-  ) -> Result<(), LayerAdditionError> {
-    
-    if self.layers.len() == 0 { return Err(LayerAdditionError::MissingInput) }
-
-    if layer.is_empty() {
-      /* check previous number of output (may depend on layer type) */
-      let next_input_shape = self.layers
-        .last()
-        .unwrap()
-        .get_output_shape();
-
-      /* check what layer is and initialize it */
-      match &mut layer {
-        CLayer::Dense(l) => {
-          match next_input_shape {
-            /* cast the output shape of the previous layer onto the input shape of the next layer */
-            IOShape::Vector(size) => { l.init_mut(IOShape::Vector(size), units, method, seed).unwrap(); },
-            _ => { return Err(LayerAdditionError::IncompatibleIO) }
-          }
-        }
-      }
-
-      /* add the initialized layer */
-      self.layers.push(layer);
-
-      Ok(())
-    } else {
-      /* throw error (layer must be empty) */
-      Err(LayerAdditionError::EarlyInitialization)
-    }
+  /// Adds an already initialized layer.
+  /// Layers need to be always initialized individually since that always have different specifications.
+  pub fn add(&mut self, _layer: CLayer<T>) {
+    /* check if is is empty */
+    /* if it is, return error */
+    /* also return error if shapes do not match */
+    unimplemented!()
   }
 
   pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, ForwardError> {
