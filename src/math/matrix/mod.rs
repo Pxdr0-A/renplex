@@ -467,7 +467,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
       return Err(OperationError::InvalidRHS)
     }
     /* and also greater or equal to 3 */
-    if kernel_shape[0] >= 3 && kernel_shape[1] >= 3 {
+    if kernel_shape[0] < 3 || kernel_shape[1] < 3 {
       return Err(OperationError::InvalidRHS)
     }
     
@@ -486,16 +486,20 @@ impl<T: BasicOperations<T>> Matrix<T> {
     for _ in 0..max_pad_row { slide_rows.push(row_pad.clone()); }
     for _ in 0..(kernel_shape[0] - max_pad_row) {
       let matrix_row = matrix_rows.next().unwrap();
+
       /* intial col pad */
       slide_row.append(&mut vec![T::default(); max_pad_col]);
       /* core vals */
       slide_row.append(&mut matrix_row.to_vec());
       /* final col pad */
       slide_row.append(&mut vec![T::default(); max_pad_col]);
+
       slide_rows.push(slide_row.clone());
+
+      slide_row.drain(..);
     }
 
-    let mut out = Matrix::new();
+    let mut out = Matrix::with_capacity([matrix_shape[0], matrix_shape[1]]);
     for row_id in 0..matrix_shape[0] {
       let mut convolved_row = slide_rows
         .iter()
@@ -527,17 +531,27 @@ impl<T: BasicOperations<T>> Matrix<T> {
 
       /* update slide_rows by draining the first element and adding another new one */
       /* remove first element */
+
       slide_rows.drain(0..1);
-      if row_id+1 + max_pad_row > matrix_shape[0] {
+      if row_id+1 + max_pad_row >= matrix_shape[0] {
         /* kernel overflowed bottom pixels */
         slide_rows.push(row_pad.clone());
       } else {
         /* kernel is still within the matrix */
-        slide_rows.push(matrix_rows.next().unwrap().to_vec());
+        /* with the zeros added (col padding) */
+        /* intial col pad */
+        slide_row.append(&mut vec![T::default(); max_pad_col]);
+        /* core vals */
+        slide_row.append(&mut matrix_rows.next().unwrap().to_vec());
+        /* final col pad */
+        slide_row.append(&mut vec![T::default(); max_pad_col]);
+
+        slide_rows.push(slide_row.clone());
+
+        slide_row.drain(..);
       }
 
       out.add_mut_row(&mut convolved_row).unwrap();
-      println!("{:?}", convolved_row);
     }
 
     Ok(out)
