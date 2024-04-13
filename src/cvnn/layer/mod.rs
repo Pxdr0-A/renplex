@@ -1,12 +1,9 @@
 use crate::input::{IOShape, IOType};
-use crate::math::matrix::Matrix;
 use crate::math::{BasicOperations, Complex};
-use crate::act::ComplexActFunc;
-use crate::init::InitMethod;
 use crate::err::{LayerInitError, LayerForwardError};
 use crate::err::GradientError;
 
-use self::dense::DenseCLayer;
+use self::dense::{CDenseDerivatives, DenseCLayer};
 use self::conv::ConvCLayer;
 
 pub mod dense;
@@ -51,6 +48,13 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
+  pub fn params_len(&self) -> (usize, usize) {
+    match self {
+      CLayer::Dense(l) => { l.params_len() },
+      CLayer::Convolutional(l) => { unimplemented!() }
+    }
+  }
+
   pub fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     /* deconstruct what type of layer it is */
     match self {
@@ -67,16 +71,16 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
-  pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<(Matrix<T>, Matrix<T>, Vec<T>, Vec<T>), GradientError> {
+  pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<CDenseDerivatives<T>, GradientError> {
     match self {
       CLayer::Dense(l) => { l.compute_derivatives(is_input, previous_act, dlda, dlda_conj) },
       CLayer::Convolutional(l) => { unimplemented!() }
     }
   }
 
-  pub fn gradient_adjustment(&mut self, dldw: Matrix<T>, dldb: Matrix<T>) -> Result<(), GradientError> {
+  pub fn neg_conj_adjustment(&mut self, dldw: Vec<T>, dldb: Vec<T>) -> Result<(), GradientError> {
     match self {
-      CLayer::Dense(l) => { l.gradient_adjustment(dldw, dldb) },
+      CLayer::Dense(l) => { l.neg_conj_adjustment(dldw, dldb) },
       CLayer::Convolutional(l) => { unimplemented!() }
     }
   }

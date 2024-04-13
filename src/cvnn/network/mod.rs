@@ -1,7 +1,7 @@
 use crate::dataset::Dataset;
 use crate::input::{IOShape, IOType};
-use crate::math::matrix::Matrix;
 use crate::math::{BasicOperations, Real, Complex};
+use crate::math::matrix::SliceOps;
 use crate::cvnn::layer::CLayer;
 use crate::err::{LossCalcError, ForwardError, LayerAdditionError};
 use crate::opt::ComplexLossFunc;
@@ -188,8 +188,26 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let mut dldb;
 
     /* derivatives to accumulate */
-    let mut dldw_per_layer = vec![Matrix::new(); n_layers];
-    let mut dldb_per_layer = vec![Matrix::new(); n_layers];
+    /* maybe they need to be allocated first! */
+    /* maybe a get_number_of_params method to the layers */
+    let mut dldw_per_layer = Vec::with_capacity(n_layers);
+    let mut dldb_per_layer = Vec::with_capacity(n_layers);
+    let mut total_params: usize = 0;
+    for layer in self.layers.iter() {
+      if layer.is_trainable() {
+        let (weights_len, bias_len) = layer.params_len();
+      
+        dldw_per_layer.push(vec![T::default(); weights_len]);
+        dldb_per_layer.push(vec![T::default(); bias_len]);
+
+        total_params += weights_len + bias_len;
+      } else {
+        dldw_per_layer.push(Vec::new());
+        dldb_per_layer.push(Vec::new());
+      }
+    }
+
+    println!("Total Number of Parameters: {}", total_params);
 
     let (inputs, targets) = data.points_into_iter();
 
@@ -228,8 +246,9 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         is_input = if n_layers-l-1 == 0 { true } else { false };
         (dldw, dldb, dlda, dlda_conj) = last_layer.compute_derivatives(is_input, &previous_act, dlda, dlda_conj).unwrap();
 
-        dldw_per_layer[n_layers-l-1].add_mut(&dldw).unwrap();
-        dldb_per_layer[n_layers-l-1].add_mut(&dldb).unwrap();
+        /* solve the empty vec problem */
+        dldw_per_layer[n_layers-l-1].add_slice(&dldw).unwrap();
+        dldb_per_layer[n_layers-l-1].add_slice(&dldb).unwrap();
       }
     }
 
@@ -244,7 +263,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       dldb_l.mul_mut_scalar(scale_param).unwrap();
 
       /* update the weights of layer l */
-      layer.gradient_adjustment(dldw_l, dldb_l).unwrap();
+      layer.neg_conj_adjustment(dldw_l, dldb_l).unwrap();
     }
 
     Ok(())
