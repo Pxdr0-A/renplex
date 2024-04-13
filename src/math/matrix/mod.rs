@@ -1,7 +1,6 @@
 use std::fmt::{Debug, Display};
 use std::fs::File;
 use std::io::Write;
-use std::ops::{AddAssign, SubAssign};
 use std::slice::{Chunks, ChunksMut};
 use std::vec::IntoIter;
 use super::BasicOperations;
@@ -454,15 +453,108 @@ impl<T: BasicOperations<T>> Matrix<T> {
 
     Ok(())
   }
+
+  pub fn conv(&self, kernel: &Self) -> Result<Self, OperationError> {
+    /* define target block */
+    let kernel_shape = kernel.get_shape();
+    let matrix_shape = self.get_shape();
+    /* check if kernel is to big */
+    if ((kernel_shape[0] - 1) / 2) >= matrix_shape[0] || ((kernel_shape[1] - 1) / 2) >= matrix_shape[1] {
+      return Err(OperationError::OutOfBounds)
+    }
+    /* shape needs to be odd numbers */
+    if kernel_shape[0] % 2 == 0 || kernel_shape[1] % 2 == 0 {
+      return Err(OperationError::InvalidRHS)
+    }
+    /* and also greater or equal to 3 */
+    if kernel_shape[0] >= 3 && kernel_shape[1] >= 3 {
+      return Err(OperationError::InvalidRHS)
+    }
+    
+    let mut matrix_rows = self.rows_as_iter();
+    
+    let max_pad_col = (kernel_shape[1] - 1) / 2;
+    let max_pad_row = (kernel_shape[0] - 1) / 2;
+
+    let mut slide_rows = Vec::with_capacity(kernel_shape[0]);
+    let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
+
+    let row_pad = vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)];
+    /* create current slide_rows with padding by chaining iterators */
+    /* you can try to improve memory here */
+    /* this is valid for the first iteration! */
+    for _ in 0..max_pad_row { slide_rows.push(row_pad.clone()); }
+    for _ in 0..(kernel_shape[0] - max_pad_row) {
+      let matrix_row = matrix_rows.next().unwrap();
+      /* intial col pad */
+      slide_row.append(&mut vec![T::default(); max_pad_col]);
+      /* core vals */
+      slide_row.append(&mut matrix_row.to_vec());
+      /* final col pad */
+      slide_row.append(&mut vec![T::default(); max_pad_col]);
+      slide_rows.push(slide_row.clone());
+    }
+
+    let mut out = Matrix::new();
+    for row_id in 0..matrix_shape[0] {
+      let mut convolved_row = slide_rows
+        .iter()
+        /* create windows to slide the filter through */
+        .map(|row| { row.windows(kernel_shape[1]) })
+        .enumerate()
+        .map(|(row, windows)| {
+          /* slide the kernel row through the image row */
+          /* vec that now has dim[0] = matrix[0] */
+          /* you can try to create threads here */
+          /* each thread will give a Vec<T> */
+          /* it is better to use threads instead of channels */
+          /* has in channels you do not know what answer comes first */
+          /* with the join handle you know where your answer comes from */
+          let kernel_row = kernel.row(row).unwrap();
+          windows
+            .map(|window| { window.scalar_prod(kernel_row).unwrap() })
+            .collect::<Vec<T>>()
+        })
+        .reduce(|mut acc, row| {
+          /* you can try to create threads here */
+          /* each thread will give a Vec<T> */
+          /* it is better to use threads instead of channels */
+          /* has in channels you do not know what answer comes first */
+          /* with the join handle you know where your answer comes from */
+          acc.add_slice(&row).unwrap(); acc
+        })
+        .unwrap();
+
+      /* update slide_rows by draining the first element and adding another new one */
+      /* remove first element */
+      slide_rows.drain(0..1);
+      if row_id+1 + max_pad_row > matrix_shape[0] {
+        /* kernel overflowed bottom pixels */
+        slide_rows.push(row_pad.clone());
+      } else {
+        /* kernel is still within the matrix */
+        slide_rows.push(matrix_rows.next().unwrap().to_vec());
+      }
+
+      out.add_mut_row(&mut convolved_row).unwrap();
+      println!("{:?}", convolved_row);
+    }
+
+    Ok(out)
+  }
 }
 
 pub trait SliceOps<T> {
   fn add_slice(&mut self, rhs: &Self) -> Result<(), OperationError>;
 
   fn sub_slice(&mut self, rhs: &Self) -> Result<(), OperationError>;
+
+  fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError>;
+
+  fn scalar_prod(&self, rhs: &Self) -> Result<T, OperationError>;
 }
 
-impl<T: Copy + AddAssign + SubAssign> SliceOps<T> for [T] {
+impl<T: BasicOperations<T>> SliceOps<T> for [T] {
   /// Element-wise assignment summation.
   fn add_slice(&mut self, rhs: &Self) -> Result<(), OperationError> {
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
@@ -484,6 +576,25 @@ impl<T: Copy + AddAssign + SubAssign> SliceOps<T> for [T] {
       .for_each(|(lhs, rhs)| { *lhs -= *rhs });
 
     Ok(())
+  }
+
+  fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
+    self
+      .iter_mut()
+      .for_each(|lhs| { *lhs *= rhs });
+
+    Ok(())
+  }
+
+  fn scalar_prod(&self, rhs: &Self) -> Result<T, OperationError> {
+    if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
+
+    let res = self
+      .iter()
+      .zip(rhs)
+      .fold(T::default(), |acc, (lhs, rhs)| { acc + (*lhs * *rhs) });
+
+    Ok(res)
   }
 }
 
