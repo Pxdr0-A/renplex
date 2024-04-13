@@ -56,7 +56,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
 
   /// Adds an already initialized layer.
   /// Layers need to be always initialized individually since that always have different specifications.
-  pub fn add(&mut self, _layer: CLayer<T>) {
+  pub fn add(&mut self, layer: CLayer<T>) {
     /* check if is is empty */
     /* if it is, return error */
     /* also return error if shapes do not match */
