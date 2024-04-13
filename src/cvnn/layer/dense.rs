@@ -47,14 +47,6 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     IOShape::Vector(self.biases.len())
   }
 
-  pub fn new(func: ComplexActFunc) -> Self {
-    DenseCLayer {
-      weights: Matrix::new(),
-      biases: Vec::new(),
-      func
-    }
-  }
-
   pub fn init(
     input_shape: IOShape, 
     units: usize, 
