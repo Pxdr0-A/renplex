@@ -83,19 +83,45 @@ use crate::math::matrix::Matrix;
 
     let data: Dataset<f32, f32> = Dataset::minist_as_batch(train_data_file, train_label_file, batch_size, tracker);
 
-    let (image_point, _) = data.get_point(0);
+    let (image_point, _) = data.get_point(1);
 
     let image = Matrix::from_body(image_point.to_vec(), [28, 28]);
     image.to_csv("./out/original.csv").unwrap();
 
-    let kernel: Matrix<f32> = Matrix::from_body(
+    let kernel1: Matrix<f32> = Matrix::from_body(
       vec![
-        1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0,
+        -1.0, 0.0, 1.0,
+        -2.0, 0.0, 2.0,
+        -1.0, 0.0, 1.0,
       ], [3, 3]);
 
-    let image_conv = image.conv(&kernel).unwrap();
-    image_conv.to_csv("./out/conv_image.csv").unwrap();
+    let kernel2: Matrix<f32> = Matrix::from_body(
+      vec![
+        -1.0, -2.0, -1.0,
+        0.0, 0.0, 0.0,
+        1.0, 2.0, 1.0,
+      ], [3, 3]);
+
+    let mut image_conv1 = image.conv(&kernel1).unwrap();
+    let mut image_conv2 = image.conv(&kernel2).unwrap();
+
+    for row in image_conv1.rows_as_iter_mut() {
+      for elm in row {
+        if elm.is_sign_negative() {
+          *elm = 0.0;
+        }
+      }
+    }
+
+    for row in image_conv2.rows_as_iter_mut() {
+      for elm in row {
+        if elm.is_sign_negative() {
+          *elm = 0.0;
+        }
+      }
+    }
+
+    image_conv1.to_csv("./out/conv_image.csv").unwrap();
+    image_conv2.to_csv("./out/conv_image1.csv").unwrap();
   }
 }
