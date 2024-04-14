@@ -92,10 +92,24 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
   }
 
   pub fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
-    unimplemented!()
+    match input_type {
+      IOType::Matrix(input) => {
+        let mut feature_map = input;
+        for kernel in self.kernels.iter() {
+          feature_map = feature_map.conv(kernel).unwrap();
+        }
+
+        feature_map.add_mut(&self.biases).unwrap();
+
+        T::activate_mut(feature_map.get_body_as_mut(), &self.func);
+
+        Ok(IOType::Matrix(feature_map))
+      },
+      _ => { Err(LayerForwardError::InvalidInput) }
+    }
   }
 
   pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
-    unimplemented!()
+    self.trigger(input_type)
   }
 }
