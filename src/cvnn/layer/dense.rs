@@ -68,7 +68,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
               }
               biases.push(T::gen(seed, scale));
             }
-          }        
+          }     
         }
 
         Ok(
@@ -81,43 +81,6 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
       },
       _ => { Err(LayerInitError::InvalidInputShape) }
     }
-  }
-
-  /// Initializes a [`DenseLayer`] from an empty one.
-  pub fn init_mut(&mut self, 
-    input_shape: IOShape, 
-    units: usize, 
-    method: InitMethod, 
-    seed: &mut u128
-  ) -> Result<(), LayerInitError> {
-    
-    if self.is_empty() {
-      match input_shape {
-        IOShape::Vector(inputs) => {
-          let mut body = Vec::with_capacity(units * inputs);
-          let mut biases = Vec::with_capacity(units);
-    
-          match method {
-            InitMethod::Random(scale) => {
-              for _ in 0..units {
-                for _ in 0..inputs {
-                  body.push(T::gen(seed, scale));
-                }
-                biases.push(T::gen(seed, scale));
-              }
-    
-              self.weights = Matrix::from_body(body, [units, inputs]);
-              self.biases = biases;
-            }
-          }
-        },
-        _ => { return Err(LayerInitError::InvalidInputShape); }
-      }
-    } else {
-      return Err(LayerInitError::AlreadyInitialized);
-    }
-
-    Ok(())
   }
 
   pub fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
