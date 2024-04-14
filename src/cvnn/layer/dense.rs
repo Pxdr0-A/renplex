@@ -5,7 +5,7 @@ use crate::input::{IOShape, IOType};
 use crate::init::InitMethod;
 use crate::err::GradientError;
 
-use super::{CLayer, LayerForwardError, LayerInitError};
+use super::{CLayer, ComplexDerivatives, LayerForwardError, LayerInitError};
 
 #[derive(Debug)]
 pub struct DenseCLayer<T> {
@@ -13,8 +13,6 @@ pub struct DenseCLayer<T> {
   biases: Vec<T>,
   func: ComplexActFunc
 }
-
-pub type CDenseDerivatives<T> = (Vec<T>, Vec<T>, Vec<T>, Vec<T>);
 
 /* the activation function is what makes this layer real or complex */
 /* the implementations are almost the same tho */
@@ -174,7 +172,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     res
   }
 
-  pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<CDenseDerivatives<T>, GradientError> {
+  pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     /* check dimensions of every matrix and vector */
 
     let weight_shape = self.weights.get_shape();

@@ -1,4 +1,8 @@
-use crate::{act::ComplexActFunc, err::{LayerForwardError, LayerInitError}, init::InitMethod, input::{IOShape, IOType}, math::{matrix::Matrix, BasicOperations, Complex}};
+use std::arch::x86_64::_CMP_TRUE_US;
+
+use crate::{act::ComplexActFunc, err::{GradientError, LayerForwardError, LayerInitError}, init::InitMethod, input::{IOShape, IOType}, math::{matrix::Matrix, BasicOperations, Complex}};
+
+use super::ComplexDerivatives;
 
 #[derive(Debug)]
 pub struct ConvCLayer<T> {
@@ -111,5 +115,50 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
 
   pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     self.trigger(input_type)
+  }
+
+  fn trigger_q(&self, input: &Matrix<T>) -> Matrix<T> {
+    let mut kernels_iter = self.kernels.iter();
+    let mut feature_map = input.conv(kernels_iter.next().unwrap()).unwrap();
+    for kernel in kernels_iter {
+      feature_map = feature_map.conv(kernel).unwrap();
+    }
+
+    feature_map.add_mut(&self.biases).unwrap();
+
+    feature_map
+  }
+
+  fn foward_q(&self, input: &Matrix<T>) -> Matrix<T> {
+    self.trigger_q(input)
+  }
+
+  pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
+    match previous_act {
+      IOType::Matrix(input) => {
+        let q = match is_input {
+          true => { self.trigger_q(input) },
+          false => { self.foward_q(input) }
+        };
+
+        /* determine dadq, dadq* */
+
+        /* determine dqdw and dq*dw */
+
+        /* dqdb is 1 */
+
+        /* determine dqda */
+
+        /* dlda * dadq and dlda* * da*dq */
+
+        /* current dldw and dldb derivatives */
+
+        /* updates on cost function derivatives (propagated backwards) */
+        /* initialization */
+      },
+      _ => { panic!("Something went terribily wrong.") }
+    }
+
+    unimplemented!()
   }
 }
