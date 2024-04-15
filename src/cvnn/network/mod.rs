@@ -247,8 +247,8 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         (dldw, dldb, dlda, dlda_conj) = last_layer.compute_derivatives(is_input, &previous_act, dlda, dlda_conj).unwrap();
 
         /* solve the empty vec problem */
-        dldw_per_layer[n_layers-l-1].add_slice(&dldw).unwrap();
-        dldb_per_layer[n_layers-l-1].add_slice(&dldb).unwrap();
+        dldw_per_layer[n_layers-l-1].add_slice_mut(&dldw).unwrap();
+        dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap();
       }
     }
 

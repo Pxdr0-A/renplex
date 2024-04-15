@@ -107,7 +107,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
 
         /* add the biases to the result */
         res_mut
-          .add_slice(&self.biases[..])
+          .add_slice_mut(&self.biases[..])
           .unwrap();
 
         /* calculate the activations */
@@ -133,7 +133,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
 
         /* add the biases to the result */
         res_mut
-          .add_slice(&self.biases[..])
+          .add_slice_mut(&self.biases[..])
           .unwrap();
 
         /* calculate the activations */
@@ -160,14 +160,14 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
           .fold(T::default(), |acc, (weight, input)| { acc + *weight * *input })
       );
     }
-    res.add_slice(&self.biases).unwrap();
+    res.add_slice_mut(&self.biases).unwrap();
 
     res
   }
 
   fn foward_q(&self, input: &Vec<T>) -> Vec<T> {
     let mut res = self.weights.mul_slice(input).unwrap();
-    res.add_slice(&self.biases).unwrap();
+    res.add_slice_mut(&self.biases).unwrap();
 
     res
   }
@@ -198,7 +198,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
           .map(|elm| { elm.conj() })
           .collect::<Vec<T>>();
         
-        /* determine dqdw and dq*dw */
+        /* determine dqdw */
         /* equal to the previous input and the same for all neurons */
         let dqdw = input.clone();
 
@@ -256,12 +256,12 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
             .map(mult_func)
             .collect();
           /* accumulate the sum */
-          new_dlda.add_slice(&addition).unwrap();
+          new_dlda.add_slice_mut(&addition).unwrap();
 
           for elm in addition.iter_mut() { *elm = elm.conj(); }
 
           /* accumulate the sum */
-          new_dlda_conj.add_slice(&addition).unwrap();
+          new_dlda_conj.add_slice_mut(&addition).unwrap();
         }
 
         Ok((dldw.get_body().to_vec(), dldb, new_dlda, new_dlda_conj))
