@@ -146,7 +146,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
 
         /* add the biases to the result */
         res_mut
-          .add_slice(&self.biases[..])
+          .add_slice_mut(&self.biases[..])
           .unwrap();
 
         /* calculate the activations */
@@ -172,7 +172,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
 
         /* add the biases to the result */
         res_mut
-          .add_slice(&self.biases[..])
+          .add_slice_mut(&self.biases[..])
           .unwrap();
 
         /* calculate the activations */
@@ -207,13 +207,13 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
               );
             }
 
-            res.add_slice(&self.biases).unwrap();
+            res.add_slice_mut(&self.biases).unwrap();
 
             res
           },
           false => { 
             let mut res = self.weights.mul_vec(input.clone()).unwrap();
-            res.add_slice(&self.biases).unwrap();
+            res.add_slice_mut(&self.biases).unwrap();
 
             res
           }
@@ -267,7 +267,7 @@ impl<T: Real + BasicOperations<T>> LayerLike<T> for DenseLayer<T> {
             .map(|elm| { *elm * val })
             .collect();
           /* accumulate the sum */
-          new_dlda.add_slice(&current_dqda_row).unwrap();
+          new_dlda.add_slice_mut(&current_dqda_row).unwrap();
         }
 
         /* update dlda and return it */

@@ -95,7 +95,7 @@ impl<T> Matrix<T> {
     self.capacity = self.shape;
   }
 
-  /// Returns a reference to the generic element in position i, j of a `Matrix<T>`.
+  /// Returns a reference to the element in position i, j of a `Matrix<T>`.
   /// 
   /// # Arguments
   /// 
@@ -108,6 +108,21 @@ impl<T> Matrix<T> {
     }
 
     Ok(&self.body[i * self.shape[1] + j])
+  }
+
+  /// Returns a mutable reference to the element in position i, j of a `Matrix<T>`.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `i` - reference to a `usize` representing the row's index.
+  /// * `j` - reference to a `usize` representing the column's index.
+  pub fn elm_mut(&mut self, i: usize, j: usize) -> Result<&mut T, AccessError> {
+    // i - lines; j - columns
+    if i >= self.shape[0] || j >= self.shape[1] {
+      return Err(AccessError::OutOfBounds);
+    }
+
+    Ok(&mut self.body[i * self.shape[1] + j])
   }
 
   /// Returns a slice correspondent to the `i`th row of a `Matrix<T>`.
@@ -446,6 +461,37 @@ impl<T: BasicOperations<T>> Matrix<T> {
     Ok(())
   }
 
+  pub fn mul_point(&self, rhs: &Self) -> Result<Self, OperationError> {
+    let rhs_shape = rhs.get_shape();
+    let lhs_shape = self.get_shape();
+    if lhs_shape != rhs_shape {
+      return Err(OperationError::InconsistentShape)
+    }
+
+    let mut body = Vec::with_capacity(lhs_shape[0] * lhs_shape[1]);
+    for (lhs_elm, rhs_elm) in self.get_body().iter().zip(rhs.get_body()) {
+      body.push(*lhs_elm * *rhs_elm);
+    }
+
+    Ok(Matrix::from_body(body, [lhs_shape[0], lhs_shape[1]]))
+  }
+
+  pub fn mul_point_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
+    let rhs_shape = rhs.get_shape();
+    let mut lhs_shape = [0_usize, 0];
+    lhs_shape.copy_from_slice(self.get_shape());
+
+    if lhs_shape != rhs_shape {
+      return Err(OperationError::InconsistentShape)
+    }
+
+    for (lhs_elm, rhs_elm) in self.get_body_as_mut().iter_mut().zip(rhs.get_body()) {
+      *lhs_elm *= *rhs_elm;
+    }
+
+    Ok(())
+  }
+
   pub fn div_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
     for elm in self.body.iter_mut() {
       *elm /= rhs;
@@ -525,7 +571,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
           /* it is better to use threads instead of channels */
           /* has in channels you do not know what answer comes first */
           /* with the join handle you know where your answer comes from */
-          acc.add_slice(&row).unwrap(); acc
+          acc.add_slice_mut(&row).unwrap(); acc
         })
         .unwrap();
 
@@ -559,9 +605,13 @@ impl<T: BasicOperations<T>> Matrix<T> {
 }
 
 pub trait SliceOps<T> {
-  fn add_slice(&mut self, rhs: &Self) -> Result<(), OperationError>;
+  fn add_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError>;
 
-  fn sub_slice(&mut self, rhs: &Self) -> Result<(), OperationError>;
+  fn sub_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError>;
+
+  fn mul_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError>;
+
+  fn mul_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError>;
 
   fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError>;
 
@@ -570,7 +620,7 @@ pub trait SliceOps<T> {
 
 impl<T: BasicOperations<T>> SliceOps<T> for [T] {
   /// Element-wise assignment summation.
-  fn add_slice(&mut self, rhs: &Self) -> Result<(), OperationError> {
+  fn add_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
     
     self
@@ -581,7 +631,7 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
     Ok(())
   }
 
-  fn sub_slice(&mut self, rhs: &Self) -> Result<(), OperationError> {
+  fn sub_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
     
     self
@@ -590,6 +640,29 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
       .for_each(|(lhs, rhs)| { *lhs -= *rhs });
 
     Ok(())
+  }
+
+  fn mul_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
+    if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
+    
+    self
+      .iter_mut()
+      .zip(rhs)
+      .for_each(|(lhs, rhs)| { *lhs *= *rhs });
+
+    Ok(())
+  }
+
+  fn mul_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError> {
+    if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
+    
+    Ok(
+      self
+        .iter()
+        .zip(rhs)
+        .map(|(lhs, rhs)| { *lhs * *rhs })
+        .collect()
+    )
   }
 
   fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
