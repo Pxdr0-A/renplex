@@ -135,10 +135,14 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     match previous_act {
       IOType::Matrix(input) => {
         let q_shape = input.get_shape();
+        /* they happen to be the same */
         let q = match is_input {
           true => { self.trigger_q(input).get_body().to_vec() },
           false => { self.foward_q(input).get_body().to_vec() }
         };
+
+        if dlda.len() != q_shape[0] * q_shape[1] { panic!("Hallo. Du hast ein großes Problem.") }
+        if dlda_conj.len() != q_shape[0] * q_shape[1] { panic!("Hallo. Du hast noch ein großes Problem.") }
 
         /* determine dadq, dadq* */
         let mut dadq = q.clone();
@@ -154,6 +158,9 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         /* you can multiply dlda with dadq and dlda_conj with da_conj_dq */
         let dlda_dadq = dlda.mul_slice(&dadq).unwrap();
         let dlda_conj_da_conj_dq = dlda_conj.mul_slice(&da_conj_dq).unwrap();
+
+        /* bias derivative */
+        let dldb = dlda_dadq.add_slice(&dlda_conj_da_conj_dq).unwrap();
 
         /* dQ/dQ' derivatives throughout layer depth */
         let mut step_derivative = vec![T::unit(); q_shape[0]*q_shape[1]];
@@ -172,11 +179,9 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           /* get the input feature and output feature map of the current kernel */
           let mut feature_map = input.clone();
           let mut input_feature_map = input.clone();
-          let mut output_feature_map = input.clone();
           for (intercept_id, intercept_kernel) in self.kernels.iter().enumerate() {
             input_feature_map = feature_map.clone();
             feature_map = feature_map.conv(intercept_kernel).unwrap();
-            output_feature_map = feature_map.clone();
             
             if intercept_id == depth - kernel_id - 1 {
               break;
@@ -194,7 +199,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
               [kernel_shape[0], kernel_shape[1]]
             );
 
-            /* full derivative (matrix) */
+            /* (full) partial derivative (matrix) */
             /* this is an extremely easy convolution */
             /* there might be a much much quicker way of doing it */
             /* derivative of the output feature map with respect to the kernel that generated it! */
@@ -212,25 +217,32 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
               dlda_dadq.mul_slice(&step_derivative).unwrap().scalar_prod(dqdw_nm.get_body()).unwrap() + 
               dlda_conj_da_conj_dq.mul_slice(&step_conj_derivative).unwrap().scalar_prod(dqdw_nm.get_body()).unwrap();
 
-            *dk_elm = dldw_nm
+            *dk_elm = dldw_nm            
           }
 
           /* UPDATE new_dlda and new_dlda_conj */
           /* to propagate backwards */
           /* update step derivative */
           /* deeper in the layer */
-          /* POTENTIAL ERROR/MISSCALCULATION */
           /* check this update MIGHT BE WRONG */
+          /* this is to chain (1)*dQ/dQ'*dQ'/dQ''*(...) as many levels of deepness there is! */
+          /* POTENTIAL ERROR/MISSCALCULATION ON THIS DERIVATIVE UPDATE */
           step_derivative.mul_slice_mut(Matrix::from_body(new_dlda.clone(), [q_shape[0], q_shape[1]]).conv(&kernel).unwrap().get_body()).unwrap();
           step_conj_derivative.mul_slice_mut(Matrix::from_body(new_dlda_conj.clone(), [q_shape[0], q_shape[1]]).conv(&kernel).unwrap().get_body()).unwrap();
           /* derivative of the loss with respect to Q' (a level deeper) */
           new_dlda.mul_slice_mut(&step_derivative).unwrap();
           new_dlda_conj.mul_slice_mut(&step_conj_derivative).unwrap();
         }
+
+        /* you can calculate the capacity I think */
+        let mut dldw: Vec<T> = Vec::new();
+        for kernel in dldkernels.into_iter() {
+          dldw.append(&mut kernel.export_body());
+        }
+
+        Ok((dldw, dldb, new_dlda, new_dlda_conj))
       },
       _ => { panic!("Something went terribily wrong.") }
     }
-
-    unimplemented!()
   }
 }
