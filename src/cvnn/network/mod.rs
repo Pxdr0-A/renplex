@@ -56,11 +56,18 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
 
   /// Adds an already initialized layer.
   /// Layers need to be always initialized individually since that always have different specifications.
-  pub fn add(&mut self, layer: CLayer<T>) {
-    /* check if is is empty */
-    /* if it is, return error */
-    /* also return error if shapes do not match */
-    unimplemented!()
+  pub fn add(&mut self, layer: CLayer<T>) -> Result<(), LayerAdditionError> {
+    if layer.is_empty() { return Err(LayerAdditionError::MissingInitialization) }
+
+    /* this already takes care if it is a matrix or a vector */
+    /* also takes care of the shape and size respectively */
+    /* still the user has to request a coherent amount of units (input, ouput shape) */
+    /* the network will not initialize the layer based previous output */
+    if self.layers.last().unwrap().get_output_shape() != layer.get_input_shape() { return Err(LayerAdditionError::IncompatibleIO) }
+
+    self.layers.push(layer);
+
+    Ok(())
   }
 
   pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, ForwardError> {
