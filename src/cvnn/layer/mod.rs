@@ -76,14 +76,14 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
   pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     match self {
       CLayer::Dense(l) => { l.compute_derivatives(is_input, previous_act, dlda, dlda_conj) },
-      CLayer::Convolutional(l) => { unimplemented!() }
+      CLayer::Convolutional(l) => { l.compute_derivatives(is_input, previous_act, dlda, dlda_conj) }
     }
   }
 
   pub fn neg_conj_adjustment(&mut self, dldw: Vec<T>, dldb: Vec<T>) -> Result<(), GradientError> {
     match self {
       CLayer::Dense(l) => { l.neg_conj_adjustment(dldw, dldb) },
-      CLayer::Convolutional(l) => { unimplemented!() }
+      CLayer::Convolutional(l) => { l.neg_conj_adjustment(dldw, dldb) }
     }
   }
 }

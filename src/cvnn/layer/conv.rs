@@ -1,6 +1,6 @@
 use crate::{act::ComplexActFunc, err::{GradientError, LayerForwardError, LayerInitError}, init::{InitMethod, PredictModel}, input::{IOShape, IOType}, math::{matrix::{Matrix, SliceOps}, BasicOperations, Complex}};
 
-use super::ComplexDerivatives;
+use super::{CLayer, ComplexDerivatives};
 
 #[derive(Debug)]
 pub struct ConvCLayer<T> {
@@ -244,5 +244,39 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
       },
       _ => { panic!("Something went terribily wrong.") }
     }
+  }
+
+  pub fn neg_conj_adjustment(&mut self, dldw: Vec<T>, dldb: Vec<T>) -> Result<(), GradientError> {
+    let dldw_size = dldw.len();
+    let dldb_size = dldb.len();
+    
+    /* if there is an error it can be here */
+    let (weights, biases) = self.params_len();
+
+    if dldb_size != biases{
+      return Err(GradientError::InconsistentShape)
+    } 
+    if dldw_size != weights {
+      return Err(GradientError::InconsistentShape)
+    }
+    
+    /* part that could use optimization */
+    /* verify if the order is correct */
+    let mut dldw_iter = dldw.into_iter();
+    for kernel in self.kernels.iter_mut() {
+      for elm in kernel.get_body_as_mut() {
+        *elm -= dldw_iter.next().unwrap().conj();
+      }
+    }
+
+    for (bias, db) in self.biases.get_body_as_mut().iter_mut().zip(dldb) {
+      *bias -= db.conj();
+    }
+
+    Ok(())
+  }
+
+  pub fn wrap(self) -> CLayer<T> {
+    CLayer::Convolutional(self)
   }
 }
