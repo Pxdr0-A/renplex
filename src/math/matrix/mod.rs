@@ -607,6 +607,8 @@ impl<T: BasicOperations<T>> Matrix<T> {
 pub trait SliceOps<T> {
   fn add_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError>;
 
+  fn add_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError>;
+
   fn sub_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError>;
 
   fn mul_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError>;
@@ -629,6 +631,18 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
       .for_each(|(lhs, rhs)| { *lhs += *rhs });
 
     Ok(())
+  }
+
+  fn add_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError> {
+    if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
+    
+    Ok(
+      self
+        .iter()
+        .zip(rhs)
+        .map(|(lhs, rhs)| { *lhs + *rhs })
+        .collect()
+    )
   }
 
   fn sub_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
