@@ -54,7 +54,7 @@ pub enum TranferError {
   IncompatibleType
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum IOShape {
   Vector(usize),
   Matrix([usize; 2])
