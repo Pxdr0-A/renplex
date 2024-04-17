@@ -80,14 +80,14 @@ const MINIST_IMAGE_DIMS: (usize, usize) = (28, 28);
 
 impl<T: Real + BasicOperations<T>> Dataset<T, T> {
   /// To extract a batch from MINIST tarining dataset.
-  pub fn minist_as_batch(train_data_file: &mut File, train_label_file: &mut File, batch_size: usize, tracker: &mut usize) -> Dataset<T, T> {
+  pub fn minist_as_batch(data_file: &mut File, label_file: &mut File, batch_size: usize, tracker: &mut usize) -> Dataset<T, T> {
     /* batch_size needs to be a multiple of the data or not? */
     /* have not read a single byte */
     if *tracker == 0 {
       /* skip first 16 bytes of training image file */
-      train_data_file.read(&mut [0u8; 16]).unwrap();
+      data_file.read(&mut [0u8; 16]).unwrap();
       /* skip first 8 bytes of training label file */
-      *tracker += train_label_file.read(&mut [0u8; 8]).unwrap();
+      *tracker += label_file.read(&mut [0u8; 8]).unwrap();
     }
     
     let ref mut image_buffer = [0u8; MINIST_IMAGE_DIMS.0 * MINIST_IMAGE_DIMS.1];
@@ -97,10 +97,11 @@ impl<T: Real + BasicOperations<T>> Dataset<T, T> {
 
 
     for _ in 0..batch_size {
-      train_data_file.read(image_buffer).unwrap();
-      *tracker += train_label_file.read(label_buffer).unwrap();
+      data_file.read(image_buffer).unwrap();
+      *tracker += label_file.read(label_buffer).unwrap();
+      let image = image_buffer.iter().map(|elm| { T::usize_to_real(*elm as usize) / T::usize_to_real(255) }).collect::<Vec<T>>();
       data_batch.add_point((
-        IOType::Vector(image_buffer.iter().map(|elm| { T::usize_to_real(*elm as usize) / T::usize_to_real(255) }).collect::<Vec<T>>()),
+        IOType::Matrix(Matrix::from_body(image, [28, 28])),
         IOType::Vector(T::gen_pred(MINIST_DEGREE, label_buffer[0] as usize, &PredictModel::Sparse).unwrap())
       ));
 
@@ -115,14 +116,14 @@ impl<T: Real + BasicOperations<T>> Dataset<T, T> {
 
 impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
   /// To extract a batch from MINIST tarining dataset.
-  pub fn minist_as_complex_batch(train_data_file: &mut File, train_label_file: &mut File, batch_size: usize, tracker: &mut usize) -> Dataset<T, T> {
+  pub fn minist_as_complex_batch(data_file: &mut File, label_file: &mut File, batch_size: usize, tracker: &mut usize) -> Dataset<T, T> {
     /* batch_size needs to be a multiple of the data or not? */
     /* have not read a single byte */
     if *tracker == 0 {
       /* skip first 16 bytes of training image file */
-      train_data_file.read(&mut [0u8; 16]).unwrap();
+      data_file.read(&mut [0u8; 16]).unwrap();
       /* skip first 8 bytes of training label file */
-      *tracker += train_label_file.read(&mut [0u8; 8]).unwrap();
+      *tracker += label_file.read(&mut [0u8; 8]).unwrap();
     }
     
     let ref mut image_buffer = [0u8; MINIST_IMAGE_DIMS.0 * MINIST_IMAGE_DIMS.1];
@@ -131,10 +132,11 @@ impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
     let mut data_batch = Dataset::new();
 
     for _ in 0..batch_size {
-      train_data_file.read(image_buffer).unwrap();
-      *tracker += train_label_file.read(label_buffer).unwrap();
+      data_file.read(image_buffer).unwrap();
+      *tracker += label_file.read(label_buffer).unwrap();
+      let image = image_buffer.iter().map(|elm| { T::usize_to_complex(*elm as usize) / T::usize_to_complex(255) }).collect::<Vec<T>>();
       data_batch.add_point((
-        IOType::Vector(image_buffer.iter().map(|elm| { T::usize_to_complex(*elm as usize) / T::usize_to_complex(255) }).collect::<Vec<T>>()),
+        IOType::Matrix(Matrix::from_body(image, [28, 28])),
         IOType::Vector(T::gen_pred(MINIST_DEGREE, label_buffer[0] as usize, &PredictModel::Sparse).unwrap())
       ));
 
