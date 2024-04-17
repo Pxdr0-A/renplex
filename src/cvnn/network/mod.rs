@@ -63,7 +63,8 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     /* also takes care of the shape and size respectively */
     /* still the user has to request a coherent amount of units (input, ouput shape) */
     /* the network will not initialize the layer based previous output */
-    if self.layers.last().unwrap().get_output_shape() != layer.get_input_shape() { return Err(LayerAdditionError::IncompatibleIO) }
+    let last_layer_out = self.layers.last().unwrap().get_output_shape();
+    if last_layer_out != layer.get_input_shape() { return Err(LayerAdditionError::IncompatibleIO) }
 
     self.layers.push(layer);
 
@@ -248,14 +249,14 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         if !last_layer.is_trainable() {
           /* layer is not trainable, do not waste time */
           continue;
+        } else {
+          is_input = if n_layers-l-1 == 0 { true } else { false };
+          (dldw, dldb, dlda, dlda_conj) = last_layer.compute_derivatives(is_input, &previous_act, dlda, dlda_conj).unwrap();
+
+          /* solve the empty vec problem */
+          dldw_per_layer[n_layers-l-1].add_slice_mut(&dldw).unwrap();
+          dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap();
         }
-
-        is_input = if n_layers-l-1 == 0 { true } else { false };
-        (dldw, dldb, dlda, dlda_conj) = last_layer.compute_derivatives(is_input, &previous_act, dlda, dlda_conj).unwrap();
-
-        /* solve the empty vec problem */
-        dldw_per_layer[n_layers-l-1].add_slice_mut(&dldw).unwrap();
-        dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap();
       }
     }
 
@@ -264,13 +265,13 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     for ((mut dldw_l, mut dldb_l), layer) in dldw_per_layer.into_iter().zip(dldb_per_layer).zip(self.layers.iter_mut()) {
       if !layer.is_trainable() {
         continue;
+      } else {
+        dldw_l.mul_mut_scalar(scale_param).unwrap();
+        dldb_l.mul_mut_scalar(scale_param).unwrap();
+
+        /* update the weights of layer l */
+        layer.neg_conj_adjustment(dldw_l, dldb_l).unwrap();
       }
-
-      dldw_l.mul_mut_scalar(scale_param).unwrap();
-      dldb_l.mul_mut_scalar(scale_param).unwrap();
-
-      /* update the weights of layer l */
-      layer.neg_conj_adjustment(dldw_l, dldb_l).unwrap();
     }
 
     Ok(())
