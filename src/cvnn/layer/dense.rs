@@ -38,7 +38,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
 
   pub fn get_input_shape(&self) -> IOShape {
     let weight_shape = self.weights.get_shape();
-    IOShape::Vector(weight_shape[0] * weight_shape[1])
+    IOShape::Vector(weight_shape[1])
   }
 
   pub fn get_output_shape(&self) -> IOShape {
