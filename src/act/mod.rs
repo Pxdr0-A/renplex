@@ -26,6 +26,38 @@ fn d_sigmoid_f64(val: f64) -> f64 {
   sigmoid_f64(val) * (1.0 - sigmoid_f64(val))
 }
 
+fn relu_f32(val: f32) -> f32 {
+  if val.is_sign_positive() {
+    val
+  } else {
+    f32::default()
+  }
+}
+
+fn relu_f64(val: f64) -> f64 {
+  if val.is_sign_positive() {
+    val
+  } else {
+    f64::default()
+  }
+}
+
+fn d_relu_f32(val: f32) -> f32 {
+  if val.is_sign_positive() {
+    1.0
+  } else {
+    f32::default()
+  }
+}
+
+fn d_relu_f64(val: f64) -> f64 {
+  if val.is_sign_positive() {
+    1.0
+  } else {
+    f64::default()
+  }
+}
+
 /* Real Imaginary Type Sigmoid */
 fn ritsigmoid_cf32(val: Cf32) -> Cf32 {
   Cf32 {
@@ -65,6 +97,48 @@ fn d_conj_ritsigmoid_cf32(val: Cf32) -> Cf32 {
 fn d_conj_ritsigmoid_cf64(val: Cf64) -> Cf64 {
   Cf64 {
     x: (d_sigmoid_f64(val.x) - d_sigmoid_f64(val.y)) * 0.5, 
+    y: 0.0
+  }
+}
+
+fn ritrelu_cf32(val: Cf32) -> Cf32 {
+  Cf32 {
+    x: relu_f32(val.x),
+    y: relu_f32(val.y)
+  }
+}
+
+fn ritrelu_cf64(val: Cf64) -> Cf64 {
+  Cf64 {
+    x: relu_f64(val.x),
+    y: relu_f64(val.y)
+  }
+}
+
+fn d_ritrelu_cf32(val: Cf32) -> Cf32 {
+  Cf32 {
+    x: ( d_relu_f32(val.x) + d_relu_f32(val.x) ) * 0.5,
+    y: 0.0
+  }
+}
+
+fn d_ritrelu_cf64(val: Cf64) -> Cf64 {
+  Cf64 {
+    x: ( d_relu_f64(val.x) + d_relu_f64(val.x) ) * 0.5,
+    y: 0.0
+  }
+}
+
+fn d_conj_ritrelu_cf32(val: Cf32) -> Cf32 {
+  Cf32 {
+    x: ( d_relu_f32(val.x) - d_relu_f32(val.x) ) * 0.5,
+    y: 0.0
+  }
+}
+
+fn d_conj_ritrelu_cf64(val: Cf64) -> Cf64 {
+  Cf64 {
+    x: ( d_relu_f64(val.x) - d_relu_f64(val.x) ) * 0.5,
     y: 0.0
   }
 }
@@ -127,7 +201,8 @@ impl ActFunc {
 
 #[derive(Debug)]
 pub enum ComplexActFunc {
-  RITSigmoid
+  RITSigmoid,
+  RITReLU
 }
 
 impl ComplexActFunc {
@@ -135,6 +210,9 @@ impl ComplexActFunc {
     let act_func = match self {
       ComplexActFunc::RITSigmoid => {
         ritsigmoid_cf32
+      },
+      ComplexActFunc::RITReLU => {
+        ritrelu_cf32
       }
     };
 
@@ -147,6 +225,9 @@ impl ComplexActFunc {
     let act_func = match self {
       ComplexActFunc::RITSigmoid => {
         ritsigmoid_cf64
+      },
+      ComplexActFunc::RITReLU => {
+        ritrelu_cf64
       }
     };
 
@@ -159,6 +240,9 @@ impl ComplexActFunc {
     let act_func = match self {
       ComplexActFunc::RITSigmoid => {
         d_ritsigmoid_cf32
+      },
+      ComplexActFunc::RITReLU => {
+        d_ritrelu_cf32
       }
     };
 
@@ -171,6 +255,9 @@ impl ComplexActFunc {
     let act_func = match self {
       ComplexActFunc::RITSigmoid => {
         d_ritsigmoid_cf64
+      },
+      ComplexActFunc::RITReLU => {
+        d_ritrelu_cf64
       }
     };
 
@@ -183,6 +270,9 @@ impl ComplexActFunc {
     let act_func = match self {
       ComplexActFunc::RITSigmoid => {
         d_conj_ritsigmoid_cf32
+      },
+      ComplexActFunc::RITReLU => {
+        d_conj_ritrelu_cf32
       }
     };
 
@@ -195,6 +285,9 @@ impl ComplexActFunc {
     let act_func = match self {
       ComplexActFunc::RITSigmoid => {
         d_conj_ritsigmoid_cf64
+      },
+      ComplexActFunc::RITReLU => {
+        d_conj_ritrelu_cf64
       }
     };
 
