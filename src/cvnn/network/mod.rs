@@ -138,7 +138,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       prediction = self
         .forward(input)
         .unwrap();
-
+      
       loss_vals.push(T::loss(prediction, target, &loss_func).unwrap());
     }
 
@@ -200,7 +200,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     /* maybe a get_number_of_params method to the layers */
     let mut dldw_per_layer = Vec::with_capacity(n_layers);
     let mut dldb_per_layer = Vec::with_capacity(n_layers);
-    let mut total_params: usize = 0;
+    let mut _total_params: usize = 0;
     for layer in self.layers.iter() {
       if layer.is_trainable() {
         let (weights_len, bias_len) = layer.params_len();
@@ -208,14 +208,12 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         dldw_per_layer.push(vec![T::default(); weights_len]);
         dldb_per_layer.push(vec![T::default(); bias_len]);
 
-        total_params += weights_len + bias_len;
+        _total_params += weights_len + bias_len;
       } else {
         dldw_per_layer.push(Vec::new());
         dldb_per_layer.push(Vec::new());
       }
     }
-
-    println!("Total Number of Parameters: {}", total_params);
 
     let (inputs, targets) = data.points_into_iter();
 
