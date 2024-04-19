@@ -101,7 +101,7 @@ impl<T: Real + BasicOperations<T>> Dataset<T, T> {
       *tracker += label_file.read(label_buffer).unwrap();
       let image = image_buffer.iter().map(|elm| { T::usize_to_real(*elm as usize) / T::usize_to_real(255) }).collect::<Vec<T>>();
       data_batch.add_point((
-        IOType::Matrix(Matrix::from_body(image, [28, 28])),
+        IOType::FeatureMaps(vec![Matrix::from_body(image, [28, 28]); 1]),
         IOType::Vector(T::gen_pred(MINIST_DEGREE, label_buffer[0] as usize, &PredictModel::Sparse).unwrap())
       ));
 
@@ -136,7 +136,7 @@ impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
       *tracker += label_file.read(label_buffer).unwrap();
       let image = image_buffer.iter().map(|elm| { T::usize_to_complex(*elm as usize) / T::usize_to_complex(255) }).collect::<Vec<T>>();
       data_batch.add_point((
-        IOType::Matrix(Matrix::from_body(image, [28, 28])),
+        IOType::FeatureMaps(vec![Matrix::from_body(image, [28, 28]); 1]),
         IOType::Vector(T::gen_pred(MINIST_DEGREE, label_buffer[0] as usize, &PredictModel::Sparse).unwrap())
       ));
 

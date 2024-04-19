@@ -2,10 +2,13 @@ use crate::{act::ComplexActFunc, err::{GradientError, LayerForwardError, LayerIn
 
 use super::{CLayer, ComplexDerivatives};
 
+/// Layer that computes only padded convolution.
 #[derive(Debug)]
 pub struct ConvCLayer<T> {
+  input_features_len: usize,
   kernels: Vec<Matrix<T>>,
-  biases: Matrix<T>,
+  /// Each output feature map gets its own bias.
+  biases: Vec<T>,
   func: ComplexActFunc
 }
 
@@ -20,49 +23,49 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
   }
 
   pub fn params_len(&self) -> (usize, usize) {
-    let mut params: usize = 0;
+    let mut kernel_params: usize = 0;
     for kernel in self.kernels.iter() {
       let kernel_shape = kernel.get_shape();
-      params += kernel_shape[0] * kernel_shape[1];
+      kernel_params += kernel_shape[0] * kernel_shape[1];
     }
 
-    let bias_shape = self.biases.get_shape();
+    let bias_params = self.biases.len();
 
-    (params, bias_shape[0]*bias_shape[1])
+    (kernel_params, bias_params)
   }
 
+  /// Technically just gives the shape that the input features should have.
+  /// It does not matter how many features you give.
   pub fn get_input_shape(&self) -> IOShape {
-    let bias_shape = self.biases.get_shape();
-    IOShape::Matrix([bias_shape[0], bias_shape[1]])
+    IOShape::FeatureMaps(self.input_features_len)
   }
 
   pub fn get_output_shape(&self) -> IOShape {
-    let bias_shape = self.biases.get_shape();
-    IOShape::Matrix([bias_shape[0], bias_shape[1]])
+    IOShape::FeatureMaps(self.input_features_len * self.kernels.len())
   }
 
   pub fn init(
     input_shape: IOShape,
     kernel_sizes: Vec<[usize; 2]>,
     func: ComplexActFunc,
+    kernel_method: InitMethod,
     method: InitMethod,
     seed: &mut u128
   ) -> Result<Self, LayerInitError> {
 
     match input_shape {
-      IOShape::Matrix(dim) => {
+      IOShape::FeatureMaps(input_features_len) => {
         let depth = kernel_sizes.len();
-        let mut kernels = Vec::with_capacity(depth);
-        let mut kernel = Vec::new();
-        let mut biases_body = Vec::with_capacity(dim[0] * dim[1]);
+        let output_features_len = input_features_len * depth;
 
-        match method {
+        let mut kernels = Vec::with_capacity(depth);
+        let mut biases = Vec::new();
+
+        match kernel_method {
+          /* method for the kernels */
           InitMethod::Random(scale) => {
+            let mut kernel = Vec::new();
             for size in kernel_sizes.into_iter() {
-              if (size[0] - 1) / 2 >= dim[0] || (size[1] - 1) / 2 >= dim[1] {
-                return Err(LayerInitError::InvalidInputShape)
-              }
-    
               for _ in 0..size[0] {
                 for _ in 0..size[1] {
                   kernel.push(T::gen(seed, scale));
@@ -72,22 +75,19 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
               kernels.push(Matrix::from_body(kernel.clone(), size));
               kernel.drain(..);
             }
+          }
+        }
 
-            for _ in 0..dim[0] {
-              for _ in 0..dim[1] {
-                biases_body.push(T::gen(seed, scale));
-              }
+        match method {
+          /* method for the biases */
+          InitMethod::Random(scale) => {
+            for _ in 0..output_features_len {
+              biases.push(T::gen(seed, scale));
             }
           }
         }
 
-        Ok(
-          Self {
-            kernels,
-            biases: Matrix::from_body(biases_body, dim),
-            func
-          }
-        )
+        Ok(Self { input_features_len, kernels, biases, func })
       },
       _ => { Err(LayerInitError::InvalidInputShape) }
     }
@@ -95,17 +95,33 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
 
   pub fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
-      IOType::Matrix(input) => {
-        let mut feature_map = input;
-        for kernel in self.kernels.iter() {
-          feature_map = feature_map.conv(kernel).unwrap();
+      IOType::FeatureMaps(input) => {
+        let n_feature_maps = input.len();
+        let depth = self.kernels.len();
+        let n_output_features = n_feature_maps * depth;
+
+        if n_output_features != self.biases.len() {
+          return Err(LayerForwardError::InvalidInput)
         }
 
-        feature_map.add_mut(&self.biases).unwrap();
+        let mut bias_iter = self.biases.iter();
+        let mut output_feature_maps = Vec::with_capacity(n_output_features);
+        for input_feature_map in input.into_iter() {
+          let mut res_feature_maps = Vec::new();
+          /* parelelize this! */
+          for kernel in self.kernels.iter() {
+            let mut current_map = input_feature_map.conv(kernel).unwrap();
+            let bias = bias_iter.next().unwrap();
+            current_map.add_mut_scalar(*bias).unwrap();
+            T::activate_mut(current_map.get_body_as_mut(), &self.func);
 
-        T::activate_mut(feature_map.get_body_as_mut(), &self.func);
+            res_feature_maps.push(current_map);
+          }
 
-        Ok(IOType::Matrix(feature_map))
+          output_feature_maps.append(&mut res_feature_maps);
+        }
+
+        Ok(IOType::FeatureMaps(output_feature_maps))
       },
       _ => { Err(LayerForwardError::InvalidInput) }
     }
@@ -115,132 +131,138 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     self.trigger(input_type)
   }
 
-  fn trigger_q(&self, input: &Matrix<T>) -> Matrix<T> {
-    let mut kernels_iter = self.kernels.iter();
-    let mut feature_map = input.conv(kernels_iter.next().unwrap()).unwrap();
-    for kernel in kernels_iter {
-      feature_map = feature_map.conv(kernel).unwrap();
+  fn trigger_q(&self, input: &Vec<Matrix<T>>) -> Vec<Matrix<T>> {
+    let n_feature_maps = input.len();
+    let depth = self.kernels.len();
+    let n_output_features = n_feature_maps * depth;
+
+    let mut bias_iter = self.biases.iter();
+    let mut output_feature_maps = Vec::with_capacity(n_output_features);
+    for input_feature_map in input.into_iter() {
+      let mut res_feature_maps = Vec::new();
+      /* parelelize this! */
+      for kernel in self.kernels.iter() {
+        let mut current_map = input_feature_map.conv(kernel).unwrap();
+        let bias = bias_iter.next().unwrap();
+        current_map.add_mut_scalar(*bias).unwrap();
+
+        res_feature_maps.push(current_map);
+      }
+
+      output_feature_maps.append(&mut res_feature_maps);
     }
 
-    feature_map.add_mut(&self.biases).unwrap();
-
-    feature_map
+    output_feature_maps
   }
 
-  fn foward_q(&self, input: &Matrix<T>) -> Matrix<T> {
+  fn foward_q(&self, input: &Vec<Matrix<T>>) -> Vec<Matrix<T>> {
     self.trigger_q(input)
   }
 
   pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     match previous_act {
-      IOType::Matrix(input) => {
-        let q_shape = input.get_shape();
-        /* they happen to be the same */
+      IOType::FeatureMaps(input) => {
         let q = match is_input {
-          true => { self.trigger_q(input).get_body().to_vec() },
-          false => { self.foward_q(input).get_body().to_vec() }
+          true => { self.trigger_q(input) },
+          false => { self.foward_q(input) }
         };
 
-        if dlda.len() != q_shape[0] * q_shape[1] { panic!("Hallo. Du hast ein großes Problem.") }
-        if dlda_conj.len() != q_shape[0] * q_shape[1] { panic!("Hallo. Du hast noch ein großes Problem.") }
+        let n_output_features = q.len();
 
-        /* determine dadq, dadq* */
         let mut dadq = q.clone();
-        T::d_activate_mut(dadq.as_mut_slice(), &self.func);
+        for feature in dadq.iter_mut() {
+          let body = feature.get_body_as_mut();
+          T::d_activate_mut(body, &self.func);
+        }
         let mut dadq_conj = q;
-        T::d_conj_activate_mut(dadq_conj.as_mut_slice(), &self.func);
-        let da_conj_dq = dadq_conj
-          .iter()
-          .map(|elm| { elm.conj() })
-          .collect::<Vec<T>>();
-        /* derivative of the RELU is just 1, rethink this! */
+        for feature in dadq_conj.iter_mut() {
+          let body = feature.get_body_as_mut();
+          T::d_conj_activate_mut(body, &self.func);
+        }
+        let da_conj_dq = dadq_conj.clone();
+        for feature in dadq_conj.iter_mut() {
+          feature.get_body_as_mut().iter_mut().for_each(|elm| { *elm = elm.conj() });
+        }
 
-        /* you can multiply dlda with dadq and dlda_conj with da_conj_dq */
+        let dadq = dadq.into_iter().map(|feature| { feature.export_body() }).flatten().collect::<Vec<T>>();
+        let da_conj_dq = da_conj_dq.into_iter().map(|feature| { feature.export_body() }).flatten().collect::<Vec<T>>();
+
         let dlda_dadq = dlda.mul_slice(&dadq).unwrap();
+        drop(dlda); drop(dadq);
         let dlda_conj_da_conj_dq = dlda_conj.mul_slice(&da_conj_dq).unwrap();
+        drop(dlda_conj); drop(da_conj_dq);
 
-        /* bias derivative */
-        let dldb = dlda_dadq.add_slice(&dlda_conj_da_conj_dq).unwrap();
+        //let new_dlda;
+        //let new_dlda_conj;
 
-        /* dQ/dQ' derivatives throughout layer depth */
-        let mut step_derivative = vec![T::unit(); q_shape[0]*q_shape[1]];
-        let mut step_conj_derivative = vec![T::unit(); q_shape[0]*q_shape[1]];
-
-        /* new dlda derivatives */
-        let mut new_dlda = dlda.clone();
-        let mut new_dlda_conj = dlda_conj.clone();
-
-        /* the various dqdw */
-        let mut dldkernels = self.kernels.clone();
-        let depth = dldkernels.len();
-        /* you might need to propagate this backwards :( */
-        for (kernel_id, (kernel, dk)) in self.kernels.iter().rev().zip(dldkernels.iter_mut().rev()).enumerate() {
-          /* intercept the depth of the kernels */
-          /* get the input feature and output feature map of the current kernel */
-          let mut feature_map = input.clone();
-          let mut input_feature_map = input.clone();
-          for (intercept_id, intercept_kernel) in self.kernels.iter().enumerate() {
-            input_feature_map = feature_map.clone();
-            feature_map = feature_map.conv(intercept_kernel).unwrap();
-            
-            if intercept_id == depth - kernel_id - 1 {
-              break;
-            }
-          }
-          drop(feature_map);
-
+        /* initializing dldw */
+        let mut dldk_d = Vec::new();
+        for kernel in self.kernels.iter() {
           let kernel_shape = kernel.get_shape();
-          let total_elms = kernel_shape[0]*kernel_shape[1];
+          let kernel_len = kernel_shape[0] * kernel_shape[1];
+          dldk_d.push(Matrix::from_body(vec![T::default(); kernel_len], [kernel_shape[0], kernel_shape[1]]));
+        }
 
-          /* go through kernel's elements to compute the derivative (with respect to its elements) */
-          for (elm_id, dk_elm) in dk.get_body_as_mut().iter_mut().enumerate() {
-            let derivative_kernel = Matrix::from_body(
-              T::gen_pred(total_elms, elm_id, &PredictModel::Sparse).unwrap(),
-              [kernel_shape[0], kernel_shape[1]]
-            );
+        let chunks = dlda_dadq.len() / n_output_features;
+        let mut new_dlda = Vec::new();
+        let mut new_dlda_conj = Vec::new();
+        let mut dldb = Vec::new();
+        for ((input_feature, dlda_dadq_body_feat), dlda_conj_da_conj_dq_body_feat) in input.into_iter().zip(dlda_dadq.chunks(chunks)).zip(dlda_conj_da_conj_dq.chunks(chunks)) {
+          /* maybe you can paralelize this */
+          let input_feature_shape = input_feature.get_shape();
+          let input_feature_len = input_feature_shape[0] * input_feature_shape[1];
+          
+          let mut new_dlda_feat_update = vec![T::unit(); input_feature_len];
+          let mut new_dlda_conj_feat_update = vec![T::unit(); input_feature_len];
+          let mut dldb_per_feature = T::default();
+          for (kernel, dldk) in self.kernels.iter().zip(dldk_d.iter_mut()) {
+            let kernel_shape = kernel.get_shape();
+            let kernel_len = kernel_shape[0] * kernel_shape[1];
+            for (index, dldk_update) in dldk.get_body_as_mut().iter_mut().enumerate() {
+              /* there must be a better way for calculating the conv derivative */
+              let derivative_kernel = Matrix::from_body(
+                T::gen_pred(kernel_len, index, &PredictModel::Sparse).unwrap(),
+                [kernel_shape[0], kernel_shape[1]]
+              );
 
-            /* (full) partial derivative (matrix) */
-            /* this is an extremely easy convolution */
-            /* there might be a much much quicker way of doing it */
-            /* derivative of the output feature map with respect to the kernel that generated it! */
-            /* this is for the element nm (depending at what elm_id we are) */
-            let dqdw_nm = input_feature_map
-              .conv(&derivative_kernel)
+              let dqdk_nm = input_feature.conv(&derivative_kernel).unwrap();
+
+              let elm = dlda_dadq_body_feat.scalar_prod(dqdk_nm.get_body()).unwrap();
+              let elm_conj = dlda_conj_da_conj_dq_body_feat.scalar_prod(dqdk_nm.get_body()).unwrap();
+
+              *dldk_update += elm + elm_conj;
+            }
+
+            /* update dlda and dlda_conj */
+            /* perform backward convolution (flip kernel or reverse order) */
+            /* derivative of the current input feature with respect to the respective output feature */
+            /* input feature whose output feature comes from the current kernel */
+            let new_dqda = input_feature.rev_conv(kernel).unwrap();
+            let mut lhs = dlda_dadq_body_feat.mul_slice(new_dqda.get_body()).unwrap();
+            let mut rhs = dlda_conj_da_conj_dq_body_feat.mul_slice(new_dqda.get_body()).unwrap();
+
+            dldb_per_feature += dlda_dadq_body_feat.add_slice(dlda_conj_da_conj_dq_body_feat)
+              .unwrap()
+              .into_iter()
+              .reduce(|acc, elm| { acc + elm })
               .unwrap();
 
-            /* you might want to do things here with the full derivative */
-            /* put it in the chain rule */
-            /* then determine the dldw matrix using the dlda and dlda_conj */
-            /* a dot product is involved */
-            /* multiply with the step derivatives */
-            let dldw_nm = 
-              dlda_dadq.mul_slice(&step_derivative).unwrap().scalar_prod(dqdw_nm.get_body()).unwrap() + 
-              dlda_conj_da_conj_dq.mul_slice(&step_conj_derivative).unwrap().scalar_prod(dqdw_nm.get_body()).unwrap();
-
-            *dk_elm = dldw_nm            
+            new_dlda_feat_update.add_slice_mut(&lhs.add_slice(&rhs).unwrap()).unwrap();
+            lhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
+            rhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
+            new_dlda_conj_feat_update.add_slice_mut(&lhs.add_slice(&rhs).unwrap()).unwrap();
           }
 
-          /* UPDATE new_dlda and new_dlda_conj */
-          /* to propagate backwards */
-          /* update step derivative */
-          /* deeper in the layer */
-          /* check this update MIGHT BE WRONG */
-          /* this is to chain (1)*dQ/dQ'*dQ'/dQ''*(...) as many levels of deepness there is! */
-          /* POTENTIAL ERROR/MISSCALCULATION ON THIS DERIVATIVE UPDATE */
-          step_derivative.mul_slice_mut(Matrix::from_body(new_dlda.clone(), [q_shape[0], q_shape[1]]).conv(&kernel).unwrap().get_body()).unwrap();
-          step_conj_derivative.mul_slice_mut(Matrix::from_body(new_dlda_conj.clone(), [q_shape[0], q_shape[1]]).conv(&kernel).unwrap().get_body()).unwrap();
-          /* derivative of the loss with respect to Q' (a level deeper) */
-          new_dlda.mul_slice_mut(&step_derivative).unwrap();
-          new_dlda_conj.mul_slice_mut(&step_conj_derivative).unwrap();
+          new_dlda.append(&mut new_dlda_feat_update);
+          new_dlda_conj.append(&mut new_dlda_conj_feat_update);
+          drop(new_dlda_feat_update); drop(new_dlda_conj_feat_update);
+
+          dldb.push(dldb_per_feature);
         }
 
-        /* you can calculate the capacity I think */
-        let mut dldw: Vec<T> = Vec::new();
-        for kernel in dldkernels.into_iter() {
-          dldw.append(&mut kernel.export_body());
-        }
+        let dldk_d_flatten = dldk_d.into_iter().map(|feature| { feature.export_body() }).flatten().collect::<Vec<T>>();
 
-        Ok((dldw, dldb, new_dlda, new_dlda_conj))
+        Ok((dldk_d_flatten, dldb, new_dlda, new_dlda_conj))
       },
       _ => { panic!("Something went terribily wrong.") }
     }
@@ -269,7 +291,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
       }
     }
 
-    for (bias, db) in self.biases.get_body_as_mut().iter_mut().zip(dldb) {
+    for (bias, db) in self.biases.iter_mut().zip(dldb) {
       *bias -= db.conj();
     }
 

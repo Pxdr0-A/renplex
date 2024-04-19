@@ -8,7 +8,7 @@ pub enum ReleaseError {
 #[derive(Debug, Clone)]
 pub enum IOType<T> {
   Vector(Vec<T>),
-  Matrix(Matrix<T>)
+  FeatureMaps(Vec<Matrix<T>>)
 }
 
 impl<T> IOType<T> {
@@ -19,9 +19,9 @@ impl<T> IOType<T> {
     }
   }
 
-  pub fn release_mat(self) -> Result<Matrix<T>, ReleaseError> {
+  pub fn release_maps(self) -> Result<Vec<Matrix<T>>, ReleaseError> {
     match self {
-      IOType::Matrix(mat) => { Ok(mat) },
+      IOType::FeatureMaps(mat) => { Ok(mat) },
       _ => { Err(ReleaseError::InvalidType) }
     }
   }
@@ -29,7 +29,7 @@ impl<T> IOType<T> {
   pub fn as_mut(&mut self) -> &mut [T] {
     match self {
       IOType::Vector(vec) => { &mut vec[..] },
-      IOType::Matrix(mat) => { mat.get_body_as_mut() }
+      IOType::FeatureMaps(_mat) => { panic!("Requesting feature maps as mutable slice.") }
     }
   }
 }
@@ -38,7 +38,7 @@ impl<T: Copy> IOType<T> {
   pub fn to_vec(&self) -> Vec<T> {
     match self {
       IOType::Vector(vec) => { vec.clone() },
-      IOType::Matrix(mat) => { mat.get_body().to_vec() }
+      IOType::FeatureMaps(_mat) => { panic!("Requesting feature maps as vec.") }
     }
   }
 }
@@ -57,5 +57,6 @@ pub enum TranferError {
 #[derive(Debug, PartialEq)]
 pub enum IOShape {
   Vector(usize),
-  Matrix([usize; 2])
+  /// All features maps should have the same dimensions!
+  FeatureMaps(usize)
 }

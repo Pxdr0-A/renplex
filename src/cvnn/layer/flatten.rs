@@ -2,9 +2,11 @@ use crate::{err::LayerForwardError, input::{IOShape, IOType}};
 
 use super::CLayer;
 
+/// Flatten layer cares about the size of the images that it receives.
+/// It needs to transfer this information for subsquent layers.
 #[derive(Debug)]
 pub struct Flatten {
-  input_size: [usize; 2]
+  input_size: Vec<[usize; 2]>
 }
 
 impl Flatten {
@@ -17,20 +19,34 @@ impl Flatten {
   }
 
   pub fn get_input_shape(&self) -> IOShape {
-    IOShape::Matrix(self.input_size)
+    IOShape::FeatureMaps(self.input_size.len())
   }
 
   pub fn get_output_shape(&self) -> IOShape {
-    IOShape::Vector(self.input_size[0] * self.input_size[1])
+    let flatten_len = self.input_size
+      .iter()
+      .map(|elm| { elm[0] * elm[1] })
+      .reduce(|acc, elm| { acc + elm })
+      .unwrap();
+    
+    IOShape::Vector(flatten_len)
   }
 
-  pub fn init(input_size: [usize; 2]) -> Flatten {
+  pub fn init(input_size: Vec<[usize; 2]>) -> Flatten {
     Flatten { input_size }
   }
 
   pub fn trigger<T>(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
-      IOType::Matrix(mat) => { Ok(IOType::Vector(mat.export_body())) },
+      IOType::FeatureMaps(features) => {
+        let flatten_features = features
+          .into_iter()
+          .map(|feature| { feature.export_body() })
+          .flatten()
+          .collect::<Vec<T>>();
+
+        Ok(IOType::Vector(flatten_features))
+      },
       _ => { Err(LayerForwardError::InvalidInput) }
     }
   }

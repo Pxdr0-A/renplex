@@ -23,6 +23,8 @@ pub enum LossFunc {
 
 impl LossFunc {
   pub fn compute_f32(&self, prediction: IOType<f32>, target: IOType<f32>) -> Result<f32, LossCalcError> {
+    type TargetType = f32;
+
     let func = match self {
       LossFunc::Conventional => {
         conv_err_f32
@@ -36,33 +38,36 @@ impl LossFunc {
             let pred_len = pred.len();
             if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
 
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ)
-                .fold(f32::default(),|acc, data| {
-                  acc + func(data)
-                }) / ( pred_len as f32 )
-            )
+            let mean_err = pred
+              .into_iter()
+              .zip(targ)
+              .fold(TargetType::default(),|acc, data| {
+                acc + func(data)
+              }) / ( pred_len as TargetType );
+            
+            Ok(mean_err)
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::Matrix(pred) => {
+      IOType::FeatureMaps(pred) => {
         match target {
-          IOType::Matrix(targ) => {
-            let mut pred_shape = [0_usize, 0];
-            pred_shape.copy_from_slice(pred.get_shape());
-            if pred_shape != targ.get_shape() { return Err(LossCalcError::InconsistentIO) }
+          IOType::FeatureMaps(targ) => {
+            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            
+            let pred_len = pred_flatten.len();
+            let targ_len = targ_flatten.len();
+            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
 
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ.into_iter())
-                .fold(f32::default(),|acc, data| {
-                  acc + func(data)
-                }) / ( (pred_shape[0] * pred_shape[1]) as f32 )
-            )
+            let mean_err = pred_flatten
+              .into_iter()
+              .zip(targ_flatten)
+              .fold(TargetType::default(),|acc, data| {
+                acc + func(data)
+              }) / ( pred_len as TargetType );
+            
+            Ok(mean_err)
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -71,6 +76,8 @@ impl LossFunc {
   }
 
   pub fn compute_f64(&self, prediction: IOType<f64>, target: IOType<f64>) -> Result<f64, LossCalcError> {
+    type TargetType = f64;
+
     let func = match self {
       LossFunc::Conventional => {
         conv_err_f64
@@ -84,33 +91,36 @@ impl LossFunc {
             let pred_len = pred.len();
             if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
 
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ)
-                .fold(f64::default(),|acc, data| {
-                  acc + func(data)
-                }) / ( pred_len as f64 )
-            )
+            let mean_err = pred
+              .into_iter()
+              .zip(targ)
+              .fold(f64::default(),|acc, data| {
+                acc + func(data)
+              }) / ( pred_len as TargetType );
+            
+            Ok(mean_err)
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::Matrix(pred) => {
+      IOType::FeatureMaps(pred) => {
         match target {
-          IOType::Matrix(targ) => {
-            let mut pred_shape = [0_usize, 0];
-            pred_shape.copy_from_slice(pred.get_shape());
-            if pred_shape != targ.get_shape() { return Err(LossCalcError::InconsistentIO) }
+          IOType::FeatureMaps(targ) => {
+            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            
+            let pred_len = pred_flatten.len();
+            let targ_len = targ_flatten.len();
+            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
 
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ.into_iter())
-                .fold(f64::default(),|acc, data| {
-                  acc + func(data)
-                }) / ( (pred_shape[0] * pred_shape[1]) as f64 )
-            )
+            let mean_err = pred_flatten
+              .into_iter()
+              .zip(targ_flatten)
+              .fold(TargetType::default(),|acc, data| {
+                acc + func(data)
+              }) / ( pred_len as TargetType );
+            
+            Ok(mean_err)
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -119,6 +129,8 @@ impl LossFunc {
   }
 
   pub fn compute_d_f32(&self, prediction: IOType<f32>, target: IOType<f32>) -> Result<IOType<f32>, LossCalcError> {
+    type TargetType = f32;
+
     let func = match self {
       LossFunc::Conventional => {
         d_conv_err_f32
@@ -133,21 +145,29 @@ impl LossFunc {
               .into_iter()
               .zip(targ)
               .map(func)
-              .collect::<Vec<f32>>();
+              .collect::<Vec<TargetType>>();
             Ok(IOType::Vector(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::Matrix(pred) => {
+      IOType::FeatureMaps(pred) => {
         match target {
-          IOType::Matrix(targ) => {
-            let vec = pred
+          IOType::FeatureMaps(targ) => {
+            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            
+            let pred_len = pred_flatten.len();
+            let targ_len = targ_flatten.len();
+            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
+
+            let error_der = pred_flatten
               .into_iter()
-              .zip(targ.into_iter())
+              .zip(targ_flatten)
               .map(func)
-              .collect::<Vec<f32>>();
-            Ok(IOType::Vector(vec))
+              .collect::<Vec<TargetType>>();
+            
+            Ok(IOType::Vector(error_der))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -156,6 +176,8 @@ impl LossFunc {
   }
 
   pub fn compute_d_f64(&self, prediction: IOType<f64>, target: IOType<f64>) -> Result<IOType<f64>, LossCalcError> {
+    type TargetType = f64;
+
     let func = match self {
       LossFunc::Conventional => {
         d_conv_err_f64
@@ -170,21 +192,29 @@ impl LossFunc {
               .into_iter()
               .zip(targ)
               .map(func)
-              .collect::<Vec<f64>>();
+              .collect::<Vec<TargetType>>();
             Ok(IOType::Vector(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::Matrix(pred) => {
+      IOType::FeatureMaps(pred) => {
         match target {
-          IOType::Matrix(targ) => {
-            let vec = pred
+          IOType::FeatureMaps(targ) => {
+            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            
+            let pred_len = pred_flatten.len();
+            let targ_len = targ_flatten.len();
+            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
+
+            let error_der = pred_flatten
               .into_iter()
-              .zip(targ.into_iter())
+              .zip(targ_flatten)
               .map(func)
-              .collect::<Vec<f64>>();
-            Ok(IOType::Vector(vec))
+              .collect::<Vec<TargetType>>();
+            
+            Ok(IOType::Vector(error_der))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -199,6 +229,9 @@ pub enum ComplexLossFunc {
 
 impl ComplexLossFunc {
   pub fn compute_cf32(&self, prediction: IOType<Cf32>, target: IOType<Cf32>) -> Result<f32, LossCalcError> {
+    type TargetType = Cf32;
+    type SubTargetType = f32;
+
     let func = match self {
       ComplexLossFunc::Conventional => {
         conv_err_cf32
@@ -212,33 +245,36 @@ impl ComplexLossFunc {
             let pred_len = pred.len();
             if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
 
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ)
-                .fold(f32::default(),|acc, data| {
-                  acc + func(data)
-                }) / ( pred_len as f32 )
-            )
+            let mean_err = pred
+              .into_iter()
+              .zip(targ)
+              .fold(SubTargetType::default(),|acc, data| {
+                acc + func(data)
+              }) / ( pred_len as SubTargetType );
+            
+            Ok(mean_err)
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::Matrix(pred) => {
+      IOType::FeatureMaps(pred) => {
         match target {
-          IOType::Matrix(targ) => {
-            let mut pred_shape = [0_usize, 0];
-            pred_shape.copy_from_slice(pred.get_shape());
-            if pred_shape != targ.get_shape() { return Err(LossCalcError::InconsistentIO) }
+          IOType::FeatureMaps(targ) => {
+            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            
+            let pred_len = pred_flatten.len();
+            let targ_len = targ_flatten.len();
+            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
 
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ.into_iter())
-                .fold(f32::default(),|acc, data| {
-                  acc + func(data)
-                }) / ( (pred_shape[0] * pred_shape[1]) as f32 )
-            )
+            let mean_err = pred_flatten
+              .into_iter()
+              .zip(targ_flatten)
+              .fold(SubTargetType::default(),|acc, data| {
+                acc + func(data)
+              }) / ( pred_len as SubTargetType );
+            
+            Ok(mean_err)
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -247,6 +283,9 @@ impl ComplexLossFunc {
   }
 
   pub fn compute_cf64(&self, prediction: IOType<Cf64>, target: IOType<Cf64>) -> Result<f64, LossCalcError> {
+    type TargetType = Cf64;
+    type SubTargetType = f64;
+
     let func = match self {
       ComplexLossFunc::Conventional => {
         conv_err_cf64
@@ -260,33 +299,36 @@ impl ComplexLossFunc {
             let pred_len = pred.len();
             if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
 
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ)
-                .fold(f64::default(),|acc, data| {
-                  acc + func(data)
-                }) / ( pred_len as f64 )
-            )
+            let mean_err = pred
+              .into_iter()
+              .zip(targ)
+              .fold(SubTargetType::default(),|acc, data| {
+                acc + func(data)
+              }) / ( pred_len as SubTargetType );
+            
+            Ok(mean_err)
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::Matrix(pred) => {
+      IOType::FeatureMaps(pred) => {
         match target {
-          IOType::Matrix(targ) => {
-            let mut pred_shape = [0_usize, 0];
-            pred_shape.copy_from_slice(pred.get_shape());
-            if pred_shape != targ.get_shape() { return Err(LossCalcError::InconsistentIO) }
+          IOType::FeatureMaps(targ) => {
+            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            
+            let pred_len = pred_flatten.len();
+            let targ_len = targ_flatten.len();
+            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
 
-            Ok(
-              pred
-                .into_iter()
-                .zip(targ.into_iter())
-                .fold(f64::default(),|acc, data| {
-                  acc + func(data)
-                }) / ( (pred_shape[0] * pred_shape[1]) as f64 )
-            )
+            let mean_err = pred_flatten
+              .into_iter()
+              .zip(targ_flatten)
+              .fold(SubTargetType::default(),|acc, data| {
+                acc + func(data)
+              }) / ( pred_len as SubTargetType );
+            
+            Ok(mean_err)
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -295,6 +337,8 @@ impl ComplexLossFunc {
   }
 
   pub fn compute_d_cf32(&self, prediction: IOType<Cf32>, target: IOType<Cf32>) -> Result<IOType<Cf32>, LossCalcError> {
+    type TargetType = Cf32;
+
     let func = match self {
       ComplexLossFunc::Conventional => {
         d_conv_err_cf32
@@ -309,21 +353,29 @@ impl ComplexLossFunc {
               .into_iter()
               .zip(targ)
               .map(func)
-              .collect::<Vec<Cf32>>();
+              .collect::<Vec<TargetType>>();
             Ok(IOType::Vector(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::Matrix(pred) => {
+      IOType::FeatureMaps(pred) => {
         match target {
-          IOType::Matrix(targ) => {
-            let vec = pred
+          IOType::FeatureMaps(targ) => {
+            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            
+            let pred_len = pred_flatten.len();
+            let targ_len = targ_flatten.len();
+            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
+
+            let error_der = pred_flatten
               .into_iter()
-              .zip(targ.into_iter())
+              .zip(targ_flatten)
               .map(func)
-              .collect::<Vec<Cf32>>();
-            Ok(IOType::Vector(vec))
+              .collect::<Vec<TargetType>>();
+            
+            Ok(IOType::Vector(error_der))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -332,6 +384,8 @@ impl ComplexLossFunc {
   }
 
   pub fn compute_d_cf64(&self, prediction: IOType<Cf64>, target: IOType<Cf64>) -> Result<IOType<Cf64>, LossCalcError> {
+    type TargetType = Cf64;
+
     let func = match self {
       ComplexLossFunc::Conventional => {
         d_conv_err_cf64
@@ -346,21 +400,29 @@ impl ComplexLossFunc {
               .into_iter()
               .zip(targ)
               .map(func)
-              .collect::<Vec<Cf64>>();
+              .collect::<Vec<TargetType>>();
             Ok(IOType::Vector(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::Matrix(pred) => {
+      IOType::FeatureMaps(pred) => {
         match target {
-          IOType::Matrix(targ) => {
-            let vec = pred
+          IOType::FeatureMaps(targ) => {
+            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            
+            let pred_len = pred_flatten.len();
+            let targ_len = targ_flatten.len();
+            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
+
+            let error_der = pred_flatten
               .into_iter()
-              .zip(targ.into_iter())
+              .zip(targ_flatten)
               .map(func)
-              .collect::<Vec<Cf64>>();
-            Ok(IOType::Vector(vec))
+              .collect::<Vec<TargetType>>();
+            
+            Ok(IOType::Vector(error_der))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
