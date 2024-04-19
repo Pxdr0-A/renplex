@@ -345,7 +345,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
     }
   }
 
-  /// Usefull for adding columns with columns or rows with rows
+  /// Usefull for adding intire arrays to the body of a matrix.
   pub fn add_slice(&mut self, rhs: &[T]) -> Result<(), OperationError> {
     if self.body.len() != rhs.len() { 
       return Err(OperationError::InconsistentShape);
@@ -356,6 +356,14 @@ impl<T: BasicOperations<T>> Matrix<T> {
       .zip(rhs)
       .for_each(|(lhs, rhs)| { *lhs += *rhs });
 
+    Ok(())
+  }
+
+  pub fn add_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
+    for elm in self.body.iter_mut() {
+      *elm += rhs;
+    }
+    
     Ok(())
   }
 
@@ -601,6 +609,159 @@ impl<T: BasicOperations<T>> Matrix<T> {
     }
 
     Ok(out)
+  }
+
+  pub fn rev_conv(&self, kernel: &Self) -> Result<Self, OperationError> {
+    /* define target block */
+    let kernel_shape = kernel.get_shape();
+    let matrix_shape = self.get_shape();
+    /* check if kernel is to big */
+    if ((kernel_shape[0] - 1) / 2) >= matrix_shape[0] || ((kernel_shape[1] - 1) / 2) >= matrix_shape[1] {
+      return Err(OperationError::OutOfBounds)
+    }
+    /* shape needs to be odd numbers */
+    if kernel_shape[0] % 2 == 0 || kernel_shape[1] % 2 == 0 {
+      return Err(OperationError::InvalidRHS)
+    }
+    /* and also greater or equal to 3 */
+    if kernel_shape[0] < 3 || kernel_shape[1] < 3 {
+      return Err(OperationError::InvalidRHS)
+    }
+    
+    let mut matrix_rows = self.rows_as_iter().rev();
+    
+    let max_pad_col = (kernel_shape[1] - 1) / 2;
+    let max_pad_row = (kernel_shape[0] - 1) / 2;
+
+    let mut slide_rows = Vec::with_capacity(kernel_shape[0]);
+    let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
+
+    let row_pad = vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)];
+    /* create current slide_rows with padding by chaining iterators */
+    /* you can try to improve memory here */
+    /* this is valid for the first iteration! */
+    for _ in 0..(kernel_shape[0] - max_pad_row) {
+      let matrix_row = matrix_rows.next().unwrap();
+
+      /* intial col pad */
+      slide_row.append(&mut vec![T::default(); max_pad_col]);
+      /* core vals */
+      slide_row.append(&mut matrix_row.to_vec());
+      /* final col pad */
+      slide_row.append(&mut vec![T::default(); max_pad_col]);
+
+      slide_rows.push(slide_row.clone());
+
+      slide_row.drain(..);
+    }
+    for _ in 0..max_pad_row { slide_rows.push(row_pad.clone()); }
+
+    let mut out = Matrix::with_capacity([matrix_shape[0], matrix_shape[1]]);
+    for row_id in 0..matrix_shape[0] {
+      let mut convolved_row = slide_rows
+        .iter()
+        .rev()
+        /* create windows to slide the filter through */
+        .map(|row| { row.windows(kernel_shape[1]) })
+        .enumerate()
+        .map(|(row, windows)| {
+          /* slide the kernel row through the image row */
+          /* vec that now has dim[0] = matrix[0] */
+          /* you can try to create threads here */
+          /* each thread will give a Vec<T> */
+          /* it is better to use threads instead of channels */
+          /* has in channels you do not know what answer comes first */
+          /* with the join handle you know where your answer comes from */
+          let kernel_row = kernel.row(row).unwrap();
+          windows
+            .map(|window| { window.scalar_prod(kernel_row).unwrap() })
+            .collect::<Vec<T>>()
+        })
+        .reduce(|mut acc, row| {
+          /* you can try to create threads here */
+          /* each thread will give a Vec<T> */
+          /* it is better to use threads instead of channels */
+          /* has in channels you do not know what answer comes first */
+          /* with the join handle you know where your answer comes from */
+          acc.add_slice_mut(&row).unwrap(); acc
+        })
+        .unwrap();
+
+      /* update slide_rows by draining the first element and adding another new one */
+      
+      /* remove last element */
+      slide_rows.pop();
+      /* add element to the last position */
+      if row_id+1 + max_pad_row >= matrix_shape[0] {
+        /* kernel overflowed bottom pixels */
+        slide_rows.push(row_pad.clone());
+      } else {
+        /* kernel is still within the matrix */
+        /* with the zeros added (col padding) */
+        /* intial col pad */
+        slide_row.append(&mut vec![T::default(); max_pad_col]);
+        /* core vals */
+        slide_row.append(&mut matrix_rows.next().unwrap().to_vec());
+        /* final col pad */
+        slide_row.append(&mut vec![T::default(); max_pad_col]);
+
+        slide_rows.push(slide_row.clone());
+
+        slide_row.drain(..);
+      }
+      /* to get the element that was added last, to the first position */
+      slide_rows.rotate_right(1);
+
+      out.add_mut_row(&mut convolved_row).unwrap();
+    }
+
+    Ok(out)
+  }
+
+  pub fn block_reduce(&self, block_size: &[usize], block_func: impl Fn(&[T]) -> T) -> Result<Self, OperationError> {
+    let matrix_shape = self.get_shape();
+    if matrix_shape[0] % block_size[0] != 0 || matrix_shape[1] % block_size[1] != 0 {
+      return Err(OperationError::InconsistentShape)
+    }
+
+    if matrix_shape[0] < block_size[0] || matrix_shape[1] < block_size[1] {
+      return Err(OperationError::InconsistentShape)
+    }
+
+    let mut matrix_rows = self.rows_as_iter();
+
+    let mut slider_rows = Vec::with_capacity(block_size[0]);
+
+    /* request initial slider */
+    for _ in 0..block_size[0] {
+      slider_rows.push(matrix_rows.next().unwrap().chunks(block_size[1]));
+    }
+
+    let n_rows = matrix_shape[0] / block_size[0];
+    let n_cols = matrix_shape[1] / block_size[1];
+    let mut result_body = Vec::with_capacity(n_rows * n_cols);
+    for _ in 0..n_rows {
+      for _ in 0..n_cols {
+        let mut block = Vec::with_capacity(block_size[0] * block_size[1]);
+        for slider_row in slider_rows.iter_mut() {
+          let block_row = slider_row.next().unwrap();
+          block.append(&mut block_row.to_vec());
+        }
+
+        result_body.push(block_func(block.as_slice()));
+      }
+      
+      /* request another slider */
+      /* update slider row */
+      slider_rows.drain(..);
+      for _ in 0..block_size[0] {
+        slider_rows.push(matrix_rows.next().unwrap().chunks(block_size[1]));
+      }
+    }
+
+    let result = Matrix::from_body(result_body, [n_rows, n_cols]);
+
+    Ok(result)
   }
 }
 
