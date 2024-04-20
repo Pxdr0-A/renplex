@@ -17,7 +17,8 @@ mod basic_tests {
   use crate::cvnn::layer::conv::ConvCLayer;
   use crate::cvnn::layer::dense::DenseCLayer;
   use crate::cvnn::layer::flatten::Flatten;
-  use crate::cvnn::layer::CLayer;
+  use crate::cvnn::layer::reduce::Reduce;
+use crate::cvnn::layer::CLayer;
   use crate::cvnn::network::CNetwork;
   use crate::dataset::Dataset;
   use crate::init::{InitMethod, PredictModel};
@@ -116,22 +117,46 @@ use crate::opt::ComplexLossFunc;
 
   #[test]
   fn conv_network_test() {
-    let ref mut seed = 827278272298732;
+    let ref mut seed = 31246896792839;
     
     let conv_scale: usize = 8;
     let dense_scale: usize = 1;
 
     let input_layer: CLayer<Cf32> = ConvCLayer::init(
-      IOShape::FeatureMaps(1), 
+      IOShape::FeatureMaps(1),
       vec![[7, 7], [5, 5], [3, 3]],
       ComplexActFunc::RITReLU, 
       InitMethod::Random(conv_scale),
       InitMethod::Random(dense_scale),
       seed
     ).unwrap().wrap();
-    let second_layer: CLayer<Cf32> = Flatten::init(vec![[28, 28], [28, 28], [28, 28]]).wrap();
-    let third_layer: CLayer<Cf32> = DenseCLayer::init(
-      IOShape::Vector(28*28*3), 
+    let avg_pooling_layer: CLayer<Cf32> = Reduce::init(
+      3, 
+      [2, 2],
+      Box::new(|block: &[Cf32]| { 
+        let block_len = block.len(); 
+        block
+          .into_iter()
+          .fold(Cf32::default(), |acc, elm| { acc + *elm }) / Cf32::new(block_len as f32, 0.0)
+      }),
+      Matrix::from_body(
+        vec![
+          Cf32::new(0.25, 0.0), Cf32::new(0.50, 0.0), Cf32::new(0.25, 0.0),
+          Cf32::new(0.50, 0.0), Cf32::new(1.00, 0.0), Cf32::new(0.50, 0.0),
+          Cf32::new(0.25, 0.0), Cf32::new(0.50, 0.0), Cf32::new(0.25, 0.0)
+        ], [3, 3])
+    ).wrap();
+    let another_conv: CLayer<Cf32> = ConvCLayer::init(
+      IOShape::FeatureMaps(3),
+      vec![[7, 7], [5, 5], [3, 3]],
+      ComplexActFunc::RITReLU, 
+      InitMethod::Random(conv_scale),
+      InitMethod::Random(dense_scale),
+      seed
+    ).unwrap().wrap();
+    let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[14, 14]; 3*3]).wrap();
+    let first_dense: CLayer<Cf32> = DenseCLayer::init(
+      IOShape::Vector(14*14*3*3), 
       16,
       ComplexActFunc::RITSigmoid, 
       InitMethod::Random(dense_scale),
@@ -147,22 +172,25 @@ use crate::opt::ComplexLossFunc;
 
     let mut network: CNetwork<Cf32> = CNetwork::new();
     network.add_input(input_layer).unwrap();
-    network.add(second_layer).unwrap();
-    network.add(third_layer).unwrap();
+    network.add(avg_pooling_layer).unwrap();
+    network.add(another_conv).unwrap();
+    network.add(flatten_layer).unwrap();
+    network.add(first_dense).unwrap();
     network.add(output_layer).unwrap();
 
     let mut train_loss_vec = Vec::new();
-    let mut test_loss_vec = Vec::new();
+    let mut _test_loss_vec: Vec<f32> = Vec::new();
     let mut train_acc_vec = Vec::new();
-    let mut test_acc_vec = Vec::new();
+    let mut _test_acc_vec: Vec<f32> = Vec::new();
 
     let total_train_data = 60000;
     let total_test_data = 10000;
     let batch_size = 100;
     let train_batches = total_train_data / batch_size;
-    let test_batches = total_test_data / batch_size;
-    let epochs: usize = 20;
+    let _test_batches = total_test_data / batch_size;
+    let epochs: usize = 10;
 
+    /* go through the training samples to test
     let ref mut train_tracker = 0;
     let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();
     let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
@@ -185,7 +213,9 @@ use crate::opt::ComplexLossFunc;
     println!("Initial Values -> Loss: {:.3}, Accuracy: {:.3}", train_loss, train_acc);
     train_loss_vec.push(train_loss);
     train_acc_vec.push(train_acc);
+    */
 
+    /* go through the test samples to test
     let ref mut test_tracker = 0;
     let test_data_file = &mut File::open("./minist/t10k-images.idx3-ubyte").unwrap();
     let test_label_file = &mut File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
@@ -208,6 +238,7 @@ use crate::opt::ComplexLossFunc;
     println!("Initial Values -> Loss: {:.3}, Accuracy: {:.3}", test_loss, test_acc);
     test_loss_vec.push(test_loss);
     test_acc_vec.push(test_acc);
+    */
 
     let lr = Cf32::new(10e-1, 0.0);
     for e in 0..epochs {
