@@ -67,7 +67,7 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     match self {
       CLayer::Dense(l) => { l.params_len() },
       CLayer::Convolutional(l) => { l.params_len() },
-      CLayer::Reduce(_l) => { panic!("Reduce layer does not have parameters.") },
+      CLayer::Reduce(l) => { l.params_len() },
       CLayer::Flatten(_l) => { panic!("Flatten layer does not have parameters.") }
     }
   }
@@ -96,7 +96,7 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     match self {
       CLayer::Dense(l) => { l.compute_derivatives(is_input, previous_act, dlda, dlda_conj) },
       CLayer::Convolutional(l) => { l.compute_derivatives(is_input, previous_act, dlda, dlda_conj) },
-      CLayer::Reduce(_l) => { panic!("Reduce layer has no derivatives, since it is non-trainable.") },
+      CLayer::Reduce(l) => { l.compute_derivatives(is_input, previous_act, dlda, dlda_conj) },
       CLayer::Flatten(_l) => { panic!("Flatten layer has no derivatives, since it is non-trainable.") }
     }
   }
@@ -105,7 +105,7 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     match self {
       CLayer::Dense(l) => { l.neg_conj_adjustment(dldw, dldb) },
       CLayer::Convolutional(l) => { l.neg_conj_adjustment(dldw, dldb) },
-      CLayer::Reduce(_l) => { panic!("Reduce layer has no parameters to be adjusted.") },
+      CLayer::Reduce(l) => { l.neg_conj_adjustment(dldw, dldb) },
       CLayer::Flatten(_l) => { panic!("Flaatten layer has no parameters to be adjusted.") }
     }
   }
