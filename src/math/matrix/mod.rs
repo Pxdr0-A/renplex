@@ -586,6 +586,8 @@ impl<T: BasicOperations<T>> Matrix<T> {
       /* update slide_rows by draining the first element and adding another new one */
       /* remove first element */
 
+      out.add_mut_row(&mut convolved_row).unwrap();
+
       slide_rows.drain(0..1);
       if row_id+1 + max_pad_row >= matrix_shape[0] {
         /* kernel overflowed bottom pixels */
@@ -604,8 +606,6 @@ impl<T: BasicOperations<T>> Matrix<T> {
 
         slide_row.drain(..);
       }
-
-      out.add_mut_row(&mut convolved_row).unwrap();
     }
 
     Ok(out)
@@ -720,6 +720,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
 
   pub fn block_reduce(&self, block_size: &[usize], block_func: impl Fn(&[T]) -> T) -> Result<Self, OperationError> {
     let matrix_shape = self.get_shape();
+
     if matrix_shape[0] % block_size[0] != 0 || matrix_shape[1] % block_size[1] != 0 {
       return Err(OperationError::InconsistentShape)
     }
@@ -732,15 +733,17 @@ impl<T: BasicOperations<T>> Matrix<T> {
 
     let mut slider_rows = Vec::with_capacity(block_size[0]);
 
-    /* request initial slider */
-    for _ in 0..block_size[0] {
-      slider_rows.push(matrix_rows.next().unwrap().chunks(block_size[1]));
-    }
-
     let n_rows = matrix_shape[0] / block_size[0];
     let n_cols = matrix_shape[1] / block_size[1];
     let mut result_body = Vec::with_capacity(n_rows * n_cols);
     for _ in 0..n_rows {
+      /* request another slider */
+      /* update slider row */
+      slider_rows.drain(..);
+      for _ in 0..block_size[0] {
+        slider_rows.push(matrix_rows.next().unwrap().chunks(block_size[1]));
+      }
+
       for _ in 0..n_cols {
         let mut block = Vec::with_capacity(block_size[0] * block_size[1]);
         for slider_row in slider_rows.iter_mut() {
@@ -750,18 +753,59 @@ impl<T: BasicOperations<T>> Matrix<T> {
 
         result_body.push(block_func(block.as_slice()));
       }
-      
-      /* request another slider */
-      /* update slider row */
-      slider_rows.drain(..);
-      for _ in 0..block_size[0] {
-        slider_rows.push(matrix_rows.next().unwrap().chunks(block_size[1]));
-      }
     }
 
     let result = Matrix::from_body(result_body, [n_rows, n_cols]);
 
     Ok(result)
+  }
+
+  pub fn fractional_upsampling(&self, block_size: &[usize], kernel: &Self) -> Result<Matrix<T>, OperationError> {
+    
+    let matrix_shape = self.get_shape();
+
+    let mut matrix_rows = self.rows_as_iter();
+
+    let n_rows = matrix_shape[0];
+
+    // even
+    let upper: usize = if block_size[0] % 2 == 0 {(block_size[0] / 2) - 1} else { (block_size[0] - 1) / 2 };
+    let bottom: usize = block_size[0] - upper - 1;
+    let left: usize = if block_size[1] % 2 == 0 {(block_size[1] / 2) - 1} else { (block_size[0] - 1) / 2 };
+    let right: usize = block_size[1] - left - 1;
+
+    let final_shape = [matrix_shape[0] * block_size[0], matrix_shape[1] * block_size[1]];
+
+    let mut res = Vec::new();
+    for _ in 0..n_rows {
+
+      /* add upper padding */
+      for _ in 0..upper {
+        /* add as many rows as upper paddings */
+        res.append(&mut vec![T::default(); final_shape[1]]);
+      }
+
+      /* add row with padding in between */
+      for row_elm in matrix_rows.next().unwrap().iter() {
+        res.append(&mut vec![T::default(); left]);
+        res.push(*row_elm);
+        res.append(&mut vec![T::default(); right]);
+      }
+
+      /* add lower padding */
+      for _ in 0..bottom {
+        /* add as many rows as lower paddings */
+        res.append(&mut vec![T::default(); final_shape[1]]);
+      }
+    }
+
+    if res.len() != final_shape[0] * final_shape[1] { panic!("Something terribily wrong happened.") }
+
+    let out = Matrix::from_body(res, [final_shape[0], final_shape[1]])
+      .conv(kernel)
+      .unwrap();
+
+    Ok(out)
   }
 }
 
