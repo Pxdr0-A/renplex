@@ -214,7 +214,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           
           let mut new_dlda_feat_update = vec![T::unit(); input_feature_len];
           let mut new_dlda_conj_feat_update = vec![T::unit(); input_feature_len];
-          let mut dldb_per_feature = T::default();
+          let mut dldb_per_feature;
           for (kernel, dldk) in self.kernels.iter().zip(dldk_d.iter_mut()) {
             let kernel_shape = kernel.get_shape();
             let kernel_len = kernel_shape[0] * kernel_shape[1];
@@ -241,11 +241,13 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
             let mut lhs = dlda_dadq_body_feat.mul_slice(new_dqda.get_body()).unwrap();
             let mut rhs = dlda_conj_da_conj_dq_body_feat.mul_slice(new_dqda.get_body()).unwrap();
 
-            dldb_per_feature += dlda_dadq_body_feat.add_slice(dlda_conj_da_conj_dq_body_feat)
+            dldb_per_feature = dlda_dadq_body_feat.add_slice(dlda_conj_da_conj_dq_body_feat)
               .unwrap()
               .into_iter()
               .reduce(|acc, elm| { acc + elm })
               .unwrap();
+
+            dldb.push(dldb_per_feature);
 
             new_dlda_feat_update.add_slice_mut(&lhs.add_slice(&rhs).unwrap()).unwrap();
             lhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
@@ -256,8 +258,6 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           new_dlda.append(&mut new_dlda_feat_update);
           new_dlda_conj.append(&mut new_dlda_conj_feat_update);
           drop(new_dlda_feat_update); drop(new_dlda_conj_feat_update);
-
-          dldb.push(dldb_per_feature);
         }
 
         let dldk_d_flatten = dldk_d.into_iter().map(|feature| { feature.export_body() }).flatten().collect::<Vec<T>>();
