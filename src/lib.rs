@@ -246,7 +246,7 @@ use crate::opt::ComplexLossFunc;
     test_acc_vec.push(test_acc);
     */
 
-    let lr = Cf32::new(10e-2, 0.0);
+    let lr = Cf32::new(1.0, 0.0);
     for e in 0..epochs {
       let ref mut train_tracker = 0;
       let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();

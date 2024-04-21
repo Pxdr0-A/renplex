@@ -1,3 +1,5 @@
+use std::thread;
+
 use crate::{act::ComplexActFunc, err::{GradientError, LayerForwardError, LayerInitError}, init::{InitMethod, PredictModel}, input::{IOShape, IOType}, math::{matrix::{Matrix, SliceOps}, BasicOperations, Complex}};
 
 use super::{CLayer, ComplexDerivatives};
@@ -104,21 +106,47 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           return Err(LayerForwardError::InvalidInput)
         }
 
-        let mut bias_iter = self.biases.iter();
-        let mut output_feature_maps = Vec::with_capacity(n_output_features);
+        /* paralelize here */
+        /* each feature will have its own thread */
+        let mut thread_results = Vec::new();
         for input_feature_map in input.into_iter() {
-          let mut res_feature_maps = Vec::new();
-          /* parelelize this! */
-          for kernel in self.kernels.iter() {
-            let mut current_map = input_feature_map.conv(kernel).unwrap();
-            let bias = bias_iter.next().unwrap();
-            current_map.add_mut_scalar(*bias).unwrap();
-            T::activate_mut(current_map.get_body_as_mut(), &self.func);
+          let kernels_copy = self.kernels.clone();
+          let bias_copy = self.biases.clone();
+          let func_copy = self.func.clone();
+          let handle = thread::spawn(move || {
+            let mut bias_iter = bias_copy.into_iter();
+            let mut res_feature_maps = Vec::new();
+            let mut subthread_results = Vec::new();
+            for kernel in kernels_copy.into_iter() {
+              let moved_input = input_feature_map.clone();
+              let bias = bias_iter.next().unwrap();
+              let subthread_handle = thread::spawn(move || {
+                let mut output_map = moved_input.conv(&kernel).unwrap();
+    
+                output_map.add_mut_scalar(bias).unwrap();
+                T::activate_mut(output_map.get_body_as_mut(), &func_copy);
 
-            res_feature_maps.push(current_map);
-          }
+                moved_input
+              });
 
-          output_feature_maps.append(&mut res_feature_maps);
+              subthread_results.push(subthread_handle);
+            }
+
+            for subthread_result in subthread_results.into_iter() {
+              res_feature_maps.push(subthread_result.join().unwrap());
+            }
+
+            res_feature_maps
+          });
+
+          thread_results.push(handle);
+        }
+
+        let mut output_feature_maps = Vec::with_capacity(n_output_features);
+        let mut output_features;
+        for thread_result in thread_results.into_iter() {
+          output_features = thread_result.join().unwrap();
+          output_feature_maps.append(&mut output_features);
         }
 
         Ok(IOType::FeatureMaps(output_feature_maps))

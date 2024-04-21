@@ -749,6 +749,9 @@ impl<T: BasicOperations<T>> Matrix<T> {
       }
 
       for _ in 0..n_cols {
+        /* parelelize here */
+        /* thread should return a block */
+        /* add them later after the loop to result_body */
         let mut block = Vec::with_capacity(block_size[0] * block_size[1]);
         for slider_row in slider_rows.iter_mut() {
           let block_row = slider_row.next().unwrap();
