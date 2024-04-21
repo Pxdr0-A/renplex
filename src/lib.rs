@@ -22,7 +22,7 @@ use crate::cvnn::layer::CLayer;
   use crate::cvnn::network::CNetwork;
   use crate::dataset::Dataset;
   use crate::init::{InitMethod, PredictModel};
-  use crate::input::IOShape;
+  use crate::input::{IOShape, IOType};
   use crate::math::cfloat::Cf32;
   use crate::math::matrix::Matrix;
   use crate::math::Complex;
@@ -75,7 +75,13 @@ use crate::opt::ComplexLossFunc;
 
     let (image_point, _) = data.get_point(1);
 
-    let image = Matrix::from_body(image_point.to_vec(), [28, 28]);
+    let image;
+    match image_point {
+      IOType::FeatureMaps(map) => {
+        image = map[0].clone();
+      },
+      _ => {panic!("ups...")}
+    }
     image.to_csv("./out/original.csv").unwrap();
 
     let kernel1: Matrix<f32> = Matrix::from_body(
@@ -117,7 +123,7 @@ use crate::opt::ComplexLossFunc;
 
   #[test]
   fn conv_network_test() {
-    let ref mut seed = 31246896792839;
+    let ref mut seed = 239823587954825;
     
     let conv_scale: usize = 8;
     let dense_scale: usize = 1;
@@ -240,14 +246,14 @@ use crate::opt::ComplexLossFunc;
     test_acc_vec.push(test_acc);
     */
 
-    let lr = Cf32::new(10e-1, 0.0);
+    let lr = Cf32::new(10e-2, 0.0);
     for e in 0..epochs {
       let ref mut train_tracker = 0;
       let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();
       let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
       let mut train_loss = 0.0;
       let mut train_acc = 0.0;
-      for _ in 0..train_batches {
+      for b in 0..train_batches {
         let train_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(train_data_file, train_label_file, batch_size, train_tracker);
         
         network.gradient_opt(train_data.clone(), ComplexLossFunc::Conventional, lr).unwrap();
@@ -257,7 +263,7 @@ use crate::opt::ComplexLossFunc;
         train_loss += current_train_loss;
         train_acc += current_train_acc;
         
-        print!("\rEpoch {} -> Loss: {:.3}, Accuracy: {:.3}", e+1, current_train_loss, current_train_acc);
+        print!("\rEpoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3}", e+1, b+1, current_train_loss, current_train_acc);
         io::stdout().flush().unwrap();
       }
 
