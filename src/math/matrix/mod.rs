@@ -2,6 +2,7 @@ use std::fmt::{Debug, Display};
 use std::fs::File;
 use std::io::Write;
 use std::slice::{Chunks, ChunksMut};
+use std::thread;
 use std::vec::IntoIter;
 use super::BasicOperations;
 
@@ -530,14 +531,14 @@ impl<T: BasicOperations<T>> Matrix<T> {
     let max_pad_col = (kernel_shape[1] - 1) / 2;
     let max_pad_row = (kernel_shape[0] - 1) / 2;
 
-    let mut slide_rows = Vec::with_capacity(kernel_shape[0]);
+    let mut slider = Vec::with_capacity(kernel_shape[0]);
     let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
 
     let row_pad = vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)];
     /* create current slide_rows with padding by chaining iterators */
     /* you can try to improve memory here */
     /* this is valid for the first iteration! */
-    for _ in 0..max_pad_row { slide_rows.push(row_pad.clone()); }
+    for _ in 0..max_pad_row { slider.push(row_pad.clone()); }
     for _ in 0..(kernel_shape[0] - max_pad_row) {
       let matrix_row = matrix_rows.next().unwrap();
 
@@ -548,50 +549,46 @@ impl<T: BasicOperations<T>> Matrix<T> {
       /* final col pad */
       slide_row.append(&mut vec![T::default(); max_pad_col]);
 
-      slide_rows.push(slide_row.clone());
+      slider.push(slide_row.clone());
 
       slide_row.drain(..);
     }
 
-    let mut out = Matrix::with_capacity([matrix_shape[0], matrix_shape[1]]);
+    let mut thread_results = Vec::new();
     for row_id in 0..matrix_shape[0] {
-      let mut convolved_row = slide_rows
-        .iter()
-        /* create windows to slide the filter through */
-        .map(|row| { row.windows(kernel_shape[1]) })
-        .enumerate()
-        .map(|(row, windows)| {
-          /* slide the kernel row through the image row */
-          /* vec that now has dim[0] = matrix[0] */
-          /* you can try to create threads here */
-          /* each thread will give a Vec<T> */
-          /* it is better to use threads instead of channels */
-          /* has in channels you do not know what answer comes first */
-          /* with the join handle you know where your answer comes from */
-          let kernel_row = kernel.row(row).unwrap();
-          windows
-            .map(|window| { window.scalar_prod(kernel_row).unwrap() })
-            .collect::<Vec<T>>()
-        })
-        .reduce(|mut acc, row| {
-          /* you can try to create threads here */
-          /* each thread will give a Vec<T> */
-          /* it is better to use threads instead of channels */
-          /* has in channels you do not know what answer comes first */
-          /* with the join handle you know where your answer comes from */
-          acc.add_slice_mut(&row).unwrap(); acc
-        })
-        .unwrap();
+      let current_slider = slider.clone();
+      let kernel_copy = kernel.clone();
+      let handle = thread::spawn(move || { 
+        let kernel_shape = kernel_copy.get_shape();
+        current_slider
+          .iter()
+          .map(|row| {row.windows(kernel_shape[1])})
+          .enumerate()
+          .map(|(row_id, windows)| {
+            /* slide the kernel row through the image row */
+            /* vec that now has dim[0] = matrix[0] */
+            /* you can try to create threads here */
+            /* each thread will give a Vec<T> */
+            /* you can use drain instead */
+            let kernel_row = kernel_copy.row(row_id).unwrap();
+            windows
+              .map(|window| { window.scalar_prod(kernel_row).unwrap() })
+              .collect::<Vec<T>>()
+          })
+          .reduce(|acc, row| {
+            /* you can try to create threads here */
+            /* each thread will give a Vec<T> */
+            acc.add_slice(&row).unwrap()
+          })
+          .unwrap()
+      });
 
-      /* update slide_rows by draining the first element and adding another new one */
-      /* remove first element */
-
-      out.add_mut_row(&mut convolved_row).unwrap();
-
-      slide_rows.drain(0..1);
+      thread_results.push(handle);
+      
+      slider.drain(0..1);
       if row_id+1 + max_pad_row >= matrix_shape[0] {
         /* kernel overflowed bottom pixels */
-        slide_rows.push(row_pad.clone());
+        slider.push(row_pad.clone());
       } else {
         /* kernel is still within the matrix */
         /* with the zeros added (col padding) */
@@ -602,10 +599,17 @@ impl<T: BasicOperations<T>> Matrix<T> {
         /* final col pad */
         slide_row.append(&mut vec![T::default(); max_pad_col]);
 
-        slide_rows.push(slide_row.clone());
+        slider.push(slide_row.clone());
 
         slide_row.drain(..);
       }
+    }
+
+    let mut out = Matrix::with_capacity([matrix_shape[0], matrix_shape[1]]);
+    let mut convolved_row;
+    for thread_result in thread_results.into_iter() {
+      convolved_row = thread_result.join().unwrap();
+      out.add_mut_row(&mut convolved_row).unwrap();
     }
 
     Ok(out)
@@ -633,7 +637,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
     let max_pad_col = (kernel_shape[1] - 1) / 2;
     let max_pad_row = (kernel_shape[0] - 1) / 2;
 
-    let mut slide_rows = Vec::with_capacity(kernel_shape[0]);
+    let mut slider = Vec::with_capacity(kernel_shape[0]);
     let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
 
     let row_pad = vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)];
@@ -650,51 +654,46 @@ impl<T: BasicOperations<T>> Matrix<T> {
       /* final col pad */
       slide_row.append(&mut vec![T::default(); max_pad_col]);
 
-      slide_rows.push(slide_row.clone());
+      slider.push(slide_row.clone());
 
       slide_row.drain(..);
     }
-    for _ in 0..max_pad_row { slide_rows.push(row_pad.clone()); }
+    for _ in 0..max_pad_row { slider.push(row_pad.clone()); }
 
-    let mut out = Matrix::with_capacity([matrix_shape[0], matrix_shape[1]]);
+    let mut thread_results = Vec::new();
     for row_id in 0..matrix_shape[0] {
-      let mut convolved_row = slide_rows
-        .iter()
-        .rev()
-        /* create windows to slide the filter through */
-        .map(|row| { row.windows(kernel_shape[1]) })
-        .enumerate()
-        .map(|(row, windows)| {
-          /* slide the kernel row through the image row */
-          /* vec that now has dim[0] = matrix[0] */
-          /* you can try to create threads here */
-          /* each thread will give a Vec<T> */
-          /* it is better to use threads instead of channels */
-          /* has in channels you do not know what answer comes first */
-          /* with the join handle you know where your answer comes from */
-          let kernel_row = kernel.row(row).unwrap();
-          windows
-            .map(|window| { window.scalar_prod(kernel_row).unwrap() })
-            .collect::<Vec<T>>()
-        })
-        .reduce(|mut acc, row| {
-          /* you can try to create threads here */
-          /* each thread will give a Vec<T> */
-          /* it is better to use threads instead of channels */
-          /* has in channels you do not know what answer comes first */
-          /* with the join handle you know where your answer comes from */
-          acc.add_slice_mut(&row).unwrap(); acc
-        })
-        .unwrap();
+      let kernel_copy = kernel.clone();
+      let slider_copy = slider.clone();
+      let handle = thread::spawn(move || {
+        let kernel_shape = kernel_copy.get_shape();
+        slider_copy
+          .iter()
+          .rev()
+          /* create windows to slide the filter through */
+          .map(|row| { row.windows(kernel_shape[1]) })
+          .enumerate()
+          .map(|(row, windows)| {
+            /* slide the kernel row through the image row */
+            let kernel_row = kernel_copy.row(row).unwrap();
+            windows
+              .map(|window| { window.scalar_prod(kernel_row).unwrap() })
+              .collect::<Vec<T>>()
+          })
+          .reduce(|acc, row| {
+            acc.add_slice(&row).unwrap()
+          })
+          .unwrap()
+      });
+
+      thread_results.push(handle);
 
       /* update slide_rows by draining the first element and adding another new one */
-      
       /* remove last element */
-      slide_rows.pop();
+      slider.pop();
       /* add element to the last position */
       if row_id+1 + max_pad_row >= matrix_shape[0] {
         /* kernel overflowed bottom pixels */
-        slide_rows.push(row_pad.clone());
+        slider.push(row_pad.clone());
       } else {
         /* kernel is still within the matrix */
         /* with the zeros added (col padding) */
@@ -705,15 +704,20 @@ impl<T: BasicOperations<T>> Matrix<T> {
         /* final col pad */
         slide_row.append(&mut vec![T::default(); max_pad_col]);
 
-        slide_rows.push(slide_row.clone());
+        slider.push(slide_row.clone());
 
         slide_row.drain(..);
       }
       /* to get the element that was added last, to the first position */
-      slide_rows.rotate_right(1);
-
-      out.add_mut_row(&mut convolved_row).unwrap();
+      slider.rotate_right(1);
     }
+
+    let mut out = Matrix::with_capacity([matrix_shape[0], matrix_shape[1]]);
+    let mut convolved_row;
+    for thread_result in thread_results.into_iter() {
+      convolved_row = thread_result.join().unwrap();
+      out.add_mut_row(&mut convolved_row).unwrap();
+    } 
 
     Ok(out)
   }
