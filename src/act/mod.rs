@@ -199,7 +199,7 @@ impl ActFunc {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ComplexActFunc {
   RITSigmoid,
   RITReLU
