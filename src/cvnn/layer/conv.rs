@@ -207,8 +207,8 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           let body = feature.get_body_as_mut();
           T::d_conj_activate_mut(body, &self.func);
         }
-        let da_conj_dq = dadq_conj.clone();
-        for feature in dadq_conj.iter_mut() {
+        let mut da_conj_dq = dadq_conj.clone();
+        for feature in da_conj_dq.iter_mut() {
           feature.get_body_as_mut().iter_mut().for_each(|elm| { *elm = elm.conj() });
         }
 

@@ -18,7 +18,7 @@ mod basic_tests {
   use crate::cvnn::layer::dense::DenseCLayer;
   use crate::cvnn::layer::flatten::Flatten;
   use crate::cvnn::layer::reduce::Reduce;
-use crate::cvnn::layer::CLayer;
+  use crate::cvnn::layer::CLayer;
   use crate::cvnn::network::CNetwork;
   use crate::dataset::Dataset;
   use crate::init::{InitMethod, PredictModel};
@@ -26,7 +26,7 @@ use crate::cvnn::layer::CLayer;
   use crate::math::cfloat::Cf32;
   use crate::math::matrix::Matrix;
   use crate::math::Complex;
-use crate::opt::ComplexLossFunc;
+  use crate::opt::ComplexLossFunc;
 
   #[test]
   fn dataset_to_csv_test() {
@@ -123,7 +123,7 @@ use crate::opt::ComplexLossFunc;
 
   #[test]
   fn conv_network_test() {
-    let ref mut seed = 239823587954825;
+    let ref mut seed = 7436781635201963;
     
     let conv_scale: usize = 8;
     let dense_scale: usize = 1;
@@ -185,15 +185,15 @@ use crate::opt::ComplexLossFunc;
     network.add(output_layer).unwrap();
 
     let mut train_loss_vec = Vec::new();
-    let mut _test_loss_vec: Vec<f32> = Vec::new();
+    let mut test_loss_vec: Vec<f32> = Vec::new();
     let mut train_acc_vec = Vec::new();
-    let mut _test_acc_vec: Vec<f32> = Vec::new();
+    let mut test_acc_vec: Vec<f32> = Vec::new();
 
     let total_train_data = 60000;
     let total_test_data = 10000;
     let batch_size = 100;
     let train_batches = total_train_data / batch_size;
-    let _test_batches = total_test_data / batch_size;
+    let test_batches = total_test_data / batch_size;
     let epochs: usize = 10;
 
     /* go through the training samples to test
@@ -248,6 +248,7 @@ use crate::opt::ComplexLossFunc;
 
     let lr = Cf32::new(1.0, 0.0);
     for e in 0..epochs {
+      /* training pipeline */
       let ref mut train_tracker = 0;
       let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();
       let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
@@ -270,16 +271,38 @@ use crate::opt::ComplexLossFunc;
       train_loss /= train_batches as f32;
       train_acc /= train_batches as f32;
       println!();
-      println!("Epoch {} -> Loss: {:.3}, Accuracy: {:.3}", e+1, train_loss, train_acc);
+      println!("Epoch {} -> Mean Loss: {:.3}, Mean Accuracy: {:.3}", e+1, train_loss, train_acc);
       train_loss_vec.push(train_loss);
       train_acc_vec.push(train_acc);
 
-      /* maybe do a test? */
+      /* test pipeline */
+      let ref mut test_tracker = 0;
+      let test_data_file = &mut File::open("./minist/t10k-images.idx3-ubyte").unwrap();
+      let test_label_file = &mut File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
+      let mut test_loss = 0.0;
+      let mut test_acc = 0.0;
+      for t in 0..test_batches {
+        let initial_test_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(test_data_file, test_label_file, batch_size, test_tracker);
+        let (initial_test_loss, _) = network.loss(initial_test_data.clone(), &ComplexLossFunc::Conventional).unwrap();
+        let initial_test_acc = network.max_pred_test(initial_test_data);
+        test_loss += initial_test_loss;
+        test_acc += initial_test_acc;
+
+        print!("\rTest Values | Epoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3}", e+1, t+1, initial_test_loss, initial_test_acc);
+        io::stdout().flush().unwrap();
+      }
+
+      test_loss /= test_batches as f32;
+      test_acc /= test_batches as f32;
+      println!();
+      println!("Test Values | Epoch {} -> Mean Loss: {:.3}, Mean Accuracy: {:.3}", e+1, test_loss, test_acc);
+      test_loss_vec.push(test_loss);
+      test_acc_vec.push(test_acc);
     }
 
-    let points_train = train_loss_vec.len();
-    Matrix::from_body(train_loss_vec, [points_train, 1]).to_csv("./out/conv_network_loss.csv").unwrap();
-    let points_train = train_acc_vec.len();
-    Matrix::from_body(train_acc_vec, [points_train, 1]).to_csv("./out/conv_network_acc.csv").unwrap();
+    Matrix::from_body(train_loss_vec, [epochs, 1]).to_csv("./out/conv_network_loss.csv").unwrap();
+    Matrix::from_body(train_acc_vec, [epochs, 1]).to_csv("./out/conv_network_acc.csv").unwrap();
+    Matrix::from_body(test_loss_vec, [epochs, 1]).to_csv("./out/conv_network_test_loss.csv").unwrap();
+    Matrix::from_body(test_acc_vec, [epochs, 1]).to_csv("./out/conv_network_test_acc.csv").unwrap();
   }
 }

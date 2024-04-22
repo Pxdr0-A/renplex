@@ -535,22 +535,14 @@ impl<T: BasicOperations<T>> Matrix<T> {
     let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
 
     let row_pad = vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)];
-    /* create current slide_rows with padding by chaining iterators */
-    /* you can try to improve memory here */
-    /* this is valid for the first iteration! */
     for _ in 0..max_pad_row { slider.push(row_pad.clone()); }
     for _ in 0..(kernel_shape[0] - max_pad_row) {
       let matrix_row = matrix_rows.next().unwrap();
 
-      /* intial col pad */
       slide_row.append(&mut vec![T::default(); max_pad_col]);
-      /* core vals */
       slide_row.append(&mut matrix_row.to_vec());
-      /* final col pad */
       slide_row.append(&mut vec![T::default(); max_pad_col]);
-
       slider.push(slide_row.clone());
-
       slide_row.drain(..);
     }
 
@@ -565,19 +557,12 @@ impl<T: BasicOperations<T>> Matrix<T> {
           .map(|row| {row.windows(kernel_shape[1])})
           .enumerate()
           .map(|(row_id, windows)| {
-            /* slide the kernel row through the image row */
-            /* vec that now has dim[0] = matrix[0] */
-            /* you can try to create threads here */
-            /* each thread will give a Vec<T> */
-            /* you can use drain instead */
             let kernel_row = kernel_copy.row(row_id).unwrap();
             windows
               .map(|window| { window.scalar_prod(kernel_row).unwrap() })
               .collect::<Vec<T>>()
           })
           .reduce(|acc, row| {
-            /* you can try to create threads here */
-            /* each thread will give a Vec<T> */
             acc.add_slice(&row).unwrap()
           })
           .unwrap()
@@ -587,20 +572,12 @@ impl<T: BasicOperations<T>> Matrix<T> {
       
       slider.drain(0..1);
       if row_id+1 + max_pad_row >= matrix_shape[0] {
-        /* kernel overflowed bottom pixels */
         slider.push(row_pad.clone());
       } else {
-        /* kernel is still within the matrix */
-        /* with the zeros added (col padding) */
-        /* intial col pad */
         slide_row.append(&mut vec![T::default(); max_pad_col]);
-        /* core vals */
         slide_row.append(&mut matrix_rows.next().unwrap().to_vec());
-        /* final col pad */
         slide_row.append(&mut vec![T::default(); max_pad_col]);
-
         slider.push(slide_row.clone());
-
         slide_row.drain(..);
       }
     }
