@@ -1,3 +1,5 @@
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+
 use crate::act::ComplexActFunc;
 use crate::math::matrix::{Matrix, SliceOps};
 use crate::math::{BasicOperations, Complex};
@@ -81,45 +83,6 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     }
   }
 
-  pub fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
-    match input_type {
-      /* dense layer should receive a vector */
-      IOType::Vector(input) => {
-        let shape = self.weights.get_shape();
-
-        if input.len() != shape[0] * shape[1] { return Err(LayerForwardError::InvalidInput) }
-
-        /* instantiate the result (it is going to be a column matrix) */
-        let mut res = Vec::with_capacity(input.len());
-
-        /* go through units */
-        for row in 0..shape[0] {
-          res.push(
-            self.weights
-              .row(row)
-              .unwrap()
-              .iter()
-              .zip(&input[row*shape[1]..row*shape[1]+shape[1]])
-              .fold(T::default(), |acc, (weight, input)| { acc + *weight * *input })
-          );
-        }
-        let res_mut = &mut res[..];
-
-        /* add the biases to the result */
-        res_mut
-          .add_slice_mut(&self.biases[..])
-          .unwrap();
-
-        /* calculate the activations */
-        T::activate_mut(res_mut, &self.func);
-
-        /* layer returns a vector */
-        Ok(IOType::Vector(res))
-      },
-      _ => { Err(LayerForwardError::InvalidInput) }
-    }  
-  }
-
   pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       /* dense layer should receive a vector */
@@ -146,33 +109,14 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     }
   }
 
-  fn trigger_q(&self, input: &Vec<T>, weight_shape: &[usize]) -> Vec<T> {
-    let mut res = Vec::with_capacity(weight_shape[0]);
-
-    /* go through units */
-    for row in 0..weight_shape[0] {
-      res.push(
-        self.weights
-          .row(row)
-          .unwrap()
-          .iter()
-          .zip(&input[row*weight_shape[1]..row*weight_shape[1]+weight_shape[1]])
-          .fold(T::default(), |acc, (weight, input)| { acc + *weight * *input })
-      );
-    }
-    res.add_slice_mut(&self.biases).unwrap();
-
-    res
-  }
-
-  fn foward_q(&self, input: &Vec<T>) -> Vec<T> {
+  fn compute_q(&self, input: &Vec<T>) -> Vec<T> {
     let mut res = self.weights.mul_slice(input).unwrap();
     res.add_slice_mut(&self.biases).unwrap();
 
     res
   }
 
-  pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
+  pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     /* check dimensions of every matrix and vector */
 
     let weight_shape = self.weights.get_shape();
@@ -183,20 +127,17 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
       IOType::Vector(input) => {
         /* determine q (it is an holomorphic function) */
         /* determine q */
-        let q = match is_input {
-          true => { self.trigger_q(input, weight_shape) },
-          false => { self.foward_q(input) }
-        };
+        let q = self.compute_q(input);
   
         /* determine dadq, dadq* */
         let mut dadq = q.clone();
         T::d_activate_mut(&mut dadq[..], &self.func);
-        let mut dadq_conj = q;
-        T::d_conj_activate_mut(&mut dadq_conj[..], &self.func);
-        let da_conj_dq = dadq_conj
-          .iter()
-          .map(|elm| { elm.conj() })
-          .collect::<Vec<T>>();
+        let mut da_conj_dq = q;
+        /* this iteration represents dadq_conj */
+        T::d_conj_activate_mut(&mut da_conj_dq[..], &self.func);
+        da_conj_dq
+          .par_iter_mut()
+          .for_each(|elm| { *elm = elm.conj() });
         
         /* determine dqdw */
         /* equal to the previous input and the same for all neurons */
@@ -219,7 +160,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
           .map(|(lhs, rhs)| {*lhs * *rhs});
 
         /* current dldw and dldb derivatives */
-        let mut dldw = Matrix::with_capacity([weight_shape[0], weight_shape[1]]);
+        let mut dldw = Vec::with_capacity(weight_shape[0] * weight_shape[1]);
         let mut dldb = Vec::with_capacity(weight_shape[0]);
 
         /* updates on cost function derivatives (propagated backwards) */
@@ -227,44 +168,39 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
         let mut new_dlda_conj: Vec<T> = vec![T::default(); weight_shape[1]];
 
         /* some aux vars */
-        let mut current_dqda_row: &[T];
         let mut addition: Vec<T>;
         
         /* this cycle indirectly goes through the number of neurons */
-        for (index, (val, conj_val)) in vals.into_iter().zip(vals_conj).enumerate() {
+        let combined_vals = vals.into_iter().zip(vals_conj.into_iter()).enumerate();
+        for (index, (val, conj_val)) in combined_vals {
           let mult_func = |elm: &T| { *elm * ( val + conj_val ) };
-          let range_iter = if is_input {
-            dqdw[index*weight_shape[1]..index*weight_shape[1]+weight_shape[1]]
-              .iter()
-              .map(mult_func)
-          } else {
-            dqdw
-              .iter()
-              .map(mult_func)
-          };
+          
+          let range_iter = dqdw
+            .par_iter()
+            .map(mult_func);
 
-          dldw.add_row(range_iter.collect::<Vec<T>>()).unwrap();
+          dldw.append(&mut range_iter.collect::<Vec<T>>());
 
           /* one neuron bias derivative */
           dldb.push(val + conj_val);
 
-          current_dqda_row = dqda
+          addition = dqda
             .next()
-            .unwrap();
-          addition = current_dqda_row
-            .iter()
+            .unwrap()
+            .par_iter()
             .map(mult_func)
             .collect();
+
           /* accumulate the sum */
           new_dlda.add_slice_mut(&addition).unwrap();
 
-          for elm in addition.iter_mut() { *elm = elm.conj(); }
+          addition.par_iter_mut().for_each(|elm| { *elm = elm.conj() });
 
           /* accumulate the sum */
           new_dlda_conj.add_slice_mut(&addition).unwrap();
         }
 
-        Ok((dldw.get_body().to_vec(), dldb, new_dlda, new_dlda_conj))
+        Ok((dldw, dldb, new_dlda, new_dlda_conj))
       },
       _ => { panic!("Something went terribily wrong.") }
     }
@@ -285,14 +221,17 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
       return Err(GradientError::InconsistentShape)
     }
     
-    /* part that could use optimization */
-    for (weight, dw) in weights.into_iter().zip(dldw) {
-      *weight -= dw.conj();
-    }
-
-    for (bias, db) in self.biases.iter_mut().zip(dldb) {
-      *bias -= db.conj();
-    }
+    /* weights update */
+    self.weights
+      .body_as_par_iter_mut()
+      .into_par_iter()
+      .zip(dldw.into_par_iter())
+      .for_each(|(weight, dw)| { *weight -= dw.conj() });
+    /* bias update */
+    self.biases
+      .par_iter_mut()
+      .zip(dldb.into_par_iter())
+      .for_each(|(bias, db)| { *bias -= db.conj() });
 
     Ok(())
   }
