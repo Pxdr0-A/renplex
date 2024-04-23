@@ -13,6 +13,8 @@ pub mod cvnn;
 mod basic_tests {
   use std::fs::File;
   use std::io::{self, Write};
+  use std::time::Instant;
+  use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
   use crate::act::ComplexActFunc;
   use crate::cvnn::layer::conv::ConvCLayer;
   use crate::cvnn::layer::dense::DenseCLayer;
@@ -99,6 +101,7 @@ mod basic_tests {
       ], [3, 3]);
 
     let mut image_conv1 = image.conv(&kernel1).unwrap();
+    let mut image_rev = image_conv1.rev_conv(&kernel1).unwrap();
     let mut image_conv2 = image.conv(&kernel2).unwrap();
 
     for row in image_conv1.rows_as_iter_mut() {
@@ -117,8 +120,17 @@ mod basic_tests {
       }
     }
 
+    for row in image_rev.rows_as_iter_mut() {
+      for elm in row {
+        if elm.is_sign_negative() {
+          *elm = 0.0;
+        }
+      }
+    }
+
     image_conv1.to_csv("./out/conv_image.csv").unwrap();
     image_conv2.to_csv("./out/conv_image1.csv").unwrap();
+    image_rev.to_csv("./out/conv_image_rev.csv").unwrap();
   }
 
   #[test]
@@ -259,7 +271,7 @@ mod basic_tests {
         
         network.gradient_opt(train_data.clone(), ComplexLossFunc::Conventional, lr).unwrap();
 
-        let (current_train_loss, _) = network.loss(train_data.clone(), &ComplexLossFunc::Conventional).unwrap();
+        let current_train_loss = network.loss(train_data.clone(), &ComplexLossFunc::Conventional).unwrap();
         let current_train_acc = network.max_pred_test(train_data);
         train_loss += current_train_loss;
         train_acc += current_train_acc;
@@ -283,7 +295,7 @@ mod basic_tests {
       let mut test_acc = 0.0;
       for t in 0..test_batches {
         let initial_test_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(test_data_file, test_label_file, batch_size, test_tracker);
-        let (initial_test_loss, _) = network.loss(initial_test_data.clone(), &ComplexLossFunc::Conventional).unwrap();
+        let initial_test_loss = network.loss(initial_test_data.clone(), &ComplexLossFunc::Conventional).unwrap();
         let initial_test_acc = network.max_pred_test(initial_test_data);
         test_loss += initial_test_loss;
         test_acc += initial_test_acc;
@@ -304,5 +316,26 @@ mod basic_tests {
     Matrix::from_body(train_acc_vec, [epochs, 1]).to_csv("./out/conv_network_acc.csv").unwrap();
     Matrix::from_body(test_loss_vec, [epochs, 1]).to_csv("./out/conv_network_test_loss.csv").unwrap();
     Matrix::from_body(test_acc_vec, [epochs, 1]).to_csv("./out/conv_network_test_acc.csv").unwrap();
+  }
+
+  #[test]
+  fn par_test() {
+    const LEN: usize = 2_usize.pow(15);
+    let lhs = &mut [1; LEN];
+    let rhs = &mut [1; LEN];
+    
+    let now = Instant::now();
+    lhs
+      .into_iter()
+      .zip(rhs.iter())
+      .for_each(|(elm, other)| { *elm *= *other; });
+    println!("Without {:?}", now.elapsed());
+
+    let now = Instant::now();
+    lhs
+      .into_par_iter()
+      .zip(rhs.par_iter())
+      .for_each(|(elm, other)| { *elm *= *other; });
+    println!("With {:?}", now.elapsed());
   }
 }

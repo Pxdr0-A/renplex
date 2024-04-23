@@ -1,5 +1,3 @@
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
-
 use crate::act::ComplexActFunc;
 use crate::math::matrix::{Matrix, SliceOps};
 use crate::math::{BasicOperations, Complex};
@@ -109,13 +107,6 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     }
   }
 
-  fn compute_q(&self, input: &Vec<T>) -> Vec<T> {
-    let mut res = self.weights.mul_slice(input).unwrap();
-    res.add_slice_mut(&self.biases).unwrap();
-
-    res
-  }
-
   pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     /* check dimensions of every matrix and vector */
 
@@ -136,12 +127,12 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
         /* this iteration represents dadq_conj */
         T::d_conj_activate_mut(&mut da_conj_dq[..], &self.func);
         da_conj_dq
-          .par_iter_mut()
+          .iter_mut()
           .for_each(|elm| { *elm = elm.conj() });
         
         /* determine dqdw */
         /* equal to the previous input and the same for all neurons */
-        let dqdw = input.clone();
+        let dqdw = input;
 
         /* dqdb is 1 */
 
@@ -171,12 +162,12 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
         let mut addition: Vec<T>;
         
         /* this cycle indirectly goes through the number of neurons */
-        let combined_vals = vals.into_iter().zip(vals_conj.into_iter()).enumerate();
-        for (index, (val, conj_val)) in combined_vals {
+        let combined_vals = vals.into_iter().zip(vals_conj.into_iter());
+        for (val, conj_val) in combined_vals {
           let mult_func = |elm: &T| { *elm * ( val + conj_val ) };
           
           let range_iter = dqdw
-            .par_iter()
+            .iter()
             .map(mult_func);
 
           dldw.append(&mut range_iter.collect::<Vec<T>>());
@@ -187,14 +178,14 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
           addition = dqda
             .next()
             .unwrap()
-            .par_iter()
+            .iter()
             .map(mult_func)
             .collect();
 
           /* accumulate the sum */
           new_dlda.add_slice_mut(&addition).unwrap();
 
-          addition.par_iter_mut().for_each(|elm| { *elm = elm.conj() });
+          addition.iter_mut().for_each(|elm| { *elm = elm.conj() });
 
           /* accumulate the sum */
           new_dlda_conj.add_slice_mut(&addition).unwrap();
@@ -222,15 +213,14 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     }
     
     /* weights update */
-    self.weights
-      .body_as_par_iter_mut()
-      .into_par_iter()
-      .zip(dldw.into_par_iter())
+    weights
+      .iter_mut()
+      .zip(dldw.into_iter())
       .for_each(|(weight, dw)| { *weight -= dw.conj() });
     /* bias update */
     self.biases
-      .par_iter_mut()
-      .zip(dldb.into_par_iter())
+      .iter_mut()
+      .zip(dldb.into_iter())
       .for_each(|(bias, db)| { *bias -= db.conj() });
 
     Ok(())
@@ -238,5 +228,12 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
 
   pub fn wrap(self) -> CLayer<T> {
     CLayer::Dense(self)
+  }
+
+  fn compute_q(&self, input: &Vec<T>) -> Vec<T> {
+    let mut res = self.weights.mul_slice(input).unwrap();
+    res.add_slice_mut(&self.biases).unwrap();
+
+    res
   }
 }

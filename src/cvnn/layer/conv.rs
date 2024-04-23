@@ -1,4 +1,4 @@
-use std::thread;
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::{act::ComplexActFunc, err::{GradientError, LayerForwardError, LayerInitError}, init::{InitMethod, PredictModel}, input::{IOShape, IOType}, math::{matrix::{Matrix, SliceOps}, BasicOperations, Complex}};
 
@@ -95,7 +95,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     }
   }
 
-  pub fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+  pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       IOType::FeatureMaps(input) => {
         let n_feature_maps = input.len();
@@ -106,47 +106,19 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           return Err(LayerForwardError::InvalidInput)
         }
 
-        /* paralelize here */
-        /* each feature will have its own thread */
-        let mut thread_results = Vec::new();
+        let mut bias_iter = self.biases.iter();
+        let mut output_feature_maps = Vec::new();
         for input_feature_map in input.into_iter() {
-          let kernels_copy = self.kernels.clone();
-          let bias_copy = self.biases.clone();
-          let func_copy = self.func.clone();
-          let handle = thread::spawn(move || {
-            let mut bias_iter = bias_copy.into_iter();
-            let mut res_feature_maps = Vec::new();
-            let mut subthread_results = Vec::new();
-            for kernel in kernels_copy.into_iter() {
-              let moved_input = input_feature_map.clone();
-              let bias = bias_iter.next().unwrap();
-              let subthread_handle = thread::spawn(move || {
-                let mut output_map = moved_input.conv(&kernel).unwrap();
-    
-                output_map.add_mut_scalar(bias).unwrap();
-                T::activate_mut(output_map.get_body_as_mut(), &func_copy);
+          for kernel in self.kernels.iter() {
+            let mut output_map = input_feature_map.conv(&kernel).unwrap();
+  
+            let bias = bias_iter.next().unwrap();
+            output_map.add_mut_scalar(*bias).unwrap();
+            
+            T::activate_mut(output_map.get_body_as_mut(), &self.func);
 
-                moved_input
-              });
-
-              subthread_results.push(subthread_handle);
-            }
-
-            for subthread_result in subthread_results.into_iter() {
-              res_feature_maps.push(subthread_result.join().unwrap());
-            }
-
-            res_feature_maps
-          });
-
-          thread_results.push(handle);
-        }
-
-        let mut output_feature_maps = Vec::with_capacity(n_output_features);
-        let mut output_features;
-        for thread_result in thread_results.into_iter() {
-          output_features = thread_result.join().unwrap();
-          output_feature_maps.append(&mut output_features);
+            output_feature_maps.push(output_map);
+          }
         }
 
         Ok(IOType::FeatureMaps(output_feature_maps))
@@ -155,45 +127,10 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     }
   }
 
-  pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
-    self.trigger(input_type)
-  }
-
-  fn trigger_q(&self, input: &Vec<Matrix<T>>) -> Vec<Matrix<T>> {
-    let n_feature_maps = input.len();
-    let depth = self.kernels.len();
-    let n_output_features = n_feature_maps * depth;
-
-    let mut bias_iter = self.biases.iter();
-    let mut output_feature_maps = Vec::with_capacity(n_output_features);
-    for input_feature_map in input.into_iter() {
-      let mut res_feature_maps = Vec::new();
-      /* parelelize this! */
-      for kernel in self.kernels.iter() {
-        let mut current_map = input_feature_map.conv(kernel).unwrap();
-        let bias = bias_iter.next().unwrap();
-        current_map.add_mut_scalar(*bias).unwrap();
-
-        res_feature_maps.push(current_map);
-      }
-
-      output_feature_maps.append(&mut res_feature_maps);
-    }
-
-    output_feature_maps
-  }
-
-  fn foward_q(&self, input: &Vec<Matrix<T>>) -> Vec<Matrix<T>> {
-    self.trigger_q(input)
-  }
-
-  pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
+  pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     match previous_act {
       IOType::FeatureMaps(input) => {
-        let q = match is_input {
-          true => { self.trigger_q(input) },
-          false => { self.foward_q(input) }
-        };
+        let q = self.compute_q(input);
 
         let n_output_features = q.len();
 
@@ -209,7 +146,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         }
         let mut da_conj_dq = dadq_conj.clone();
         for feature in da_conj_dq.iter_mut() {
-          feature.get_body_as_mut().iter_mut().for_each(|elm| { *elm = elm.conj() });
+          feature.get_body_as_mut().par_iter_mut().for_each(|elm| { *elm = elm.conj() });
         }
 
         let dadq = dadq.into_iter().map(|feature| { feature.export_body() }).flatten().collect::<Vec<T>>();
@@ -219,9 +156,6 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         drop(dlda); drop(dadq);
         let dlda_conj_da_conj_dq = dlda_conj.mul_slice(&da_conj_dq).unwrap();
         drop(dlda_conj); drop(da_conj_dq);
-
-        //let new_dlda;
-        //let new_dlda_conj;
 
         /* initializing dldw */
         let mut dldk_d = Vec::new();
@@ -235,7 +169,8 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         let mut new_dlda = Vec::new();
         let mut new_dlda_conj = Vec::new();
         let mut dldb = Vec::new();
-        for ((input_feature, dlda_dadq_body_feat), dlda_conj_da_conj_dq_body_feat) in input.into_iter().zip(dlda_dadq.chunks(chunks)).zip(dlda_conj_da_conj_dq.chunks(chunks)) {
+        let input_iter = input.into_iter().zip(dlda_dadq.chunks(chunks)).zip(dlda_conj_da_conj_dq.chunks(chunks));
+        for ((input_feature, dlda_dadq_body_feat), dlda_conj_da_conj_dq_body_feat) in input_iter {
           /* maybe you can paralelize this */
           let input_feature_shape = input_feature.get_shape();
           let input_feature_len = input_feature_shape[0] * input_feature_shape[1];
@@ -328,5 +263,28 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
 
   pub fn wrap(self) -> CLayer<T> {
     CLayer::Convolutional(self)
+  }
+
+  fn compute_q(&self, input: &Vec<Matrix<T>>) -> Vec<Matrix<T>> {
+    let n_feature_maps = input.len();
+    let depth = self.kernels.len();
+    let n_output_features = n_feature_maps * depth;
+
+    let mut bias_iter = self.biases.iter();
+    let mut output_feature_maps = Vec::with_capacity(n_output_features);
+    for input_feature_map in input.iter() {
+      let mut res_feature_maps = Vec::new();
+      for kernel in self.kernels.iter() {
+        let mut current_map = input_feature_map.conv(kernel).unwrap();
+        let bias = bias_iter.next().unwrap();
+        current_map.add_mut_scalar(*bias).unwrap();
+
+        res_feature_maps.push(current_map);
+      }
+
+      output_feature_maps.append(&mut res_feature_maps);
+    }
+
+    output_feature_maps
   }
 }

@@ -24,6 +24,9 @@ pub enum CLayer<T> {
   Flatten(Flatten)
 }
 
+unsafe impl<T: Send> Send for CLayer<T> {}
+unsafe impl<T: Sync> Sync for CLayer<T> {}
+
 impl<T: Complex + BasicOperations<T>> CLayer<T> {
   /// Method that checks if the layer was already initialized.
   /// Its logic has room for improvement.
@@ -72,16 +75,6 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
-  pub fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
-    /* deconstruct what type of layer it is */
-    match self {
-      CLayer::Dense(l) => { l.trigger(input_type) },
-      CLayer::Convolutional(l) => { l.trigger(input_type) },
-      CLayer::Reduce(l) => { l.trigger(input_type) },
-      CLayer::Flatten(l) => { l.trigger(input_type) }
-    }  
-  }
-
   pub fn foward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     /* deconstruct what type of layer it is */
     match self {
@@ -92,11 +85,11 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
-  pub fn compute_derivatives(&self, is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
+  pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     match self {
-      CLayer::Dense(l) => { l.compute_derivatives(is_input, previous_act, dlda, dlda_conj) },
-      CLayer::Convolutional(l) => { l.compute_derivatives(is_input, previous_act, dlda, dlda_conj) },
-      CLayer::Reduce(l) => { l.compute_derivatives(is_input, previous_act, dlda, dlda_conj) },
+      CLayer::Dense(l) => { l.compute_derivatives(previous_act, dlda, dlda_conj) },
+      CLayer::Convolutional(l) => { l.compute_derivatives(previous_act, dlda, dlda_conj) },
+      CLayer::Reduce(l) => { l.compute_derivatives(previous_act, dlda, dlda_conj) },
       CLayer::Flatten(_l) => { panic!("Flatten layer has no derivatives, since it is non-trainable.") }
     }
   }

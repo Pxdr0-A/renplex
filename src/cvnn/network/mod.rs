@@ -73,15 +73,10 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
 
   pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, ForwardError> {
     if self.layers.len() == 0 { return Err(ForwardError::MissingLayers) }
-
-    let mut layers_iter = self.layers.iter();
-    let input_layer = layers_iter.next().unwrap();
     
     /* feed input */
-    let mut out = input_layer
-      .trigger(input_type)
-      .unwrap();
-
+    let mut out = input_type;
+    let layers_iter = self.layers.iter();
     for layer_ref in layers_iter {
       /* propagate through hidden layers */
       /* there might be a better solution without using convert() */
@@ -95,40 +90,25 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
 
   pub fn intercept(&self, input_type: IOType<T>, index: usize) -> Result<(IOType<T>, &CLayer<T>), ForwardError> {
     if index > self.layers.len() - 1 { return Err(ForwardError::InvalidLayerIndex) }
+    
+    /* go through hidden layers */
+    let layers_iter = self.layers.iter();
+    let mut previous_act = input_type;
+    for (current_index, layer_ref) in layers_iter.enumerate() {
+      if current_index == index { return Ok((previous_act, layer_ref)) }
 
-    let mut layers_iter = self.layers.iter();
-    let mut previous_act = input_type.clone();
-
-    let input_layer = layers_iter.next().unwrap();
-
-    if index == 0 {
-      return Ok((previous_act, input_layer))
-    } else {
-      previous_act = input_layer.trigger(input_type.clone()).unwrap();
-      let mut current_act;
-
-      /* go through hidden layers */
-      for (current_index, layer_ref) in layers_iter.enumerate() {
-        current_act = layer_ref
-          .foward(previous_act.clone())
-          .unwrap();
-
-        /* -1 because the input layer is already gone */
-        if current_index == index-1 {
-          return Ok((previous_act, layer_ref))
-        }
-
-        previous_act = current_act;
-      }
+      previous_act = layer_ref
+        .foward(previous_act)
+        .unwrap();
     }
 
-    panic!("Something went terribily wrong!");
+    panic!("Something went terribily wrong.");
   }
 
   pub fn loss(&self, 
     data: Dataset<T, T>,
     loss_func: &ComplexLossFunc,
-  ) -> Result<(T::Precision, Vec<T::Precision>), LossCalcError> {
+  ) -> Result<T::Precision, LossCalcError> {
 
     let mut loss_vals = Vec::with_capacity(data.get_n_points());
 
@@ -143,11 +123,13 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     }
 
     let loss_len = loss_vals.len();
-    let mean = loss_vals
-      .iter()
-      .fold(T::Precision::default(), |acc, elm| { acc + *elm }) / T::Precision::usize_to_real(loss_len);
+    let total = loss_vals
+      .into_iter()
+      .reduce(|acc, elm| { acc + elm })
+      .unwrap();
+    let mean = total / T::Precision::usize_to_real(loss_len);
     
-    Ok((mean, loss_vals))
+    Ok(mean)
   }
 
   pub fn max_pred_test(&self, data: Dataset<T, T>) -> T::Precision {
@@ -163,6 +145,8 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         .forward(input)
         .unwrap();
 
+      /* Potential spot for future optimization. */
+      /* But maybe not... This arrays are usually small. */
       pred = prediction.release_vec().unwrap();
       targ = target.release_vec().unwrap();
       let (pred_index, _) = pred
@@ -218,8 +202,6 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let (inputs, targets) = data.points_into_iter();
 
     let batch_size = inputs.len();
-    let mut is_input: bool;
-
     /* accumulate weight and bias derivative */
     for (input, target) in inputs.zip(targets) {
       /* initial prediction */
@@ -240,37 +222,35 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       /* propagate the derivatives backwards */
       for l in 0..self.layers.len() {
         /* process for getting previous signal of a layer */
+        /* layer is trainable if it obeys this condition */
         let (previous_act, last_layer) = self
           .intercept(input.clone(), n_layers-l-1)
           .unwrap();
 
-        if !last_layer.is_trainable() {
-          /* layer is not trainable, do not waste time */
-          continue;
-        } else {
-          is_input = if n_layers-l-1 == 0 { true } else { false };
-          (dldw, dldb, dlda, dlda_conj) = last_layer.compute_derivatives(is_input, &previous_act, dlda, dlda_conj).unwrap();
+        if last_layer.is_trainable() {
+          (dldw, dldb, dlda, dlda_conj) = last_layer.compute_derivatives(&previous_act, dlda, dlda_conj).unwrap();
 
-          /* solve the empty vec problem */
           dldw_per_layer[n_layers-l-1].add_slice_mut(&dldw).unwrap();
-          dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap();
+          dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap(); 
         }
       }
     }
 
     /* divide the gradient by the count of data samples */
     let scale_param = lr / T::usize_to_complex(batch_size);
-    for ((mut dldw_l, mut dldb_l), layer) in dldw_per_layer.into_iter().zip(dldb_per_layer).zip(self.layers.iter_mut()) {
-      if !layer.is_trainable() {
-        continue;
-      } else {
-        dldw_l.mul_mut_scalar(scale_param).unwrap();
-        dldb_l.mul_mut_scalar(scale_param).unwrap();
+    let update_par_iter = dldw_per_layer
+      .into_iter()
+      .zip(dldb_per_layer.into_iter())
+      .zip(self.layers.iter_mut());
 
-        /* update the weights of layer l */
-        layer.neg_conj_adjustment(dldw_l, dldb_l).unwrap();
+    update_par_iter.for_each(|((mut dldw, mut dldb), layer)| {
+      if layer.is_trainable() {
+        dldw.mul_mut_scalar(scale_param).unwrap();
+        dldb.mul_mut_scalar(scale_param).unwrap();
+
+        layer.neg_conj_adjustment(dldw, dldb).unwrap();
       }
-    }
+    });
 
     Ok(())
   }

@@ -1,8 +1,6 @@
 use std::fmt::{Debug, Display};
 use std::fs::File;
 use std::io::Write;
-use std::slice::{Chunks, ChunksMut};
-use std::thread;
 use std::vec::IntoIter;
 use super::BasicOperations;
 
@@ -259,15 +257,15 @@ impl<T> Matrix<T> {
     Ok(())
   }
 
-  pub fn rows_as_iter(&self) -> Chunks<'_, T> {
+  pub fn rows_as_iter(&self) -> std::slice::Chunks<'_, T> {
     self.body.chunks(self.shape[1])
   }
 
-  pub fn rows_as_iter_mut(&mut self) -> ChunksMut<'_, T> {
+  pub fn rows_as_iter_mut(&mut self) -> std::slice::ChunksMut<'_, T> {
     self.body.chunks_mut(self.shape[1])
   }
 
-  pub fn into_iter(self) -> IntoIter<T> {
+  pub fn body_into_iter(self) -> IntoIter<T> {
     self.body.into_iter()
   }
 }
@@ -339,7 +337,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
     } else {
       self.body
         .iter_mut()
-        .zip(&rhs.body)
+        .zip(rhs.body.iter())
         .for_each(|(lhs, rhs)| { *lhs += *rhs });
 
       Ok(())
@@ -354,30 +352,15 @@ impl<T: BasicOperations<T>> Matrix<T> {
 
     self.body
       .iter_mut()
-      .zip(rhs)
+      .zip(rhs.iter())
       .for_each(|(lhs, rhs)| { *lhs += *rhs });
 
     Ok(())
   }
 
   pub fn add_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
-    for elm in self.body.iter_mut() {
-      *elm += rhs;
-    }
+    self.body.iter_mut().for_each(|elm| { *elm += rhs; });
     
-    Ok(())
-  }
-
-  pub fn sub_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
-    if self.shape != rhs.shape { 
-      return Err(OperationError::InconsistentShape);
-    }
-
-    self.body
-      .iter_mut()
-      .zip(&rhs.body)
-      .for_each(|(lhs, rhs)| { *lhs -= *rhs });
-
     Ok(())
   }
 
@@ -434,9 +417,10 @@ impl<T: BasicOperations<T>> Matrix<T> {
     if self.shape[1] != rhs.len() { return Err(OperationError::InvalidRHS); }
 
     for row in self.rows_as_iter_mut() {
-      for (elm, other) in row.into_iter().zip(rhs) {
-        *elm *= *other;
-      }
+      row
+        .into_iter()
+        .zip(rhs.iter())
+        .for_each(|(elm, other)| { *elm *= *other; });
     }
 
     Ok(())
@@ -463,9 +447,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
   }
 
   pub fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
-    for elm in self.body.iter_mut() {
-      *elm *= rhs;
-    }
+    self.body.iter_mut().for_each(|elm| { *elm *= rhs; });
     
     Ok(())
   }
@@ -487,24 +469,23 @@ impl<T: BasicOperations<T>> Matrix<T> {
 
   pub fn mul_point_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
     let rhs_shape = rhs.get_shape();
-    let mut lhs_shape = [0_usize, 0];
-    lhs_shape.copy_from_slice(self.get_shape());
+    let lhs_shape = self.get_shape();
 
     if lhs_shape != rhs_shape {
       return Err(OperationError::InconsistentShape)
     }
 
-    for (lhs_elm, rhs_elm) in self.get_body_as_mut().iter_mut().zip(rhs.get_body()) {
-      *lhs_elm *= *rhs_elm;
-    }
+    self
+      .get_body_as_mut()
+      .iter_mut()
+      .zip(rhs.get_body().iter())
+      .for_each(|(lhs, rhs)| { *lhs *= *rhs });
 
     Ok(())
   }
 
   pub fn div_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
-    for elm in self.body.iter_mut() {
-      *elm /= rhs;
-    }
+    self.body.iter_mut().for_each(|elm| { *elm /= rhs; });
 
     Ok(())
   }
@@ -546,29 +527,22 @@ impl<T: BasicOperations<T>> Matrix<T> {
       slide_row.drain(..);
     }
 
-    let mut thread_results = Vec::new();
+    let mut out = Matrix::with_capacity([matrix_shape[0], matrix_shape[1]]);
     for row_id in 0..matrix_shape[0] {
-      let current_slider = slider.clone();
-      let kernel_copy = kernel.clone();
-      let handle = thread::spawn(move || { 
-        let kernel_shape = kernel_copy.get_shape();
-        current_slider
-          .iter()
-          .map(|row| {row.windows(kernel_shape[1])})
-          .enumerate()
-          .map(|(row_id, windows)| {
-            let kernel_row = kernel_copy.row(row_id).unwrap();
-            windows
-              .map(|window| { window.scalar_prod(kernel_row).unwrap() })
-              .collect::<Vec<T>>()
-          })
-          .reduce(|acc, row| {
-            acc.add_slice(&row).unwrap()
-          })
-          .unwrap()
-      });
-
-      thread_results.push(handle);
+      let convolved_row = slider
+        .iter()
+        .map(|row| {row.windows(kernel_shape[1])})
+        .enumerate()
+        .map(|(row_id, windows)| {
+          let kernel_row = kernel.row(row_id).unwrap();
+          windows
+            .map(|window| { window.scalar_prod(kernel_row).unwrap() })
+            .collect::<Vec<T>>()
+        })
+        .reduce(|acc, row| {
+          acc.add_slice(&row).unwrap()
+        })
+        .unwrap();
       
       slider.drain(0..1);
       if row_id+1 + max_pad_row >= matrix_shape[0] {
@@ -580,19 +554,16 @@ impl<T: BasicOperations<T>> Matrix<T> {
         slider.push(slide_row.clone());
         slide_row.drain(..);
       }
-    }
 
-    let mut out = Matrix::with_capacity([matrix_shape[0], matrix_shape[1]]);
-    let mut convolved_row;
-    for thread_result in thread_results.into_iter() {
-      convolved_row = thread_result.join().unwrap();
-      out.add_mut_row(&mut convolved_row).unwrap();
+      out.add_row(convolved_row).unwrap();
     }
 
     Ok(out)
   }
 
   pub fn rev_conv(&self, kernel: &Self) -> Result<Self, OperationError> {
+    /* operation is not well */
+
     /* define target block */
     let kernel_shape = kernel.get_shape();
     let matrix_shape = self.get_shape();
@@ -637,32 +608,27 @@ impl<T: BasicOperations<T>> Matrix<T> {
     }
     for _ in 0..max_pad_row { slider.push(row_pad.clone()); }
 
-    let mut thread_results = Vec::new();
+    let mut out = Vec::with_capacity(matrix_shape[0] * matrix_shape[1]);
     for row_id in 0..matrix_shape[0] {
-      let kernel_copy = kernel.clone();
-      let slider_copy = slider.clone();
-      let handle = thread::spawn(move || {
-        let kernel_shape = kernel_copy.get_shape();
-        slider_copy
-          .iter()
-          .rev()
-          /* create windows to slide the filter through */
-          .map(|row| { row.windows(kernel_shape[1]) })
-          .enumerate()
-          .map(|(row, windows)| {
-            /* slide the kernel row through the image row */
-            let kernel_row = kernel_copy.row(row).unwrap();
-            windows
-              .map(|window| { window.scalar_prod(kernel_row).unwrap() })
-              .collect::<Vec<T>>()
-          })
-          .reduce(|acc, row| {
-            acc.add_slice(&row).unwrap()
-          })
-          .unwrap()
-      });
+      let convolved_row = slider
+        .iter()
+        .rev()
+        /* create windows to slide the filter through */
+        .map(|row| { row.windows(kernel_shape[1]) })
+        .enumerate()
+        .map(|(row, windows)| {
+          /* slide the kernel row through the image row */
+          let kernel_row = kernel.row(row).unwrap();
+          windows
+            .map(|window| { window.scalar_prod(kernel_row).unwrap() })
+            .collect::<Vec<T>>()
+        })
+        .reduce(|acc, row| {
+          acc.add_slice(&row).unwrap()
+        })
+        .unwrap();
 
-      thread_results.push(handle);
+      out.push(convolved_row);
 
       /* update slide_rows by draining the first element and adding another new one */
       /* remove last element */
@@ -689,14 +655,14 @@ impl<T: BasicOperations<T>> Matrix<T> {
       slider.rotate_right(1);
     }
 
-    let mut out = Matrix::with_capacity([matrix_shape[0], matrix_shape[1]]);
-    let mut convolved_row;
-    for thread_result in thread_results.into_iter() {
-      convolved_row = thread_result.join().unwrap();
-      out.add_mut_row(&mut convolved_row).unwrap();
-    } 
+    out.reverse();
+    let res = out
+      .into_iter()
+      .flatten()
+      .collect::<Vec<T>>()
+      .to_matrix([matrix_shape[0] ,matrix_shape[1]]).unwrap();
 
-    Ok(out)
+    Ok(res)
   }
 
   pub fn block_reduce(&self, block_size: &[usize], block_func: impl Fn(&[T]) -> T) -> Result<Self, OperationError> {
@@ -816,7 +782,7 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
     
     self
       .iter_mut()
-      .zip(rhs)
+      .zip(rhs.iter())
       .for_each(|(lhs, rhs)| { *lhs += *rhs });
 
     Ok(())
@@ -825,13 +791,14 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
   fn add_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError> {
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
     
-    Ok(
-      self
-        .iter()
-        .zip(rhs)
-        .map(|(lhs, rhs)| { *lhs + *rhs })
-        .collect()
-    )
+
+    let res = self
+      .iter()
+      .zip(rhs.iter())
+      .map(|(lhs, rhs)| { *lhs + *rhs })
+      .collect();
+    
+    Ok(res)
   }
 
   fn sub_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
@@ -859,13 +826,13 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
   fn mul_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError> {
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
     
-    Ok(
-      self
+    let res = self
         .iter()
-        .zip(rhs)
+        .zip(rhs.iter())
         .map(|(lhs, rhs)| { *lhs * *rhs })
-        .collect()
-    )
+        .collect();
+    
+    Ok(res)
   }
 
   fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
@@ -881,7 +848,7 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
 
     let res = self
       .iter()
-      .zip(rhs)
+      .zip(rhs.iter())
       .fold(T::default(), |acc, (lhs, rhs)| { acc + (*lhs * *rhs) });
 
     Ok(res)

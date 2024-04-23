@@ -62,7 +62,7 @@ impl<T: BasicOperations<T>> Reduce<T> {
     self.trigger(input_type)
   }
 
-  pub fn compute_derivatives(&self, _is_input: bool, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
+  pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     /* perform unpooling or upsampling */
     match previous_act {
       IOType::FeatureMaps(features) => {
@@ -78,8 +78,8 @@ impl<T: BasicOperations<T>> Reduce<T> {
           let original_shape = feature.get_shape();
           let final_shape = original_shape
             .iter()
-            .zip(self.block_size)
-            .map(|(elm, block_dim)| { *elm / block_dim })
+            .zip(self.block_size.iter())
+            .map(|(elm, block_dim)| { *elm / *block_dim })
             .collect::<Vec<usize>>();
           
           let dlda_upsampled = dlda_feats.next().unwrap()
@@ -87,6 +87,7 @@ impl<T: BasicOperations<T>> Reduce<T> {
             .unwrap()
             .fractional_upsampling(&self.block_size, &self.interp_kernel)
             .unwrap();
+
           let dlda_conj_upsampled = dlda_conj_feats.next().unwrap()
             .to_matrix([final_shape[0], final_shape[1]])
             .unwrap()
@@ -96,7 +97,6 @@ impl<T: BasicOperations<T>> Reduce<T> {
           new_dlda.append(&mut dlda_upsampled.export_body());
           new_dlda_conj.append(&mut dlda_conj_upsampled.export_body());
         }
-        drop(dlda_feats); drop(dlda_conj_feats);
 
         Ok((Vec::new(), Vec::new(), new_dlda, new_dlda_conj))
       },

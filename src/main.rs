@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{self, Write};
+use std::time::Instant;
 use renplex::act::ComplexActFunc;
 use renplex::cvnn::layer::conv::ConvCLayer;
 use renplex::cvnn::layer::dense::DenseCLayer;
@@ -103,16 +104,18 @@ fn main() {
     let mut train_loss = 0.0;
     let mut train_acc = 0.0;
     for b in 0..train_batches {
+      let t: Instant = Instant::now();
       let train_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(train_data_file, train_label_file, batch_size, train_tracker);
       
       network.gradient_opt(train_data.clone(), ComplexLossFunc::Conventional, lr).unwrap();
 
-      let (current_train_loss, _) = network.loss(train_data.clone(), &ComplexLossFunc::Conventional).unwrap();
+      let current_train_loss = network.loss(train_data.clone(), &ComplexLossFunc::Conventional).unwrap();
       let current_train_acc = network.max_pred_test(train_data);
       train_loss += current_train_loss;
       train_acc += current_train_acc;
       
-      print!("\rEpoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3}", e+1, b+1, current_train_loss, current_train_acc);
+      
+      print!("\rEpoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", e+1, b+1, current_train_loss, current_train_acc, t.elapsed());
       io::stdout().flush().unwrap();
     }
 
@@ -131,7 +134,7 @@ fn main() {
     let mut test_acc = 0.0;
     for t in 0..test_batches {
       let initial_test_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(test_data_file, test_label_file, batch_size, test_tracker);
-      let (initial_test_loss, _) = network.loss(initial_test_data.clone(), &ComplexLossFunc::Conventional).unwrap();
+      let initial_test_loss = network.loss(initial_test_data.clone(), &ComplexLossFunc::Conventional).unwrap();
       let initial_test_acc = network.max_pred_test(initial_test_data);
       test_loss += initial_test_loss;
       test_acc += initial_test_acc;
