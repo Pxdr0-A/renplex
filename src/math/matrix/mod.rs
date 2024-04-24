@@ -561,7 +561,29 @@ impl<T: BasicOperations<T>> Matrix<T> {
     Ok(out)
   }
 
-  pub fn rev_conv(&self, kernel: &Self) -> Result<Self, OperationError> {
+  pub fn dconv(&self, pos: (usize, usize), kernel_size: &[usize]) -> Result<Matrix<T>, OperationError> {
+    let matrix_shape = self.get_shape();
+    let center = ((kernel_size[0] - 1) / 2, (kernel_size[1] - 1) / 2);
+    let mut res_body = Vec::new();
+    for i in 0..matrix_shape[0] {
+      for j in 0..matrix_shape[1] {
+        if i + pos.0 < center.0 || j + pos.1 < center.1 || i + pos.0 > matrix_shape[0]-1 + center.0 || j + pos.1 > matrix_shape[1]-1 + center.1 {
+          res_body.push(T::default());
+        } else {
+          /* (i,j) + rel_pos is positive! */
+          //println!("{}", i + pos.0 - center.0);
+          //println!("{}", j + pos.1 - center.1);
+          res_body.push(*self.elm(i + pos.0 - center.0, j + pos.1 - center.1).unwrap());
+        }
+      }
+    }
+
+    let res = res_body.to_matrix([matrix_shape[0], matrix_shape[1]]).unwrap();
+
+    Ok(res)
+  }
+
+  pub fn deconv(&self, kernel: &Self) -> Result<Self, OperationError> {
     /* operation is not well */
 
     /* define target block */

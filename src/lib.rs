@@ -101,7 +101,7 @@ mod basic_tests {
       ], [3, 3]);
 
     let mut image_conv1 = image.conv(&kernel1).unwrap();
-    let mut image_rev = image_conv1.rev_conv(&kernel1).unwrap();
+    let mut image_rev = image_conv1.deconv(&kernel1).unwrap();
     let mut image_conv2 = image.conv(&kernel2).unwrap();
 
     for row in image_conv1.rows_as_iter_mut() {
@@ -337,5 +337,15 @@ mod basic_tests {
       .zip(rhs.par_iter())
       .for_each(|(elm, other)| { *elm *= *other; });
     println!("With {:?}", now.elapsed());
+  }
+
+  #[test]
+  fn unsigned() {
+    let u1: usize = 10;
+    let u2: usize = 9;
+
+    let u = u1 - u2;
+
+    println!("{}", u);
   }
 }

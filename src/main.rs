@@ -17,7 +17,7 @@ use renplex::math::Complex;
 use renplex::opt::ComplexLossFunc;
 
 fn main() {
-  let ref mut seed = 572576624918;
+  let ref mut seed = 9868943421677;
     
   let conv_scale: usize = 8;
   let dense_scale: usize = 1;

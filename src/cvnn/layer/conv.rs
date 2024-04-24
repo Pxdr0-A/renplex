@@ -1,6 +1,4 @@
-use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
-
-use crate::{act::ComplexActFunc, err::{GradientError, LayerForwardError, LayerInitError}, init::{InitMethod, PredictModel}, input::{IOShape, IOType}, math::{matrix::{Matrix, SliceOps}, BasicOperations, Complex}};
+use crate::{act::ComplexActFunc, err::{GradientError, LayerForwardError, LayerInitError}, init::InitMethod, input::{IOShape, IOType}, math::{matrix::{Matrix, SliceOps}, BasicOperations, Complex}};
 
 use super::{CLayer, ComplexDerivatives};
 
@@ -146,7 +144,10 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         }
         let mut da_conj_dq = dadq_conj.clone();
         for feature in da_conj_dq.iter_mut() {
-          feature.get_body_as_mut().par_iter_mut().for_each(|elm| { *elm = elm.conj() });
+          feature
+            .get_body_as_mut()
+            .iter_mut()
+            .for_each(|elm| { *elm = elm.conj() });
         }
 
         let dadq = dadq.into_iter().map(|feature| { feature.export_body() }).flatten().collect::<Vec<T>>();
@@ -169,9 +170,8 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         let mut new_dlda = Vec::new();
         let mut new_dlda_conj = Vec::new();
         let mut dldb = Vec::new();
-        let input_iter = input.into_iter().zip(dlda_dadq.chunks(chunks)).zip(dlda_conj_da_conj_dq.chunks(chunks));
-        for ((input_feature, dlda_dadq_body_feat), dlda_conj_da_conj_dq_body_feat) in input_iter {
-          /* maybe you can paralelize this */
+        let input_iter = input.into_iter().zip(dlda_dadq.chunks(chunks).zip(dlda_conj_da_conj_dq.chunks(chunks)));
+        for (input_feature, (dlda_dadq_body_feat, dlda_conj_da_conj_dq_body_feat)) in input_iter {
           let input_feature_shape = input_feature.get_shape();
           let input_feature_len = input_feature_shape[0] * input_feature_shape[1];
           
@@ -180,15 +180,11 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           let mut dldb_per_feature;
           for (kernel, dldk) in self.kernels.iter().zip(dldk_d.iter_mut()) {
             let kernel_shape = kernel.get_shape();
-            let kernel_len = kernel_shape[0] * kernel_shape[1];
             for (index, dldk_update) in dldk.get_body_as_mut().iter_mut().enumerate() {
-              /* there must be a better way for calculating the conv derivative */
-              let derivative_kernel = Matrix::from_body(
-                T::gen_pred(kernel_len, index, &PredictModel::Sparse).unwrap(),
-                [kernel_shape[0], kernel_shape[1]]
-              );
-
-              let dqdk_nm = input_feature.conv(&derivative_kernel).unwrap();
+              let pos = (index / kernel_shape[0], index % kernel_shape[1]);
+              let dqdk_nm = input_feature
+                .dconv(pos, kernel_shape)
+                .unwrap();
 
               let elm = dlda_dadq_body_feat.scalar_prod(dqdk_nm.get_body()).unwrap();
               let elm_conj = dlda_conj_da_conj_dq_body_feat.scalar_prod(dqdk_nm.get_body()).unwrap();
@@ -200,7 +196,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
             /* perform backward convolution (flip kernel or reverse order) */
             /* derivative of the current input feature with respect to the respective output feature */
             /* input feature whose output feature comes from the current kernel */
-            let new_dqda = input_feature.rev_conv(kernel).unwrap();
+            let new_dqda = input_feature.deconv(kernel).unwrap();
             let mut lhs = dlda_dadq_body_feat.mul_slice(new_dqda.get_body()).unwrap();
             let mut rhs = dlda_conj_da_conj_dq_body_feat.mul_slice(new_dqda.get_body()).unwrap();
 
