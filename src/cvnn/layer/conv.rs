@@ -1,5 +1,4 @@
 use crate::{act::ComplexActFunc, err::{GradientError, LayerForwardError, LayerInitError}, init::InitMethod, input::{IOShape, IOType}, math::{matrix::{Matrix, SliceOps}, BasicOperations, Complex}};
-
 use super::{CLayer, ComplexDerivatives};
 
 /// Layer that computes only padded convolution.
@@ -170,15 +169,20 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         let mut new_dlda = Vec::new();
         let mut new_dlda_conj = Vec::new();
         let mut dldb = Vec::new();
-        let input_iter = input.into_iter().zip(dlda_dadq.chunks(chunks).zip(dlda_conj_da_conj_dq.chunks(chunks)));
-        for (input_feature, (dlda_dadq_body_feat, dlda_conj_da_conj_dq_body_feat)) in input_iter {
+        let mut loss_derivatives = dlda_dadq.chunks(chunks).zip(dlda_conj_da_conj_dq.chunks(chunks));
+        let input_iter = input.into_iter();
+        for input_feature in input_iter {
+          /* HERE MIGHT BE USEFULL TO PARALELIZE */
           let input_feature_shape = input_feature.get_shape();
           let input_feature_len = input_feature_shape[0] * input_feature_shape[1];
-          
+
           let mut new_dlda_feat_update = vec![T::unit(); input_feature_len];
           let mut new_dlda_conj_feat_update = vec![T::unit(); input_feature_len];
           let mut dldb_per_feature;
           for (kernel, dldk) in self.kernels.iter().zip(dldk_d.iter_mut()) {
+            /* output feature respective to the kernel and current input feature */
+            let (dlda_dadq, dlda_conj_da_conj_dq) = loss_derivatives.next().unwrap();
+
             let kernel_shape = kernel.get_shape();
             for (index, dldk_update) in dldk.get_body_as_mut().iter_mut().enumerate() {
               let pos = (index / kernel_shape[0], index % kernel_shape[1]);
@@ -186,8 +190,9 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
                 .dconv(pos, kernel_shape)
                 .unwrap();
 
-              let elm = dlda_dadq_body_feat.scalar_prod(dqdk_nm.get_body()).unwrap();
-              let elm_conj = dlda_conj_da_conj_dq_body_feat.scalar_prod(dqdk_nm.get_body()).unwrap();
+              /* MIGHT BE SCALAR PRODUCT ONLY WITH DLDA AND DLDA_CONJ */
+              let elm = dlda_dadq.scalar_prod(dqdk_nm.get_body()).unwrap();
+              let elm_conj = dlda_conj_da_conj_dq.scalar_prod(dqdk_nm.get_body()).unwrap();
 
               *dldk_update += elm + elm_conj;
             }
@@ -196,18 +201,22 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
             /* perform backward convolution (flip kernel or reverse order) */
             /* derivative of the current input feature with respect to the respective output feature */
             /* input feature whose output feature comes from the current kernel */
-            let new_dqda = input_feature.deconv(kernel).unwrap();
-            let mut lhs = dlda_dadq_body_feat.mul_slice(new_dqda.get_body()).unwrap();
-            let mut rhs = dlda_conj_da_conj_dq_body_feat.mul_slice(new_dqda.get_body()).unwrap();
 
-            dldb_per_feature = dlda_dadq_body_feat.add_slice(dlda_conj_da_conj_dq_body_feat)
+            dldb_per_feature = dlda_dadq
+              .add_slice(dlda_conj_da_conj_dq)
               .unwrap()
               .into_iter()
               .reduce(|acc, elm| { acc + elm })
               .unwrap();
-
             dldb.push(dldb_per_feature);
 
+            /* previous activation */
+            /* THIS DERIVATIVE MIGHT BE WRONG! Verify! */
+            let new_dqda = input_feature.deconv(&kernel).unwrap();
+            let new_dqda_body = new_dqda.get_body();
+            let mut lhs = dlda_dadq.mul_slice(new_dqda_body).unwrap();
+            let mut rhs = dlda_conj_da_conj_dq.mul_slice(new_dqda_body).unwrap();
+            
             new_dlda_feat_update.add_slice_mut(&lhs.add_slice(&rhs).unwrap()).unwrap();
             lhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
             rhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
@@ -245,7 +254,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     /* verify if the order is correct */
     let mut dldw_iter = dldw.into_iter();
     for kernel in self.kernels.iter_mut() {
-      for elm in kernel.get_body_as_mut() {
+      for elm in kernel.get_body_as_mut().iter_mut() {
         *elm -= dldw_iter.next().unwrap().conj();
       }
     }

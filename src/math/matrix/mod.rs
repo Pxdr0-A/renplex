@@ -584,7 +584,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
   }
 
   pub fn deconv(&self, kernel: &Self) -> Result<Self, OperationError> {
-    /* operation is not well */
+    /* operation is not perfectly well */
 
     /* define target block */
     let kernel_shape = kernel.get_shape();

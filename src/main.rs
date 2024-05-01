@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{self, Write};
 use std::time::Instant;
+
 use renplex::act::ComplexActFunc;
 use renplex::cvnn::layer::conv::ConvCLayer;
 use renplex::cvnn::layer::dense::DenseCLayer;
@@ -16,10 +17,11 @@ use renplex::math::matrix::Matrix;
 use renplex::math::Complex;
 use renplex::opt::ComplexLossFunc;
 
+
 fn main() {
-  let ref mut seed = 9868943421677;
+  let ref mut seed = 23548989346723563;
     
-  let conv_scale: usize = 8;
+  let conv_scale: usize = 1;
   let dense_scale: usize = 1;
 
   let input_layer: CLayer<Cf32> = ConvCLayer::init(

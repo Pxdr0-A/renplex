@@ -67,15 +67,66 @@ mod basic_tests {
   }
 
   #[test]
-  fn image_conv_test() {
+  fn pooling() {
     let train_data_file = &mut File::open("./minist/t10k-images.idx3-ubyte").unwrap();
     let train_label_file = &mut File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
-    let batch_size = 2;
+    let batch_size = 10;
     let ref mut tracker = 0;
 
     let data: Dataset<f32, f32> = Dataset::minist_as_batch(train_data_file, train_label_file, batch_size, tracker);
 
-    let (image_point, _) = data.get_point(1);
+    let (image_point, _) = data.get_point(7);
+
+    let image;
+    match image_point {
+      IOType::FeatureMaps(map) => {
+        image = map[0].clone();
+      },
+      _ => {panic!("ups...")}
+    }
+    image.to_csv("./out/original_pool.csv").unwrap();
+
+    let image_max_pooled = image.block_reduce(
+      &[2, 2],
+      |slice| {
+        slice
+          .iter()
+          .fold(-f32::INFINITY,|acc, elm| {
+            if acc < *elm { 
+              *elm
+            } else {
+              acc
+            }
+          })
+      }
+    ).unwrap();
+
+    image_max_pooled.to_csv("./out/max_pool.csv").unwrap();
+
+    let image_upsampled = image_max_pooled.fractional_upsampling(
+      &[2,2], 
+      &Matrix::from_body(
+        vec![
+          0.25, 0.5, 0.25,
+          0.5, 1.0, 0.5,
+          0.25, 0.5, 0.25
+        ], 
+        [3,3])
+    ).unwrap();
+
+    image_upsampled.to_csv("./out/max_pool_upsampled.csv").unwrap();
+  }
+
+  #[test]
+  fn image_conv_test() {
+    let train_data_file = &mut File::open("./minist/t10k-images.idx3-ubyte").unwrap();
+    let train_label_file = &mut File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
+    let batch_size = 100;
+    let ref mut tracker = 0;
+
+    let data: Dataset<f32, f32> = Dataset::minist_as_batch(train_data_file, train_label_file, batch_size, tracker);
+
+    let (image_point, _) = data.get_point(50);
 
     let image;
     match image_point {
@@ -92,6 +143,12 @@ mod basic_tests {
         -2.0, 0.0, 2.0,
         -1.0, 0.0, 1.0,
       ], [3, 3]);
+    let inv_kernel1: Matrix<f32> = Matrix::from_body(
+      vec![
+        -1.0, -2.0, -1.0,
+        0.0, 0.0, 0.0,
+        1.0, 2.0, 1.0,
+      ], [3, 3]);
 
     let kernel2: Matrix<f32> = Matrix::from_body(
       vec![
@@ -102,6 +159,7 @@ mod basic_tests {
 
     let mut image_conv1 = image.conv(&kernel1).unwrap();
     let mut image_rev = image_conv1.deconv(&kernel1).unwrap();
+    let mut image_trans_rev = image_conv1.conv(&inv_kernel1).unwrap();
     let mut image_conv2 = image.conv(&kernel2).unwrap();
 
     for row in image_conv1.rows_as_iter_mut() {
@@ -128,9 +186,44 @@ mod basic_tests {
       }
     }
 
+    for row in image_trans_rev.rows_as_iter_mut() {
+      for elm in row {
+        if elm.is_sign_negative() {
+          *elm = 0.0;
+        }
+      }
+    }
+
     image_conv1.to_csv("./out/conv_image.csv").unwrap();
     image_conv2.to_csv("./out/conv_image1.csv").unwrap();
     image_rev.to_csv("./out/conv_image_rev.csv").unwrap();
+    image_trans_rev.to_csv("out/conv_image_rev1.csv").unwrap();
+  }
+
+  #[test]
+  fn image_dconv_test() {
+    let train_data_file = &mut File::open("./minist/t10k-images.idx3-ubyte").unwrap();
+    let train_label_file = &mut File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
+    let batch_size = 100;
+    let ref mut tracker = 0;
+
+    let data: Dataset<f32, f32> = Dataset::minist_as_batch(train_data_file, train_label_file, batch_size, tracker);
+
+    let (image_point, _) = data.get_point(50);
+
+    let image;
+    match image_point {
+      IOType::FeatureMaps(map) => {
+        image = map[0].clone();
+      },
+      _ => {panic!("ups...")}
+    }
+    image.to_csv("./out/original_d.csv").unwrap();
+
+    let dimage = image.dconv((0,2), &[3,3]).unwrap();
+
+    dimage.to_csv("./out/dconv_image.csv").unwrap();
+
   }
 
   #[test]
