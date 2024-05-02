@@ -1,3 +1,7 @@
+use std::sync::Mutex;
+
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+
 use crate::{act::ComplexActFunc, err::{GradientError, LayerForwardError, LayerInitError}, init::InitMethod, input::{IOShape, IOType}, math::{matrix::{Matrix, SliceOps}, BasicOperations, Complex}};
 use super::{CLayer, ComplexDerivatives};
 
@@ -103,22 +107,26 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           return Err(LayerForwardError::InvalidInput)
         }
 
-        let mut bias_iter = self.biases.iter();
-        let mut output_feature_maps = Vec::new();
-        for input_feature_map in input.into_iter() {
-          for kernel in self.kernels.iter() {
-            let mut output_map = input_feature_map.conv(&kernel).unwrap();
-  
-            let bias = bias_iter.next().unwrap();
-            output_map.add_mut_scalar(*bias).unwrap();
-            
-            T::activate_mut(output_map.get_body_as_mut(), &self.func);
+        let bias_iter = Mutex::new(self.biases.iter());
+        let output_feature_maps = Mutex::new(Vec::new());
+        input
+          .into_par_iter()
+          .for_each(|input_feature_map| {
+            self.kernels.par_iter().for_each(
+              |kernel| {
+                let mut output_map = input_feature_map.conv(&kernel).unwrap();
+    
+                let bias = bias_iter.lock().unwrap().next().unwrap();
+                output_map.add_mut_scalar(*bias).unwrap();
+                
+                T::activate_mut(output_map.get_body_as_mut(), &self.func);
+    
+                output_feature_maps.lock().unwrap().push(output_map);
+              }
+            );
+          });
 
-            output_feature_maps.push(output_map);
-          }
-        }
-
-        Ok(IOType::FeatureMaps(output_feature_maps))
+        Ok(IOType::FeatureMaps(Mutex::into_inner(output_feature_maps).unwrap()))
       },
       _ => { Err(LayerForwardError::InvalidInput) }
     }
@@ -165,72 +173,85 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           dldk_d.push(Matrix::from_body(vec![T::default(); kernel_len], [kernel_shape[0], kernel_shape[1]]));
         }
 
-        let chunks = dlda_dadq.len() / n_output_features;
+        /* kernels derivatives (through the depth) */
+        let dldk_d = Mutex::new(dldk_d);
+        let dldb = Mutex::new(Vec::new());
+        /* initializing backprogation derivatives */
         let mut new_dlda = Vec::new();
         let mut new_dlda_conj = Vec::new();
-        let mut dldb = Vec::new();
-        let mut loss_derivatives = dlda_dadq.chunks(chunks).zip(dlda_conj_da_conj_dq.chunks(chunks));
+
+        let chunks = dlda_dadq.len() / n_output_features;
+        let loss_derivatives = Mutex::new(dlda_dadq.chunks(chunks).zip(dlda_conj_da_conj_dq.chunks(chunks)));
+
         let input_iter = input.into_iter();
-        for input_feature in input_iter {
-          /* HERE MIGHT BE USEFULL TO PARALELIZE */
+        input_iter.for_each(|input_feature| {
           let input_feature_shape = input_feature.get_shape();
           let input_feature_len = input_feature_shape[0] * input_feature_shape[1];
+          
+          let new_dlda_feat_update = Mutex::new(vec![T::unit(); input_feature_len]);
+          let new_dlda_conj_feat_update = Mutex::new(vec![T::unit(); input_feature_len]);
 
-          let mut new_dlda_feat_update = vec![T::unit(); input_feature_len];
-          let mut new_dlda_conj_feat_update = vec![T::unit(); input_feature_len];
-          let mut dldb_per_feature;
-          for (kernel, dldk) in self.kernels.iter().zip(dldk_d.iter_mut()) {
-            /* output feature respective to the kernel and current input feature */
-            let (dlda_dadq, dlda_conj_da_conj_dq) = loss_derivatives.next().unwrap();
+          /* go through the depth of the layer */
+          self.kernels.par_iter().zip(dldk_d.lock().unwrap().par_iter_mut())
+            .for_each(|(kernel, dldk)| {
+              /* output feature respective to the kernel and current input feature */
+              let (dlda_dadq, dlda_conj_da_conj_dq) = loss_derivatives.lock().unwrap().next().unwrap();
 
-            let kernel_shape = kernel.get_shape();
-            for (index, dldk_update) in dldk.get_body_as_mut().iter_mut().enumerate() {
-              let pos = (index / kernel_shape[0], index % kernel_shape[1]);
-              let dqdk_nm = input_feature
-                .dconv(pos, kernel_shape)
+              let kernel_shape = kernel.get_shape();
+              for (index, dldk_update) in dldk.get_body_as_mut().iter_mut().enumerate() {
+                /* go through all kernel points */
+                let pos = (index / kernel_shape[0], index % kernel_shape[1]);
+                let dqdk_nm = input_feature
+                  .dconv(pos, kernel_shape)
+                  .unwrap();
+
+                /* MIGHT BE SCALAR PRODUCT ONLY WITH DLDA */
+                let elm = dlda_dadq.scalar_prod(dqdk_nm.get_body()).unwrap();
+                let elm_conj = dlda_conj_da_conj_dq.scalar_prod(dqdk_nm.get_body()).unwrap();
+
+                *dldk_update += elm + elm_conj;
+              }
+
+              /* update dlda and dlda_conj */
+              /* perform backward convolution (flip kernel or reverse order) */
+              /* derivative of the current input feature with respect to the respective output feature */
+              /* input feature whose output feature comes from the current kernel */
+              let dldb_per_feature = dlda_dadq
+                .add_slice(dlda_conj_da_conj_dq)
+                .unwrap()
+                .into_iter()
+                .reduce(|acc, elm| { acc + elm })
                 .unwrap();
+              dldb.lock().unwrap().push(dldb_per_feature);
 
-              /* MIGHT BE SCALAR PRODUCT ONLY WITH DLDA AND DLDA_CONJ */
-              let elm = dlda_dadq.scalar_prod(dqdk_nm.get_body()).unwrap();
-              let elm_conj = dlda_conj_da_conj_dq.scalar_prod(dqdk_nm.get_body()).unwrap();
+              /* previous activation */
+              /* THIS DERIVATIVE MIGHT BE WRONG! Verify! */
+              let new_dqda = input_feature.deconv(&kernel).unwrap();
+              let new_dqda_body = new_dqda.get_body();
+              let mut lhs = dlda_dadq.mul_slice(new_dqda_body).unwrap();
+              let mut rhs = dlda_conj_da_conj_dq.mul_slice(new_dqda_body).unwrap();
+              
+              new_dlda_feat_update.lock().unwrap().add_slice_mut(&lhs.add_slice(&rhs).unwrap()).unwrap();
+              lhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
+              rhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
+              new_dlda_conj_feat_update.lock().unwrap().add_slice_mut(&lhs.add_slice(&rhs).unwrap()).unwrap();
+            });
 
-              *dldk_update += elm + elm_conj;
-            }
+          /* update derivatives respective to the input feature */
+          new_dlda.extend(Mutex::into_inner(new_dlda_feat_update).unwrap());
+          new_dlda_conj.extend(Mutex::into_inner(new_dlda_conj_feat_update).unwrap());
+        });
 
-            /* update dlda and dlda_conj */
-            /* perform backward convolution (flip kernel or reverse order) */
-            /* derivative of the current input feature with respect to the respective output feature */
-            /* input feature whose output feature comes from the current kernel */
+        /* consume mutexes */
+        let dldk_d = Mutex::into_inner(dldk_d)
+          .unwrap()
+          .into_iter()
+          .map(|feature| { feature.export_body() })
+          .flatten()
+          .collect::<Vec<T>>();
+        let dldb = Mutex::into_inner(dldb).unwrap();
 
-            dldb_per_feature = dlda_dadq
-              .add_slice(dlda_conj_da_conj_dq)
-              .unwrap()
-              .into_iter()
-              .reduce(|acc, elm| { acc + elm })
-              .unwrap();
-            dldb.push(dldb_per_feature);
-
-            /* previous activation */
-            /* THIS DERIVATIVE MIGHT BE WRONG! Verify! */
-            let new_dqda = input_feature.deconv(&kernel).unwrap();
-            let new_dqda_body = new_dqda.get_body();
-            let mut lhs = dlda_dadq.mul_slice(new_dqda_body).unwrap();
-            let mut rhs = dlda_conj_da_conj_dq.mul_slice(new_dqda_body).unwrap();
-            
-            new_dlda_feat_update.add_slice_mut(&lhs.add_slice(&rhs).unwrap()).unwrap();
-            lhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
-            rhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
-            new_dlda_conj_feat_update.add_slice_mut(&lhs.add_slice(&rhs).unwrap()).unwrap();
-          }
-
-          new_dlda.append(&mut new_dlda_feat_update);
-          new_dlda_conj.append(&mut new_dlda_conj_feat_update);
-          drop(new_dlda_feat_update); drop(new_dlda_conj_feat_update);
-        }
-
-        let dldk_d_flatten = dldk_d.into_iter().map(|feature| { feature.export_body() }).flatten().collect::<Vec<T>>();
-
-        Ok((dldk_d_flatten, dldb, new_dlda, new_dlda_conj))
+        Ok((dldk_d, dldb, new_dlda, new_dlda_conj))
       },
       _ => { panic!("Something went terribily wrong.") }
     }
@@ -271,25 +292,23 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
   }
 
   fn compute_q(&self, input: &Vec<Matrix<T>>) -> Vec<Matrix<T>> {
-    let n_feature_maps = input.len();
-    let depth = self.kernels.len();
-    let n_output_features = n_feature_maps * depth;
+    let bias_iter = Mutex::new(self.biases.iter());
+    let output_feature_maps = Mutex::new(Vec::new());
+    input
+      .into_par_iter()
+      .for_each(|input_feature_map| {
+        self.kernels.par_iter().for_each(
+          |kernel| {
+            let mut output_map = input_feature_map.conv(&kernel).unwrap();
 
-    let mut bias_iter = self.biases.iter();
-    let mut output_feature_maps = Vec::with_capacity(n_output_features);
-    for input_feature_map in input.iter() {
-      let mut res_feature_maps = Vec::new();
-      for kernel in self.kernels.iter() {
-        let mut current_map = input_feature_map.conv(kernel).unwrap();
-        let bias = bias_iter.next().unwrap();
-        current_map.add_mut_scalar(*bias).unwrap();
-
-        res_feature_maps.push(current_map);
-      }
-
-      output_feature_maps.append(&mut res_feature_maps);
-    }
-
-    output_feature_maps
+            let bias = bias_iter.lock().unwrap().next().unwrap();
+            output_map.add_mut_scalar(*bias).unwrap();
+            
+            output_feature_maps.lock().unwrap().push(output_map);
+          }
+        );
+      });
+    
+    Mutex::into_inner(output_feature_maps).unwrap()
   }
 }

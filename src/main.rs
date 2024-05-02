@@ -135,13 +135,14 @@ fn main() {
     let mut test_loss = 0.0;
     let mut test_acc = 0.0;
     for t in 0..test_batches {
+      let t_test: Instant = Instant::now();
       let initial_test_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(test_data_file, test_label_file, batch_size, test_tracker);
       let initial_test_loss = network.loss(initial_test_data.clone(), &ComplexLossFunc::Conventional).unwrap();
       let initial_test_acc = network.max_pred_test(initial_test_data);
       test_loss += initial_test_loss;
       test_acc += initial_test_acc;
 
-      print!("\rTest Values | Epoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3}", e+1, t+1, initial_test_loss, initial_test_acc);
+      print!("\rTest Values | Epoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", e+1, t+1, initial_test_loss, initial_test_acc, t_test.elapsed());
       io::stdout().flush().unwrap();
     }
 

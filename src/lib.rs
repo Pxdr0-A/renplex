@@ -15,6 +15,7 @@ mod basic_tests {
   use std::io::{self, Write};
   use std::time::Instant;
   use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+  use rayon::ThreadPoolBuilder;
   use crate::act::ComplexActFunc;
   use crate::cvnn::layer::conv::ConvCLayer;
   use crate::cvnn::layer::dense::DenseCLayer;
@@ -224,6 +225,16 @@ mod basic_tests {
 
     dimage.to_csv("./out/dconv_image.csv").unwrap();
 
+  }
+
+  #[test]
+  fn paralelize() {
+    let pool = ThreadPoolBuilder::new()
+      .num_threads(8)
+      .build()
+      .unwrap();
+
+    let _n = pool.install(|| {true});
   }
 
   #[test]

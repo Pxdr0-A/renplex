@@ -158,7 +158,7 @@ impl<T> Matrix<T> {
   /// 
   /// * `row` - mutable reference to a generic `Vec<T>`. 
   ///           Gets consumed after the addition of the row to `Matrix<T>`.
-  pub fn add_row(&mut self, mut row: Vec<T>) -> Result<(), UpdateError> {
+  pub fn add_row(&mut self, row: Vec<T>) -> Result<(), UpdateError> {
     if !(row.len() == self.shape[1] || (self.shape == [0, 0])) {
       return Err(UpdateError::InconsistentLength);
     }
@@ -172,7 +172,7 @@ impl<T> Matrix<T> {
     }
 
     self.shape[1] = row.len();
-    self.body.append(&mut row);
+    self.body.extend(row);
 
     Ok(())
   }
@@ -513,18 +513,19 @@ impl<T: BasicOperations<T>> Matrix<T> {
     let max_pad_row = (kernel_shape[0] - 1) / 2;
 
     let mut slider = Vec::with_capacity(kernel_shape[0]);
-    let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
 
-    let row_pad = vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)];
-    for _ in 0..max_pad_row { slider.push(row_pad.clone()); }
+    for _ in 0..max_pad_row {
+      /* row pad */
+      slider.push(vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)]);
+    }
     for _ in 0..(kernel_shape[0] - max_pad_row) {
       let matrix_row = matrix_rows.next().unwrap();
 
-      slide_row.append(&mut vec![T::default(); max_pad_col]);
-      slide_row.append(&mut matrix_row.to_vec());
-      slide_row.append(&mut vec![T::default(); max_pad_col]);
-      slider.push(slide_row.clone());
-      slide_row.drain(..);
+      let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
+      slide_row.extend(vec![T::default(); max_pad_col]);
+      slide_row.extend_from_slice(matrix_row);
+      slide_row.extend(vec![T::default(); max_pad_col]);
+      slider.push(slide_row);
     }
 
     let mut out = Matrix::with_capacity([matrix_shape[0], matrix_shape[1]]);
@@ -539,20 +540,23 @@ impl<T: BasicOperations<T>> Matrix<T> {
             .map(|window| { window.scalar_prod(kernel_row).unwrap() })
             .collect::<Vec<T>>()
         })
-        .reduce(|acc, row| {
-          acc.add_slice(&row).unwrap()
-        })
-        .unwrap();
+        .reduce(
+          //|| {vec![T::default(); matrix_shape[1]]}, 
+          |acc, row| {
+            acc.add_slice(&row).unwrap()
+          }
+        ).unwrap();
       
+      /* update the slider */
       slider.drain(0..1);
       if row_id+1 + max_pad_row >= matrix_shape[0] {
-        slider.push(row_pad.clone());
+        slider.push(vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)]);
       } else {
-        slide_row.append(&mut vec![T::default(); max_pad_col]);
-        slide_row.append(&mut matrix_rows.next().unwrap().to_vec());
-        slide_row.append(&mut vec![T::default(); max_pad_col]);
-        slider.push(slide_row.clone());
-        slide_row.drain(..);
+        let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
+        slide_row.extend(vec![T::default(); max_pad_col]);
+        slide_row.extend_from_slice(matrix_rows.next().unwrap());
+        slide_row.extend(vec![T::default(); max_pad_col]);
+        slider.push(slide_row);
       }
 
       out.add_row(convolved_row).unwrap();
@@ -608,27 +612,27 @@ impl<T: BasicOperations<T>> Matrix<T> {
     let max_pad_row = (kernel_shape[0] - 1) / 2;
 
     let mut slider = Vec::with_capacity(kernel_shape[0]);
-    let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
 
-    let row_pad = vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)];
     /* create current slide_rows with padding by chaining iterators */
     /* you can try to improve memory here */
     /* this is valid for the first iteration! */
     for _ in 0..(kernel_shape[0] - max_pad_row) {
       let matrix_row = matrix_rows.next().unwrap();
 
+      let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
       /* intial col pad */
-      slide_row.append(&mut vec![T::default(); max_pad_col]);
+      slide_row.extend(vec![T::default(); max_pad_col]);
       /* core vals */
-      slide_row.append(&mut matrix_row.to_vec());
+      slide_row.extend_from_slice(matrix_row);
       /* final col pad */
-      slide_row.append(&mut vec![T::default(); max_pad_col]);
+      slide_row.extend(vec![T::default(); max_pad_col]);
 
-      slider.push(slide_row.clone());
-
-      slide_row.drain(..);
+      slider.push(slide_row);
     }
-    for _ in 0..max_pad_row { slider.push(row_pad.clone()); }
+    for _ in 0..max_pad_row { 
+      /* add row pads */
+      slider.push(vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)]); 
+    }
 
     let mut out = Vec::with_capacity(matrix_shape[0] * matrix_shape[1]);
     for row_id in 0..matrix_shape[0] {
@@ -658,20 +662,19 @@ impl<T: BasicOperations<T>> Matrix<T> {
       /* add element to the last position */
       if row_id+1 + max_pad_row >= matrix_shape[0] {
         /* kernel overflowed bottom pixels */
-        slider.push(row_pad.clone());
+        slider.push(vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)]);
       } else {
+        let mut slide_row = Vec::with_capacity(matrix_shape[1] + (kernel_shape[1] - 1));
         /* kernel is still within the matrix */
         /* with the zeros added (col padding) */
         /* intial col pad */
-        slide_row.append(&mut vec![T::default(); max_pad_col]);
+        slide_row.extend(vec![T::default(); max_pad_col]);
         /* core vals */
-        slide_row.append(&mut matrix_rows.next().unwrap().to_vec());
+        slide_row.extend_from_slice(matrix_rows.next().unwrap());
         /* final col pad */
-        slide_row.append(&mut vec![T::default(); max_pad_col]);
+        slide_row.extend(vec![T::default(); max_pad_col]);
 
-        slider.push(slide_row.clone());
-
-        slide_row.drain(..);
+        slider.push(slide_row);
       }
       /* to get the element that was added last, to the first position */
       slider.rotate_right(1);
@@ -699,7 +702,6 @@ impl<T: BasicOperations<T>> Matrix<T> {
     }
 
     let mut matrix_rows = self.rows_as_iter();
-
     let mut slider_rows = Vec::with_capacity(block_size[0]);
 
     let n_rows = matrix_shape[0] / block_size[0];
@@ -714,13 +716,10 @@ impl<T: BasicOperations<T>> Matrix<T> {
       }
 
       for _ in 0..n_cols {
-        /* parelelize here */
-        /* thread should return a block */
-        /* add them later after the loop to result_body */
         let mut block = Vec::with_capacity(block_size[0] * block_size[1]);
         for slider_row in slider_rows.iter_mut() {
           let block_row = slider_row.next().unwrap();
-          block.append(&mut block_row.to_vec());
+          block.extend_from_slice(block_row);
         }
 
         result_body.push(block_func(block.as_slice()));
@@ -754,20 +753,20 @@ impl<T: BasicOperations<T>> Matrix<T> {
       /* add upper padding */
       for _ in 0..upper {
         /* add as many rows as upper paddings */
-        res.append(&mut vec![T::default(); final_shape[1]]);
+        res.extend(vec![T::default(); final_shape[1]]);
       }
 
       /* add row with padding in between */
       for row_elm in matrix_rows.next().unwrap().iter() {
-        res.append(&mut vec![T::default(); left]);
+        res.extend(vec![T::default(); left]);
         res.push(*row_elm);
-        res.append(&mut vec![T::default(); right]);
+        res.extend(vec![T::default(); right]);
       }
 
       /* add lower padding */
       for _ in 0..bottom {
         /* add as many rows as lower paddings */
-        res.append(&mut vec![T::default(); final_shape[1]]);
+        res.extend(vec![T::default(); final_shape[1]]);
       }
     }
 
