@@ -157,6 +157,12 @@ pub trait Complex where Self: Sized {
 
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
 
+  fn activate(&self, func: &ComplexActFunc) -> Self;
+
+  fn d_activate(&self, func: &ComplexActFunc) -> Self;
+
+  fn d_conj_activate(&self, func: &ComplexActFunc) -> Self;
+
   fn activate_mut(vals: &mut [Self], func: &ComplexActFunc);
 
   fn d_activate_mut(vals: &mut [Self], func: &ComplexActFunc);
@@ -230,6 +236,18 @@ impl Complex for Cf32 {
         Ok(one_hot_vec)
       }
     }
+  }
+
+  fn activate(&self, func: &ComplexActFunc) -> Self {
+    func.compute_val_cf32(self)
+  }
+
+  fn d_activate(&self, func: &ComplexActFunc) -> Self {
+    func.compute_d_val_cf32(self)
+  }
+
+  fn d_conj_activate(&self, func: &ComplexActFunc) -> Self {
+    func.compute_d_conj_val_cf32(self)
   }
 
   fn activate_mut(vals: &mut [Self], func: &ComplexActFunc) {
@@ -315,6 +333,18 @@ impl Complex for Cf64 {
         Ok(one_hot_vec)
       }
     }
+  }
+
+  fn activate(&self, func: &ComplexActFunc) -> Self {
+    func.compute_val_cf64(self)
+  }
+
+  fn d_activate(&self, func: &ComplexActFunc) -> Self {
+    func.compute_d_val_cf64(self)
+  }
+
+  fn d_conj_activate(&self, func: &ComplexActFunc) -> Self {
+    func.compute_d_conj_val_cf64(self)
   }
 
   fn activate_mut(vals: &mut [Self], func: &ComplexActFunc) {

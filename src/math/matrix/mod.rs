@@ -541,7 +541,6 @@ impl<T: BasicOperations<T>> Matrix<T> {
             .collect::<Vec<T>>()
         })
         .reduce(
-          //|| {vec![T::default(); matrix_shape[1]]}, 
           |acc, row| {
             acc.add_slice(&row).unwrap()
           }
@@ -810,8 +809,11 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
   }
 
   fn add_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError> {
+    if self.len() == 0 {
+      return Ok(rhs.to_vec())
+    }
+
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
-    
 
     let res = self
       .iter()

@@ -110,7 +110,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     loss_func: &ComplexLossFunc,
   ) -> Result<T::Precision, LossCalcError> {
 
-    let mut loss_vals = Vec::with_capacity(data.get_n_points());
+    let mut loss_vals = Vec::new();
 
     let (input_chunks, target_chunks) = data.points_into_iter();
     let mut prediction;
@@ -139,7 +139,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let mut targ;
 
     let batch_len = target_chunks.len();
-    let mut results = Vec::with_capacity(batch_len);
+    let mut results = Vec::new();
     for (input, target) in input_chunks.zip(target_chunks) {
       prediction = self
         .forward(input)
@@ -182,8 +182,8 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     /* derivatives to accumulate */
     /* maybe they need to be allocated first! */
     /* maybe a get_number_of_params method to the layers */
-    let mut dldw_per_layer = Vec::with_capacity(n_layers);
-    let mut dldb_per_layer = Vec::with_capacity(n_layers);
+    let mut dldw_per_layer = Vec::new();
+    let mut dldb_per_layer = Vec::new();
     let mut _total_params: usize = 0;
     for layer in self.layers.iter() {
       if layer.is_trainable() {
