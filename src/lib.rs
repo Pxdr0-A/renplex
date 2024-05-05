@@ -15,25 +15,8 @@ mod basic_tests {
   use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
   use rayon::ThreadPoolBuilder;
   use crate::dataset::Dataset;
-  use crate::init::PredictModel;
   use crate::input::IOType;
   use crate::math::matrix::Matrix;
-
-  #[test]
-  fn dataset_to_csv_test() {
-    let ref mut seed = 119824653_u128;
-
-    let data: Dataset<f32, f32> = Dataset::sample(
-      [128, 2], 
-      4, 
-      100, 
-      10, 
-      PredictModel::Sparse, 
-      seed
-    ).unwrap();
-
-    data.to_csv().unwrap();
-  }
 
   #[test]
   fn conv_test() {

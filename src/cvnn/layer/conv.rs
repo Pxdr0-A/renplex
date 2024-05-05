@@ -107,18 +107,21 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         }
 
         /* you can make chunks out of this to zip */
-        let bias_iter = self.biases.chunks(depth);
-        //let bias_iter = self.biases.par_chunks(depth);
+        //let bias_iter = self.biases.chunks(depth);
+        let bias_iter = self.biases.par_chunks(depth);
 
         let out = input
-          .into_iter()
-          //.into_par_iter()
+          //.into_iter()
+          .into_par_iter()
           .zip(bias_iter)
-          .map(|(input_feature_map, biases)| {
+          .flat_map(|(input_feature_map, biases)| {
+            let biases_iter = biases
+              //.into_iter();
+              .into_par_iter();
             self.kernels
-              .iter()
-              //.par_iter()
-              .zip(biases)
+              //.iter()
+              .par_iter()
+              .zip(biases_iter)
               .map(|(kernel, bias)| {
                 let mut output_map = input_feature_map.conv(&kernel).unwrap();
 
@@ -129,7 +132,6 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
                 output_map
               }).collect::<Vec<_>>()
           })
-          .flatten()
           .collect::<Vec<_>>();
 
         Ok(IOType::FeatureMaps(out))
@@ -167,12 +169,11 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
 
         let chunks = dlda_dadq.len() / n_input_features;
         /* first divide the iterator in ((output_features of input1), (output_features of input2), ...) */
-        let loss_derivatives = dlda_dadq.chunks(chunks).zip(dlda_conj_da_conj_dq.chunks(chunks));
-        //let loss_derivatives = dlda_dadq.par_chunks(chunks).zip(dlda_conj_da_conj_dq.par_chunks(chunks));
-
-        let res = input
-          .into_iter()
-          //.into_par_iter()
+        //let loss_derivatives = dlda_dadq.chunks(chunks).zip(dlda_conj_da_conj_dq.chunks(chunks));
+        let loss_derivatives = dlda_dadq.par_chunks(chunks).zip(dlda_conj_da_conj_dq.par_chunks(chunks));
+        let data = input
+          //.into_iter()
+          .into_par_iter()
           .zip(loss_derivatives)
           /* transfer this for_each also to map */
           .map(|(input_feature, (out_feats_dldq, out_feats_dldq_conj))| {
@@ -180,12 +181,11 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
             /* divide out_feats_dldq and out_feats_dldq_conj in <depth> chunks and zip it! */
             /* each feature has <depth> output features */
             let size = out_feats_dldq.len() / depth;
-            let out_feats_derivative = out_feats_dldq.chunks(size).zip(out_feats_dldq_conj.chunks(size));
-            //let out_feats_derivative = out_feats_dldq.par_chunks(size).zip(out_feats_dldq_conj.par_chunks(size));
-
-            let (dldk, dldb, new_dlda_feat, new_dlda_conj_feat) = self.kernels
-              .iter()
-              //.par_iter()
+            //let out_feats_derivative = out_feats_dldq.chunks(size).zip(out_feats_dldq_conj.chunks(size));
+            let out_feats_derivative = out_feats_dldq.par_chunks(size).zip(out_feats_dldq_conj.par_chunks(size));
+            let data = self.kernels
+              //.iter()
+              .par_iter()
               .zip(out_feats_derivative)
               .map(|(kernel, (dlda_dadq, dlda_conj_da_conj_dq))| {
                 let kernel_shape = kernel.get_shape();
@@ -205,10 +205,6 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
                   }
                 }
 
-                /* update dlda and dlda_conj */
-                /* perform backward convolution (flip kernel or reverse order) */
-                /* derivative of the current input feature with respect to the respective output feature */
-                /* input feature whose output feature comes from the current kernel */
                 /* it is implicitly multiplied by 1 */
                 let dldb_feat = dlda_dadq
                   .iter()
@@ -218,34 +214,46 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
 
                 /* previous activation */
                 /* THIS DERIVATIVE MIGHT BE WRONG! Verify! */
+                /* update dlda and dlda_conj */
+                /* perform backward convolution (flip kernel or reverse order) */
+                /* derivative of the current input feature with respect to the respective output feature */
+                /* input feature whose output feature comes from the current kernel */
                 let new_dqda = input_feature.deconv(&kernel).unwrap();
                 let new_dqda_body = new_dqda.get_body();
-                let mut lhs = dlda_dadq.mul_slice(new_dqda_body).unwrap();
-                let mut rhs = dlda_conj_da_conj_dq.mul_slice(new_dqda_body).unwrap();
+                let lhs = dlda_dadq.mul_slice(new_dqda_body).unwrap();
+                let rhs = dlda_conj_da_conj_dq.mul_slice(new_dqda_body).unwrap();
 
                 let new_dlda_feat_update = lhs.add_slice(&rhs).unwrap();
-                lhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
-                rhs.iter_mut().for_each(|elm| { *elm = elm.conj() });
-                let new_dlda_conj_feat_update = lhs.add_slice(&rhs).unwrap();
+                /* maybe this is an unecessary transition */
+                //lhs.iter_mut().for_each(|elm| { *elm = elm.conj(); });
+                //rhs.iter_mut().for_each(|elm| { *elm = elm.conj(); });
+                let new_dlda_conj_feat_update = new_dlda_feat_update
+                  .iter()
+                  .map(|elm| { elm.conj() })
+                  .collect::<Vec<_>>();
 
                 /* should return the kernels derivative and the respective feature update derivatives */
                 (dldk_body, dldb_feat, new_dlda_feat_update, new_dlda_conj_feat_update)
-              })
-              .reduce(|mut acc, elm| {
-              //.reduce(|| {(Vec::new(), Vec::new(), Vec::new(), Vec::new())}, |mut acc, elm| {
-                acc.0.extend(elm.0);
-                acc.1.extend(elm.1);
-                (acc.0,  acc.1, acc.2.add_slice(&elm.2).unwrap(), acc.3.add_slice(&elm.3).unwrap())
-              }).unwrap();
+              }).collect::<Vec<_>>();
+
+            /* par reduce will desync the vectors */
+            let (dldk, dldb, new_dlda_feat, new_dlda_conj_feat) = data.into_iter().reduce(|mut acc, elm| {
+              acc.0.extend(elm.0);
+              acc.1.extend(elm.1);
+              (acc.0,  acc.1, acc.2.add_slice(&elm.2).unwrap(), acc.3.add_slice(&elm.3).unwrap())
+            }).unwrap();
 
             /* needs to return new_dlda_feat (respective to each input feature) */
             /* every dldk_d respective to each input feature (they need to be reduced along the input feature "axis") */
             (dldk, dldb, new_dlda_feat, new_dlda_conj_feat)
-        })
-        .reduce(|mut acc, elm| {
-        //.reduce(|| {(Vec::new(), Vec::new(), Vec::new(), Vec::new())}, |mut acc, elm| {
+        }).collect::<Vec<_>>();
+
+        let res = data.into_iter().reduce(|mut acc, elm| {
+          // bias derivative
           acc.1.extend(elm.1);
+          // dlda derivative
           acc.2.extend(elm.2);
+          // dlda_conj derivative
           acc.3.extend(elm.3);
 
           (acc.0.add_slice(&elm.0).unwrap(), acc.1, acc.2, acc.3)
@@ -270,20 +278,16 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     if dldw_size != weights {
       return Err(GradientError::InconsistentShape)
     }
-    
-    /* part that could use optimization */
-    /* verify if the order is correct */
-    let mut dldw_iter = dldw.into_iter();
-    for kernel in self.kernels.iter_mut() {
-      for elm in kernel.get_body_as_mut().iter_mut() {
-        /* zip chunks instead */
-        *elm -= dldw_iter.next().unwrap().conj();
-      }
-    }
 
-    for (bias, db) in self.biases.iter_mut().zip(dldb) {
+    self.kernels
+      .iter_mut()
+      .flat_map(|elm| elm.get_body_as_mut())
+      .zip(dldw.into_iter())
+      .for_each(|(elm, dk)| { *elm -= dk.conj(); });
+
+    self.biases.iter_mut().zip(dldb).for_each(|(bias, db)| {
       *bias -= db.conj();
-    }
+    });
 
     Ok(())
   }
@@ -296,28 +300,28 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     let depth = self.kernels.len();
 
     /* you can make chunks out of this to zip */
-    let bias_iter = self.biases.chunks(depth);
-    //let bias_iter = self.biases.par_chunks(depth);
+    //let bias_iter = self.biases.chunks(depth);
+    let bias_iter = self.biases.par_chunks(depth);
     
     input
-      .into_iter()
-      //.into_par_iter()
+      //.into_iter()
+      .into_par_iter()
       .zip(bias_iter)
-      .map(|(input_feature_map, biases)| {
+      .flat_map(|(input_feature_map, biases)| {
         self.kernels
-          .iter()
-          //.par_iter()
+          //.iter()
+          .par_iter()
           .zip(biases)
-          .map(|(kernel, bias)| {
+          .flat_map(|(kernel, bias)| {
             let mut output_map = input_feature_map.conv(&kernel).unwrap();
 
             /* make the chunks */
             output_map.add_mut_scalar(*bias).unwrap();
 
             output_map.export_body()
-          }).flatten().collect::<Vec<_>>()
+          })
+          .collect::<Vec<_>>()
       })
-      .flatten()
       .collect::<Vec<_>>()
   }
 }

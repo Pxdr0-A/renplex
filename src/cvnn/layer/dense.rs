@@ -87,7 +87,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
       IOType::Vector(input) => {
         /* instantiate the result (it is going to be a column matrix) */
         let mut res = self.weights
-          .mul_slice(&input[..])
+          .mul_vec(input)
           .unwrap();
 
         let res_mut = &mut res[..];
@@ -119,16 +119,23 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
         /* determine q (it is an holomorphic function) */
         /* determine q */
         let q = self.compute_q(input);
-  
-        /* determine dadq, dadq* */
-        let mut dadq = q.clone();
-        T::d_activate_mut(&mut dadq[..], &self.func);
-        let mut da_conj_dq = q;
-        /* this iteration represents dadq_conj */
-        T::d_conj_activate_mut(&mut da_conj_dq[..], &self.func);
-        da_conj_dq
-          .iter_mut()
-          .for_each(|elm| { *elm = elm.conj() });
+        
+        let act_func = &self.func;
+        let dlda_dadq = q
+          .iter()
+          .zip(dlda.into_iter())
+          .map(|(elm, dlda_val)| {
+            /* dadq * dlda values */
+            elm.d_activate(act_func) * dlda_val
+          }).collect::<Vec<_>>();
+
+        let dlda_conj_da_conj_dq = q
+          .iter()
+          .zip(dlda_conj.into_iter())
+          .map(|(elm, dlda_conj_val)| {
+            /* da_conj_dq * dlda_conj values */
+            elm.d_conj_activate(act_func).conj() * dlda_conj_val
+          }).collect::<Vec<_>>();
         
         /* determine dqdw */
         /* equal to the previous input and the same for all neurons */
@@ -137,18 +144,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
         /* dqdb is 1 */
 
         /* determine dqda */
-        let mut dqda = self.weights.rows_as_iter();
-
-        /* first two commun derivatives */
-        /* dlda * dadq and dlda* * da*dq */
-        let vals = dlda
-          .iter()
-          .zip(&dadq[..])
-          .map(|(lhs, rhs)| {*lhs * *rhs});
-        let vals_conj = dlda_conj
-          .iter()
-          .zip(&da_conj_dq[..])
-          .map(|(lhs, rhs)| {*lhs * *rhs});
+        let dqda = self.weights.rows_as_iter();
 
         /* current dldw and dldb derivatives */
         let mut dldw = Vec::with_capacity(weight_shape[0] * weight_shape[1]);
@@ -156,40 +152,35 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
 
         /* updates on cost function derivatives (propagated backwards) */
         let mut new_dlda: Vec<T> = vec![T::default(); weight_shape[1]];
-        let mut new_dlda_conj: Vec<T> = vec![T::default(); weight_shape[1]];
-
-        /* some aux vars */
-        let mut addition: Vec<T>;
         
         /* this cycle indirectly goes through the number of neurons */
-        let combined_vals = vals.into_iter().zip(vals_conj.into_iter());
-        for (val, conj_val) in combined_vals {
+        for ((val, conj_val), dqda_row) in dlda_dadq.into_iter().zip(dlda_conj_da_conj_dq).zip(dqda) {
           let mult_func = |elm: &T| { *elm * ( val + conj_val ) };
           
-          let range_iter = dqdw
+          let dldw_row = dqdw
             .iter()
-            .map(mult_func);
+            .map(mult_func)
+            .collect::<Vec<_>>();
 
-          dldw.append(&mut range_iter.collect::<Vec<T>>());
+          dldw.extend(dldw_row);
 
           /* one neuron bias derivative */
           dldb.push(val + conj_val);
 
-          addition = dqda
-            .next()
-            .unwrap()
+          /* prevsious layer */
+          let dlda = dqda_row
             .iter()
             .map(mult_func)
-            .collect();
+            .collect::<Vec<_>>();
 
           /* accumulate the sum */
-          new_dlda.add_slice_mut(&addition).unwrap();
-
-          addition.iter_mut().for_each(|elm| { *elm = elm.conj() });
-
-          /* accumulate the sum */
-          new_dlda_conj.add_slice_mut(&addition).unwrap();
+          new_dlda.add_slice_mut(&dlda).unwrap();
         }
+
+        let new_dlda_conj = new_dlda
+          .iter()
+          .map(|elm| { elm.conj() })
+          .collect::<Vec<_>>();
 
         Ok((dldw, dldb, new_dlda, new_dlda_conj))
       },

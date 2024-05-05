@@ -95,7 +95,6 @@ impl<T: Real + BasicOperations<T>> Dataset<T, T> {
 
     let mut data_batch = Dataset::new();
 
-
     for _ in 0..batch_size {
       data_file.read(image_buffer).unwrap();
       *tracker += label_file.read(label_buffer).unwrap();
@@ -146,119 +145,6 @@ impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
     }
 
     data_batch
-  }
-}
-
-/* Synthetic Dataset utilities */
-impl<T: Real + BasicOperations<T>> Dataset<T, T> {
-  pub fn gen_centers(features: usize, degree: usize, scale: usize, seed: &mut u128) -> Matrix<T> {
-    // spray focal points
-    let mut centers: Matrix<T> = Matrix::with_capacity([degree, features]);
-    let mut center: Vec<T> = Vec::with_capacity(features);
-    for _ in 0..degree {
-      for _ in 0..features {
-        center.push(
-          // random point relative to origin
-          T::gen(seed, scale)
-        );
-      }
-
-      // add_row will clean the center vector
-      centers.add_mut_row(&mut center).unwrap();
-    }
-
-    centers
-  }
-
-  /// Samples a [`Dataset`] with real values with vector inputs and vector outputs.
-  /// This artificial data has rectangular-like symmetry.
-  pub fn sample(
-    dims: [usize; 2],
-    degree: usize,
-    macro_scale: usize,
-    micro_scale: usize,
-    pred_method: PredictModel,
-    seed: &mut u128
-  ) -> Result<Dataset<T, T>, DatasetSampleError> {
-
-    if dims[0] < degree { return Err(DatasetSampleError::BellowMinimumSamples) }
-      
-    // spray focal points
-    let centers = Dataset::<T, T>::gen_centers(dims[1], degree, macro_scale, seed);
-
-    let mut class_center: &[T];
-    let mut selected_class: usize;
-    let mut one_hot_vec: Vec<T>;
-    let mut sample_body: Vec<IOType<T>> = Vec::with_capacity(dims[0]);
-    let mut labels: Vec<IOType<T>> = Vec::with_capacity(dims[0]);
-    let mut added_row: Vec<T> = Vec::with_capacity(dims[1]);
-    for _ in 0..dims[0] {
-      selected_class = lcgi(seed, degree as u128);
-      one_hot_vec = T::gen_pred(degree, selected_class, &pred_method).unwrap();
-
-      class_center = centers.row(selected_class).unwrap();
-      for col in 0..dims[1] {
-        added_row.push(
-          ( class_center[col] + T::gen(seed, micro_scale) ) / T::usize_to_real(macro_scale)
-        );
-      }
-      
-      // add_row will clean the added_row vec
-      sample_body.push(IOType::Vector(added_row.clone()));
-      labels.push(IOType::Vector(one_hot_vec.clone()));
-
-      added_row.drain(..);
-    }
-
-    Ok(
-      Dataset {
-        inputs: sample_body,
-        target: labels
-      }
-    )
-  }
-
-  pub fn gen_batch_sample(
-    dims: [usize; 2],
-    centers: Matrix<T>,
-    micro_scale: usize,
-    pred_method: PredictModel,
-    seed: &mut u128
-  ) -> Result<Dataset<T, T>, DatasetSampleError> {
-    
-    let centers_shape = centers.get_shape();
-    let degree = centers_shape[0];
-    let _features = centers_shape[1];
-    let mut class_center: &[T];
-    let mut selected_class: usize;
-    let mut one_hot_vec: Vec<T>;
-    let mut sample_body: Vec<IOType<T>> = Vec::with_capacity(dims[0]);
-    let mut labels: Vec<IOType<T>> = Vec::with_capacity(dims[0]);
-    let mut added_row: Vec<T> = Vec::with_capacity(dims[1]);
-    for _ in 0..dims[0] {
-      selected_class = lcgi(seed, degree as u128);
-      one_hot_vec = T::gen_pred(degree, selected_class, &pred_method).unwrap();
-
-      class_center = centers.row(selected_class).unwrap();
-      for col in 0..dims[1] {
-        added_row.push(
-          class_center[col] + T::gen(seed, micro_scale)
-        );
-      }
-      
-      // add_row will clean the added_row vec
-      sample_body.push(IOType::Vector(added_row.clone()));
-      labels.push(IOType::Vector(one_hot_vec.clone()));
-
-      added_row.drain(..);
-    }
-
-    Ok(
-      Dataset {
-        inputs: sample_body,
-        target: labels
-      }
-    )
   }
 }
 

@@ -2,10 +2,9 @@ use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::default::Default;
 
-use crate::act::{ActFunc, ComplexActFunc};
+use crate::act::ComplexActFunc;
 use crate::input::IOType;
 use crate::opt::ComplexLossFunc;
-use crate::opt::LossFunc;
 use crate::err::{LossCalcError, PredicionError};
 use crate::init::PredictModel;
 
@@ -32,14 +31,6 @@ pub trait Real
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
-
-  fn activate_mut(vals: &mut [Self], func: &ActFunc);
-
-  fn d_activate_mut(vals: &mut [Self], func: &ActFunc);
-
-  fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Self, LossCalcError>;
-
-  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<IOType<Self>, LossCalcError>;
 }
 
 impl Real for f32 {
@@ -62,28 +53,12 @@ impl Real for f32 {
 
     match pred_method {
       PredictModel::Sparse => { 
-        let mut one_hot_vec = vec![0.0; size];
+        let mut one_hot_vec = vec![Self::default(); size];
         one_hot_vec[critical_index] += 1.0;
 
         Ok(one_hot_vec)
       }
     }
-  }
-
-  fn activate_mut(vals: &mut [Self], func: &ActFunc) {
-    func.compute_f32(vals);
-  }
-
-  fn d_activate_mut(vals: &mut [Self], func: &ActFunc) {
-    func.compute_d_f32(vals)
-  }
-
-  fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Self, LossCalcError> {
-    loss_func.compute_f32(prediction, target)
-  }
-
-  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<IOType<Self>, LossCalcError> {
-    loss_func.compute_d_f32(prediction, target)
   }
 }
 
@@ -104,31 +79,15 @@ impl Real for f64 {
 
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError> {
     if size < critical_index { return Err(PredicionError::CriticalIndexOverflow) }
-    
+
     match pred_method {
       PredictModel::Sparse => { 
-        let mut one_hot_vec = vec![0.0; size];
+        let mut one_hot_vec = vec![Self::default(); size];
         one_hot_vec[critical_index] += 1.0;
 
         Ok(one_hot_vec)
       }
     }
-  }
-
-  fn activate_mut(vals: &mut [Self], func: &ActFunc) {
-    func.compute_f64(vals);
-  }
-
-  fn d_activate_mut(vals: &mut [Self], func: &ActFunc) {
-    func.compute_d_f64(vals);
-  }
-
-  fn loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<Self, LossCalcError> {
-    loss_func.compute_f64(prediction, target)
-  }
-
-  fn d_loss(prediction: IOType<Self>, target: IOType<Self>, loss_func: &LossFunc) -> Result<IOType<Self>, LossCalcError> {
-    loss_func.compute_d_f64(prediction, target)
   }
 }
 

@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::vec::IntoIter;
 use super::BasicOperations;
+use rayon::prelude::ParallelSlice;
 
 mod err;
 use err::{
@@ -270,7 +271,11 @@ impl<T> Matrix<T> {
   }
 }
 
-impl<T: Copy> Matrix<T> {
+impl<T: Copy + Sync> Matrix<T> {
+  pub fn rows_as_par_chunks(&self) -> rayon::slice::Chunks<'_, T> {
+    self.body.par_chunks(self.shape[1])
+  }
+
   pub fn row_into_slice(&self, i: usize, result: &mut [T]) -> Result<(), OperationError> {
     if i >= self.shape[0] { return Err(OperationError::OutOfBounds); }
 
@@ -364,123 +369,41 @@ impl<T: BasicOperations<T>> Matrix<T> {
     Ok(())
   }
 
-  pub fn mul(&self, rhs: &Self) -> Result<Matrix<T>, OperationError> {    
-    if self.shape[1] != rhs.shape[0] { return Err(OperationError::InvalidRHS); }
-
-    let new_shape: [usize; 2] = [self.shape[0], rhs.shape[1]];
-    let mut result_body = vec![T::default(); new_shape[0] * new_shape[1]];
-    
-    let row_buf = &mut vec![T::default(); self.shape[1]][..];
-    let col_buf = &mut vec![T::default(); rhs.shape[0]][..];
-    for c in 0..new_shape[1] {
-      rhs.col_into_slice(c, col_buf).unwrap();
-      for r in 0..new_shape[0] {
-        self.row_into_slice(r, row_buf).unwrap();
-
-        result_body[r * new_shape[1] + c] = (0..self.shape[1])
-          .fold(T::default(), |acc, k| {
-            acc + row_buf[k] * col_buf[k]
-        });
-      }
-    }
-
-    Ok(
-      Matrix { 
-        body: result_body, 
-        shape: new_shape, 
-        capacity: new_shape 
-      }
-    )
-  }
-
   /// Usefull for multiplying columns or rows with a matrix
   pub fn mul_vec(&self, rhs: Vec<T>) -> Result<Vec<T>, OperationError> {
     if self.shape[1] != rhs.len() { return Err(OperationError::InvalidRHS); }
 
-    let mut result_body = vec![T::default(); self.shape[0]];
-    
-    let row_buf = &mut vec![T::default(); self.shape[1]][..];
-    for r in 0..self.shape[0] {
-      self.row_into_slice(r, row_buf).unwrap();
-
-      result_body[r] = (0..self.shape[1])
-        .fold(T::default(), |acc, k| {
-          /* go through columns of matrix and rows of vector (same value) */
-          acc + row_buf[k] * rhs[k]
-      });
-    }
-
-    Ok(result_body)
-  }
-
-  pub fn mul_elm_vec(&mut self, rhs: &Vec<T>) -> Result<(), OperationError> {
-    if self.shape[1] != rhs.len() { return Err(OperationError::InvalidRHS); }
-
-    for row in self.rows_as_iter_mut() {
-      row
+    let res = self.rows_as_iter().map(|elm| {
+      elm
         .into_iter()
         .zip(rhs.iter())
-        .for_each(|(elm, other)| { *elm *= *other; });
-    }
+        .fold(T::default(), 
+        |acc, elm| { acc + (*elm.0 * *elm.1) }
+      )
+    }).collect::<Vec<_>>();
 
-    Ok(())
+    Ok(res)
   }
 
   /// Usefull for multiplying columns or rows with a matrix
   pub fn mul_slice(&self, rhs: &[T]) -> Result<Vec<T>, OperationError> {
     if self.shape[1] != rhs.len() { return Err(OperationError::InvalidRHS); }
 
-    let mut result_body = vec![T::default(); self.shape[0]];
-    
-    let row_buf = &mut vec![T::default(); self.shape[1]][..];
-    for r in 0..self.shape[0] {
-      self.row_into_slice(r, row_buf).unwrap();
+    let res = self.rows_as_iter().map(|elm| {
+      elm
+        .into_iter()
+        .zip(rhs.iter())
+        .fold(T::default(), 
+        |acc, elm| { acc + (*elm.0 * *elm.1) }
+      )
+    }).collect::<Vec<_>>();
 
-      result_body[r] = (0..self.shape[1])
-        .fold(T::default(), |acc, k| {
-          /* go through columns of matrix and rows of vector (same value) */
-          acc + row_buf[k] * rhs[k]
-      });
-    }
-
-    Ok(result_body)
+    Ok(res)
   }
 
   pub fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
     self.body.iter_mut().for_each(|elm| { *elm *= rhs; });
     
-    Ok(())
-  }
-
-  pub fn mul_point(&self, rhs: &Self) -> Result<Self, OperationError> {
-    let rhs_shape = rhs.get_shape();
-    let lhs_shape = self.get_shape();
-    if lhs_shape != rhs_shape {
-      return Err(OperationError::InconsistentShape)
-    }
-
-    let mut body = Vec::with_capacity(lhs_shape[0] * lhs_shape[1]);
-    for (lhs_elm, rhs_elm) in self.get_body().iter().zip(rhs.get_body()) {
-      body.push(*lhs_elm * *rhs_elm);
-    }
-
-    Ok(Matrix::from_body(body, [lhs_shape[0], lhs_shape[1]]))
-  }
-
-  pub fn mul_point_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
-    let rhs_shape = rhs.get_shape();
-    let lhs_shape = self.get_shape();
-
-    if lhs_shape != rhs_shape {
-      return Err(OperationError::InconsistentShape)
-    }
-
-    self
-      .get_body_as_mut()
-      .iter_mut()
-      .zip(rhs.get_body().iter())
-      .for_each(|(lhs, rhs)| { *lhs *= *rhs });
-
     Ok(())
   }
 
