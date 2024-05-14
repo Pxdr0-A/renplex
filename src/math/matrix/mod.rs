@@ -349,20 +349,6 @@ impl<T: BasicOperations<T>> Matrix<T> {
     }
   }
 
-  /// Usefull for adding intire arrays to the body of a matrix.
-  pub fn add_slice(&mut self, rhs: &[T]) -> Result<(), OperationError> {
-    if self.body.len() != rhs.len() { 
-      return Err(OperationError::InconsistentShape);
-    }
-
-    self.body
-      .iter_mut()
-      .zip(rhs.iter())
-      .for_each(|(lhs, rhs)| { *lhs += *rhs });
-
-    Ok(())
-  }
-
   pub fn add_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
     self.body.iter_mut().for_each(|elm| { *elm += rhs; });
     
@@ -497,8 +483,6 @@ impl<T: BasicOperations<T>> Matrix<T> {
           res_body.push(T::default());
         } else {
           /* (i,j) + rel_pos is positive! */
-          //println!("{}", i + pos.0 - center.0);
-          //println!("{}", j + pos.1 - center.1);
           res_body.push(*self.elm(i + pos.0 - center.0, j + pos.1 - center.1).unwrap());
         }
       }
@@ -556,8 +540,9 @@ impl<T: BasicOperations<T>> Matrix<T> {
       slider.push(vec![T::default(); matrix_shape[1] + (kernel_shape[1] - 1)]); 
     }
 
-    let mut out = Vec::with_capacity(matrix_shape[0] * matrix_shape[1]);
+    let mut out = Vec::new();
     for row_id in 0..matrix_shape[0] {
+      /* it would be awesome to paralelize this */
       let convolved_row = slider
         .iter()
         .rev()
@@ -603,13 +588,9 @@ impl<T: BasicOperations<T>> Matrix<T> {
     }
 
     out.reverse();
-    let res = out
-      .into_iter()
-      .flatten()
-      .collect::<Vec<T>>()
-      .to_matrix([matrix_shape[0] ,matrix_shape[1]]).unwrap();
+    let body = out.into_iter().flatten().collect::<Vec<_>>();
 
-    Ok(res)
+    Ok(Matrix::from_body(body, [matrix_shape[0] ,matrix_shape[1]]))
   }
 
   pub fn block_reduce(&self, block_size: &[usize], block_func: impl Fn(&[T]) -> T) -> Result<Self, OperationError> {
@@ -707,8 +688,6 @@ pub trait SliceOps<T> {
 
   fn add_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError>;
 
-  fn sub_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError>;
-
   fn mul_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError>;
 
   fn mul_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError>;
@@ -745,17 +724,6 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
       .collect();
     
     Ok(res)
-  }
-
-  fn sub_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
-    if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
-    
-    self
-      .iter_mut()
-      .zip(rhs)
-      .for_each(|(lhs, rhs)| { *lhs -= *rhs });
-
-    Ok(())
   }
 
   fn mul_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {

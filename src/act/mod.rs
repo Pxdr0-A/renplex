@@ -33,7 +33,6 @@ fn relu_f32(val: f32) -> f32 {
     f32::default()
   }
 }
-
 fn relu_f64(val: f64) -> f64 {
   if val.is_sign_positive() {
     val
@@ -117,85 +116,29 @@ fn ritrelu_cf64(val: Cf64) -> Cf64 {
 
 fn d_ritrelu_cf32(val: Cf32) -> Cf32 {
   Cf32 {
-    x: ( d_relu_f32(val.x) + d_relu_f32(val.x) ) * 0.5,
+    x: ( d_relu_f32(val.x) + d_relu_f32(val.y) ) * 0.5,
     y: 0.0
   }
 }
 
 fn d_ritrelu_cf64(val: Cf64) -> Cf64 {
   Cf64 {
-    x: ( d_relu_f64(val.x) + d_relu_f64(val.x) ) * 0.5,
+    x: ( d_relu_f64(val.x) + d_relu_f64(val.y) ) * 0.5,
     y: 0.0
   }
 }
 
 fn d_conj_ritrelu_cf32(val: Cf32) -> Cf32 {
   Cf32 {
-    x: ( d_relu_f32(val.x) - d_relu_f32(val.x) ) * 0.5,
+    x: ( d_relu_f32(val.x) - d_relu_f32(val.y) ) * 0.5,
     y: 0.0
   }
 }
 
 fn d_conj_ritrelu_cf64(val: Cf64) -> Cf64 {
   Cf64 {
-    x: ( d_relu_f64(val.x) - d_relu_f64(val.x) ) * 0.5,
+    x: ( d_relu_f64(val.x) - d_relu_f64(val.y) ) * 0.5,
     y: 0.0
-  }
-}
-
-
-#[derive(Debug)]
-pub enum ActFunc {
-  Sigmoid
-}
-
-impl ActFunc {
-  pub fn compute_f32(&self, vals: &mut [f32]) {
-    let act_func = match self {
-      ActFunc::Sigmoid => {
-        sigmoid_f32
-      }
-    };
-
-    for val in vals.iter_mut() {
-      *val = act_func(*val);
-    }
-  }
-
-  pub fn compute_f64(&self, vals: &mut [f64]) {
-    let act_func = match self {
-      ActFunc::Sigmoid => {
-        sigmoid_f64
-      }
-    };
-
-    for val in vals.iter_mut() {
-      *val = act_func(*val);
-    }
-  }
-
-  pub fn compute_d_f32(&self, vals: &mut [f32]) {
-    let act_func = match self {
-      ActFunc::Sigmoid => {
-        d_sigmoid_f32
-      }
-    };
-
-    for val in vals.iter_mut() {
-      *val = act_func(*val);
-    }
-  }
-
-  pub fn compute_d_f64(&self, vals: &mut [f64]) {
-    let act_func = match self {
-      ActFunc::Sigmoid => {
-        d_sigmoid_f64
-      }
-    };
-
-    for val in vals.iter_mut() {
-      *val = act_func(*val);
-    }
   }
 }
 
@@ -272,7 +215,7 @@ impl ComplexActFunc {
     }
   }
 
-  /* multiple value */
+  /* multiple values */
 
   pub fn compute_cf32(&self, vals: &mut [Cf32]) {
     let act_func = self.release_func_cf32();
