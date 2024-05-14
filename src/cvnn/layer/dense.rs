@@ -81,24 +81,22 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     }
   }
 
-  pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+  pub fn forward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       /* dense layer should receive a vector */
       IOType::Vector(input) => {
         /* instantiate the result (it is going to be a column matrix) */
         let mut res = self.weights
-          .mul_vec(input)
+          .mul_slice(input)
           .unwrap();
 
-        let res_mut = &mut res[..];
-
         /* add the biases to the result */
-        res_mut
+        res
           .add_slice_mut(&self.biases[..])
           .unwrap();
 
         /* calculate the activations */
-        T::activate_mut(res_mut, &self.func);
+        T::activate_mut(res.as_mut_slice(), &self.func);
 
         /* layer returns a vector */
         Ok(IOType::Vector(res))
@@ -120,6 +118,8 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
         /* determine q */
         let q = self.compute_q(input);
         
+        /* Check the derivatives that you changed */
+
         let act_func = &self.func;
         let dlda_dadq = q
           .iter()
@@ -129,6 +129,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
             elm.d_activate(act_func) * dlda_val
           }).collect::<Vec<_>>();
 
+        /* POTENTIAL VOLNURABILITY */
         let dlda_conj_da_conj_dq = q
           .iter()
           .zip(dlda_conj.into_iter())
@@ -147,14 +148,16 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
         let dqda = self.weights.rows_as_iter();
 
         /* current dldw and dldb derivatives */
-        let mut dldw = Vec::with_capacity(weight_shape[0] * weight_shape[1]);
-        let mut dldb = Vec::with_capacity(weight_shape[0]);
+        let mut dldw = Vec::new();
+        let mut dldb = Vec::new();
 
         /* updates on cost function derivatives (propagated backwards) */
         let mut new_dlda: Vec<T> = vec![T::default(); weight_shape[1]];
         
         /* this cycle indirectly goes through the number of neurons */
         for ((val, conj_val), dqda_row) in dlda_dadq.into_iter().zip(dlda_conj_da_conj_dq).zip(dqda) {
+          /* Wirtinger derivative */
+          // contains the values per neuron (n index) for (dL/da * da/dq + dL/da* * da*/dq) * (specific derivative)
           let mult_func = |elm: &T| { *elm * ( val + conj_val ) };
           
           let dldw_row = dqdw
@@ -164,7 +167,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
 
           dldw.extend(dldw_row);
 
-          /* one neuron bias derivative */
+          /* one neuron's bias derivative */
           dldb.push(val + conj_val);
 
           /* prevsious layer */
@@ -177,10 +180,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
           new_dlda.add_slice_mut(&dlda).unwrap();
         }
 
-        let new_dlda_conj = new_dlda
-          .iter()
-          .map(|elm| { elm.conj() })
-          .collect::<Vec<_>>();
+        let new_dlda_conj = new_dlda.iter().map(|elm| { elm.conj() }).collect::<Vec<_>>();
 
         Ok((dldw, dldb, new_dlda, new_dlda_conj))
       },
@@ -202,7 +202,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     if dldw_size != n_weights {
       return Err(GradientError::InconsistentShape)
     }
-    
+
     /* weights update */
     weights
       .iter_mut()

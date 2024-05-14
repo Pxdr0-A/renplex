@@ -75,7 +75,7 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
-  pub fn foward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+  pub fn foward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     /* deconstruct what type of layer it is */
     match self {
       CLayer::Dense(l) => { l.forward(input_type) },

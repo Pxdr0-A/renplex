@@ -36,23 +36,18 @@ impl Flatten {
     Flatten { input_size }
   }
 
-  pub fn trigger<T>(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+  pub fn foward<T: Clone>(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       IOType::FeatureMaps(features) => {
         let flatten_features = features
           .into_iter()
-          .map(|feature| { feature.export_body() })
-          .flatten()
+          .flat_map(|feature| { feature.get_body().to_vec() })
           .collect::<Vec<T>>();
 
         Ok(IOType::Vector(flatten_features))
       },
       _ => { Err(LayerForwardError::InvalidInput) }
     }
-  }
-
-  pub fn foward<T>(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
-    self.trigger(input_type)
   }
 
   pub fn wrap<T>(self) -> CLayer<T> {

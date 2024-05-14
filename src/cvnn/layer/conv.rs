@@ -95,7 +95,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     }
   }
 
-  pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+  pub fn forward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       IOType::FeatureMaps(input) => {
         let n_feature_maps = input.len();
@@ -212,12 +212,11 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
                   .fold(T::default(), |acc, (lhs, rhs)| { acc + (*lhs + *rhs) });
                 let dldb_feat = vec![dldb_feat];
 
-                /* previous activation */
-                /* THIS DERIVATIVE MIGHT BE WRONG! Verify! */
-                /* update dlda and dlda_conj */
+                /* loss derivatives wtr previous activation */
                 /* perform backward convolution (flip kernel or reverse order) */
                 /* derivative of the current input feature with respect to the respective output feature */
                 /* input feature whose output feature comes from the current kernel */
+                /* THIS DERIVATIVE MIGHT BE WRONG! Verify! */
                 let new_dqda = input_feature.deconv(&kernel).unwrap();
                 let new_dqda_body = new_dqda.get_body();
                 let lhs = dlda_dadq.mul_slice(new_dqda_body).unwrap();
@@ -237,10 +236,12 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
               }).collect::<Vec<_>>();
 
             /* par reduce will desync the vectors */
-            let (dldk, dldb, new_dlda_feat, new_dlda_conj_feat) = data.into_iter().reduce(|mut acc, elm| {
-              acc.0.extend(elm.0);
-              acc.1.extend(elm.1);
-              (acc.0,  acc.1, acc.2.add_slice(&elm.2).unwrap(), acc.3.add_slice(&elm.3).unwrap())
+            let (dldk, dldb, new_dlda_feat, new_dlda_conj_feat) = data
+              .into_iter()
+              .reduce(|mut acc, elm| {
+                acc.0.extend(elm.0);
+                acc.1.extend(elm.1);
+                (acc.0,  acc.1, acc.2.add_slice(&elm.2).unwrap(), acc.3.add_slice(&elm.3).unwrap())
             }).unwrap();
 
             /* needs to return new_dlda_feat (respective to each input feature) */
@@ -248,15 +249,17 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
             (dldk, dldb, new_dlda_feat, new_dlda_conj_feat)
         }).collect::<Vec<_>>();
 
-        let res = data.into_iter().reduce(|mut acc, elm| {
-          // bias derivative
-          acc.1.extend(elm.1);
-          // dlda derivative
-          acc.2.extend(elm.2);
-          // dlda_conj derivative
-          acc.3.extend(elm.3);
+        let res = data
+          .into_iter()
+          .reduce(|mut acc, elm| {
+            // bias derivative
+            acc.1.extend(elm.1);
+            // dlda derivative
+            acc.2.extend(elm.2);
+            // dlda_conj derivative
+            acc.3.extend(elm.3);
 
-          (acc.0.add_slice(&elm.0).unwrap(), acc.1, acc.2, acc.3)
+            (acc.0.add_slice(&elm.0).unwrap(), acc.1, acc.2, acc.3)
         }).unwrap();
 
         Ok(res)

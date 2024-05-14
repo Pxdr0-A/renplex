@@ -81,7 +81,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       /* propagate through hidden layers */
       /* there might be a better solution without using convert() */
       out = layer_ref
-        .foward(out)
+        .foward(&out)
         .unwrap();
     }
 
@@ -98,11 +98,30 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       if current_index == index { return Ok((previous_act, layer_ref)) }
 
       previous_act = layer_ref
-        .foward(previous_act)
+        .foward(&previous_act)
         .unwrap();
     }
 
     panic!("Something went terribily wrong.");
+  }
+
+  pub fn collect_acts(&self, input_type: IOType<T>) -> Result<Vec<IOType<T>>, ForwardError> {
+    if self.layers.len() == 0 { return Err(ForwardError::MissingLayers) }
+    
+    /* feed input */
+    let mut outs = vec![input_type];
+    let layers_iter = self.layers.iter();
+    for layer_ref in layers_iter {
+      /* propagate through hidden layers */
+      /* there might be a better solution without using convert() */
+      outs.push(
+        layer_ref
+          .foward(outs.last().unwrap())
+          .unwrap()
+      );
+    }
+
+    Ok(outs)
   }
 
   pub fn loss(&self, 
@@ -171,13 +190,9 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     T::Precision::usize_to_real(acc) / T::Precision::usize_to_real(batch_len)
   }
 
-  pub fn gradient_opt(&mut self, data: Dataset<T, T>, loss_func: ComplexLossFunc, lr: T) -> Result<(), ForwardError> {
+  pub fn gradient_opt(&mut self, data: Dataset<T, T>, loss_func: &ComplexLossFunc, lr: T) -> Result<(), ForwardError> {
     let n_layers = self.layers.len();
     if n_layers <= 1 { return Err(ForwardError::MissingLayers) }
-
-    /* main derivatives */
-    let mut dldw;
-    let mut dldb;
 
     /* derivatives to accumulate */
     /* maybe they need to be allocated first! */
@@ -204,12 +219,13 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let batch_size = inputs.len();
     /* accumulate weight and bias derivative */
     for (input, target) in inputs.zip(targets) {
+      let mut activations = self.collect_acts(input).unwrap().into_iter().rev();
       /* initial prediction */
-      let initial_pred = self.forward(input.clone()).unwrap();
+      let initial_pred = activations.next().unwrap();
       /* initial value of loss derivatives */
       let mut dlda = T::d_loss(
-        initial_pred.clone(),
-        target.clone(), 
+        initial_pred,
+        target,
         &loss_func
       ).unwrap().to_vec();
       /* initial conjugate derivative of loss */
@@ -218,9 +234,22 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         .map(|elm| { elm.conj() })
         .collect();
 
+      for (l, (prev_act, layer)) in activations.zip(self.layers.iter().rev()).enumerate() {
+        if layer.is_trainable() {
+          let dldw; let dldb;
+          (dldw, dldb, dlda, dlda_conj) = layer.compute_derivatives(&prev_act, dlda, dlda_conj).unwrap();
+
+          dldw_per_layer[n_layers-l-1].add_slice_mut(&dldw).unwrap();
+          dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap(); 
+        }
+      }
+
       /* decrease the number of layers to go through by one until you reach the input */
       /* propagate the derivatives backwards */
-      for l in 0..self.layers.len() {
+      /* Maybe it is not worth it to do the intercept everytime!!! */
+      /* CORRECT THIS! */
+      /*
+      for l in 0..n_layers {
         /* process for getting previous signal of a layer */
         /* layer is trainable if it obeys this condition */
         let (previous_act, last_layer) = self
@@ -234,16 +263,17 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
           dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap(); 
         }
       }
+      */
     }
 
     /* divide the gradient by the count of data samples */
     let scale_param = lr / T::usize_to_complex(batch_size);
-    let update_par_iter = dldw_per_layer
+    let update_iter = dldw_per_layer
       .into_iter()
       .zip(dldb_per_layer.into_iter())
       .zip(self.layers.iter_mut());
 
-    update_par_iter.for_each(|((mut dldw, mut dldb), layer)| {
+    update_iter.for_each(|((mut dldw, mut dldb), layer)| {
       if layer.is_trainable() {
         dldw.mul_mut_scalar(scale_param).unwrap();
         dldb.mul_mut_scalar(scale_param).unwrap();

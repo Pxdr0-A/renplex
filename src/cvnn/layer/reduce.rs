@@ -43,23 +43,23 @@ impl<T: BasicOperations<T>> Reduce<T> {
     Reduce { input_features_len, block_size, block_func, interp_kernel }
   }
 
-  pub fn trigger(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
+  pub fn foward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       IOType::FeatureMaps(features) => {
         let mut new_features = Vec::with_capacity(features.len());
         for feature in features.into_iter() {
-          let new_feature = feature.block_reduce(self.block_size.as_slice(), &self.block_func).unwrap();
+          let new_feature = feature.block_reduce(
+            self.block_size.as_slice(), 
+            &self.block_func
+          ).unwrap();
+
           new_features.push(new_feature);
         }
 
         Ok(IOType::FeatureMaps(new_features))
       },
       _ => { Err(LayerForwardError::InvalidInput) }
-    }
-  }
-
-  pub fn foward(&self, input_type: IOType<T>) -> Result<IOType<T>, LayerForwardError> {
-    self.trigger(input_type)
+    }  
   }
 
   pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
