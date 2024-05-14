@@ -6,13 +6,59 @@ use crate::input::IOType;
 /* Loss Functions. */
 
 /* Complex Valued (complex input -> real output) */
+
+/* Square Error */
+/* For some reason, I cannot flip the predicted with the target. Investigate! */
 fn conv_err_cf32(data: (Cf32, Cf32)) -> f32 { ( data.0 - data.1 ).norm_sq() }
 fn conv_err_cf64(data: (Cf64, Cf64)) -> f64 { ( data.0 - data.1 ).norm_sq() }
-fn d_conv_err_cf32(data: (Cf32, Cf32)) -> Cf32 { data.0.conj() - data.1.conj() }
-fn d_conv_err_cf64(data: (Cf64, Cf64)) -> Cf64 { data.0.conj() - data.1.conj() }
+fn d_conv_err_cf32(data: (Cf32, Cf32)) -> Cf32 { (data.0 - data.1).conj() }
+fn d_conv_err_cf64(data: (Cf64, Cf64)) -> Cf64 { (data.0 - data.1).conj() }
+
+/* Categorical Cross-Entropy */
+fn cross_entropy_f32(data: (f32, f32)) -> f32 {
+  -data.1 * data.0.ln()
+}
+fn cross_entropy_f64(data: (f64, f64)) -> f64 { 
+  -data.1 * data.0.ln()
+}
+fn d_cross_entropy_f32(data: (f32, f32)) -> f32 {
+  -data.1 / data.0
+}
+fn d_cross_entropy_f64(data: (f64, f64)) -> f64 { 
+  -data.1 / data.0
+}
+/* Complex cross entropy (NOT READY!!!) */
+/* maybe you need the softmax */
+fn ce_err_cf32(data: (Cf32, Cf32)) -> f32 { 
+  let (pred_re, pred_im, targ_re, targ_im) = (data.0.re(), data.0.im(), data.1.re(), data.1.im());
+
+  0.5 * ( cross_entropy_f32((pred_re, targ_re)) + cross_entropy_f32((pred_im, targ_im)) )
+}
+fn ce_err_cf64(data: (Cf64, Cf64)) -> f64 { 
+  let (pred_re, pred_im, targ_re, targ_im) = (data.0.re(), data.0.im(), data.1.re(), data.1.im());
+
+  0.5 * ( cross_entropy_f64((pred_re, targ_re)) + cross_entropy_f64((pred_im, targ_im)) )
+}
+fn d_ce_err_cf32(data: (Cf32, Cf32)) -> Cf32 {
+  let (pred_re, pred_im, targ_re, targ_im) = (data.0.re(), data.0.im(), data.1.re(), data.1.im());
+
+  Cf32 {
+    x: 0.25 * d_cross_entropy_f32((pred_re, targ_re)),
+    y: - 0.25 * d_cross_entropy_f32((pred_im, targ_im))
+  }  
+}
+fn d_ce_err_cf64(data: (Cf64, Cf64)) -> Cf64 {
+  let (pred_re, pred_im, targ_re, targ_im) = (data.0.re(), data.0.im(), data.1.re(), data.1.im());
+
+  Cf64 {
+    x: 0.25 * d_cross_entropy_f64((pred_re, targ_re)),
+    y: - 0.25 * d_cross_entropy_f64((pred_im, targ_im))
+  }  
+}
 
 pub enum ComplexLossFunc {
-  Conventional
+  Conventional,
+  CCrossEntropy
 }
 
 impl ComplexLossFunc {
@@ -23,6 +69,9 @@ impl ComplexLossFunc {
     let func = match self {
       ComplexLossFunc::Conventional => {
         conv_err_cf32
+      },
+      ComplexLossFunc::CCrossEntropy => {
+        ce_err_cf32
       }
     };
 
@@ -77,6 +126,9 @@ impl ComplexLossFunc {
     let func = match self {
       ComplexLossFunc::Conventional => {
         conv_err_cf64
+      },
+      ComplexLossFunc::CCrossEntropy => {
+        ce_err_cf64
       }
     };
 
@@ -130,6 +182,9 @@ impl ComplexLossFunc {
     let func = match self {
       ComplexLossFunc::Conventional => {
         d_conv_err_cf32
+      },
+      ComplexLossFunc::CCrossEntropy => {
+        d_ce_err_cf32
       }
     };
 
@@ -177,6 +232,9 @@ impl ComplexLossFunc {
     let func = match self {
       ComplexLossFunc::Conventional => {
         d_conv_err_cf64
+      },
+      ComplexLossFunc::CCrossEntropy => {
+        d_ce_err_cf64
       }
     };
 
