@@ -17,6 +17,71 @@ mod basic_tests {
   use crate::dataset::Dataset;
   use crate::input::IOType;
   use crate::math::matrix::Matrix;
+  use crate::math::matrix::SliceOps;
+
+  #[test]
+  fn matrix_add() {
+    let mut matrix1 = Matrix::from_body(
+      vec![
+        1.0, 1.0, 1.0, 1.0,
+        2.0, 2.0, 2.0, 2.0,
+        3.0, 3.0, 3.0, 3.0,
+        4.0, 4.0, 4.0, 4.0
+      ], [4, 4]);
+    
+    let matrix2 = Matrix::from_body(
+      vec![
+        1.0, 1.0, 1.0, 1.0,
+        2.0, 2.0, 2.0, 2.0,
+        3.0, 3.0, 3.0, 3.0,
+        4.0, 4.0, 4.0, 4.0
+      ], [4, 4]);
+    
+    matrix1.add_mut(&matrix2).unwrap();
+    println!("{}", matrix1);
+    matrix1.add_mut_scalar(2.0).unwrap();
+    println!("{}", matrix1);
+  }
+
+  #[test]
+  fn matrix_mul() {
+    let mut matrix1 = Matrix::from_body(
+      vec![
+        2.0, 1.0, 1.2,
+        1.5, 5.0, 1.0,
+        9.3, 1.0, 0.0
+      ], [3, 3]);
+
+    matrix1.mul_mut_scalar(2.0).unwrap();
+    println!("{}", matrix1);
+    matrix1.div_mut_scalar(2.0).unwrap();
+    println!("{}", matrix1);
+    
+    let res = matrix1.mul_vec(vec![1.0, 2.0, 0.0]).unwrap();
+    let res1 = matrix1.mul_slice(&vec![1.0, 2.0, 0.0]).unwrap();
+
+    println!("{:?}", res);
+    println!("{:?}", res1);
+  }
+
+  #[test]
+  fn vec_add() {
+    let mut vec1 = vec![2.0, 1.0, 2.0];
+
+    vec1.add_slice_mut(&[1.0, 2.0, 3.0]).unwrap();
+    println!("{:?}", vec1);
+    let mut a = vec1.add_slice(&[1.0, 2.0, 3.0]).unwrap();
+    println!("{:?}", a);
+    a.mul_mut_scalar(2.0).unwrap();
+    println!("{:?}", a);
+    a.mul_slice_mut(&[2.0, 0.5, 3.0]).unwrap();
+    println!("{:?}", a);
+    let b = a.mul_slice(&[0.5, 2.0, 0.333]).unwrap();
+    println!("{:?}", b);
+
+    let c = &[2.0, 3.0, 1.0].scalar_prod(&[1.0, 2.0, 2.0]).unwrap();
+    println!("{:?}", c);
+  }
 
   #[test]
   fn conv_test() {

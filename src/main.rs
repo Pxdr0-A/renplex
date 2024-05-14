@@ -17,23 +17,64 @@ use renplex::math::matrix::Matrix;
 use renplex::math::Complex;
 use renplex::opt::ComplexLossFunc;
 
-
-fn main() {
-  let ref mut seed = 23548989346723563;
-    
+fn _get_1conv_layer_cvcnn(seed: &mut u128) -> CNetwork<Cf32> {
   let conv_scale: usize = 1;
   let dense_scale: usize = 1;
 
+  let input_layer_kernels = vec![[3,3]; 8];
+
   let input_layer: CLayer<Cf32> = ConvCLayer::init(
     IOShape::FeatureMaps(1),
-    vec![[7, 7], [5, 5], [3, 3]],
+    input_layer_kernels,
+    ComplexActFunc::RITReLU, 
+    InitMethod::Random(conv_scale),
+    InitMethod::Random(dense_scale),
+    seed
+  ).unwrap().wrap();
+  let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[28, 28]; 8]).wrap();
+  let first_dense: CLayer<Cf32> = DenseCLayer::init(
+    IOShape::Vector(28*28*8), 
+    64,
+    ComplexActFunc::RITSigmoid, 
+    InitMethod::Random(dense_scale),
+    seed
+  ).unwrap().wrap();
+  let output_layer: CLayer<Cf32> = DenseCLayer::init(
+    IOShape::Vector(64), 
+    10, 
+    ComplexActFunc::RITSigmoid, 
+    InitMethod::Random(dense_scale), 
+    seed
+  ).unwrap().wrap();
+
+  println!("Initiated Layers.");
+
+  let mut network: CNetwork<Cf32> = CNetwork::new();
+  network.add_input(input_layer).unwrap();
+  network.add(flatten_layer).unwrap();
+  network.add(first_dense).unwrap();
+  network.add(output_layer).unwrap();
+
+  network
+}
+
+fn _get_2conv_layer_cvcnn(seed: &mut u128) -> CNetwork<Cf32> {
+  let conv_scale: usize = 1;
+  let dense_scale: usize = 1;
+
+  let input_layer_kernels = vec![[3,3]; 8];
+  let second_layer_kernels = vec![[3,3]; 4];
+
+  let input_layer: CLayer<Cf32> = ConvCLayer::init(
+    IOShape::FeatureMaps(1),
+    input_layer_kernels,
     ComplexActFunc::RITReLU, 
     InitMethod::Random(conv_scale),
     InitMethod::Random(dense_scale),
     seed
   ).unwrap().wrap();
   let avg_pooling_layer: CLayer<Cf32> = Reduce::init(
-    3, 
+    8, 
     [2, 2],
     Box::new(|block: &[Cf32]| { 
       let block_len = block.len(); 
@@ -49,23 +90,23 @@ fn main() {
       ], [3, 3])
   ).wrap();
   let another_conv: CLayer<Cf32> = ConvCLayer::init(
-    IOShape::FeatureMaps(3),
-    vec![[7, 7], [5, 5], [3, 3]],
+    IOShape::FeatureMaps(8),
+    second_layer_kernels,
     ComplexActFunc::RITReLU, 
     InitMethod::Random(conv_scale),
     InitMethod::Random(dense_scale),
     seed
   ).unwrap().wrap();
-  let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[14, 14]; 3*3]).wrap();
+  let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[14, 14]; 8*4]).wrap();
   let first_dense: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(14*14*3*3), 
-    16,
+    IOShape::Vector(14*14*8*4), 
+    64,
     ComplexActFunc::RITSigmoid, 
     InitMethod::Random(dense_scale),
     seed
   ).unwrap().wrap();
   let output_layer: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(16), 
+    IOShape::Vector(64), 
     10, 
     ComplexActFunc::RITSigmoid, 
     InitMethod::Random(dense_scale), 
@@ -82,6 +123,63 @@ fn main() {
   network.add(first_dense).unwrap();
   network.add(output_layer).unwrap();
 
+  network
+}
+
+fn _get_fully_connected_cvnn(seed: &mut u128) -> CNetwork<Cf32> {
+  let dense_scale: usize = 1;
+
+  let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[28, 28]; 1]).wrap();
+  let first_dense: CLayer<Cf32> = DenseCLayer::init(
+    IOShape::Vector(28*28), 
+    28,
+    ComplexActFunc::RITSigmoid, 
+    InitMethod::Random(dense_scale),
+    seed
+  ).unwrap().wrap();
+  let second_dense: CLayer<Cf32> = DenseCLayer::init(
+    IOShape::Vector(28), 
+    16, 
+    ComplexActFunc::RITSigmoid, 
+    InitMethod::Random(dense_scale), 
+    seed
+  ).unwrap().wrap();
+  let third_dense: CLayer<Cf32> = DenseCLayer::init(
+    IOShape::Vector(16), 
+    16, 
+    ComplexActFunc::RITSigmoid, 
+    InitMethod::Random(dense_scale), 
+    seed
+  ).unwrap().wrap();
+  let forth_dense: CLayer<Cf32> = DenseCLayer::init(
+    IOShape::Vector(16), 
+    10, 
+    ComplexActFunc::RITSigmoid, 
+    InitMethod::Random(dense_scale), 
+    seed
+  ).unwrap().wrap();
+
+  println!("Initiated Layers.");
+
+  let mut network: CNetwork<Cf32> = CNetwork::new();
+  network.add_input(flatten_layer).unwrap();
+  network.add(first_dense).unwrap();
+  network.add(second_dense).unwrap();
+  network.add(third_dense).unwrap();
+  network.add(forth_dense).unwrap();
+
+  network
+}
+
+fn main() {
+  /* To Debug  
+    -> Memory allocation issue with the intercept
+      -> Maybe it is not worth the performance strike that it causes.
+  */
+
+  let ref mut seed = 34987346939856829;
+    
+  let mut network = _get_1conv_layer_cvcnn(seed);
   println!("Created the Network.");
 
   let mut train_loss_vec = Vec::new();
@@ -94,64 +192,69 @@ fn main() {
   let batch_size = 100;
   let train_batches = total_train_data / batch_size;
   let test_batches = total_test_data / batch_size;
-  let epochs: usize = 10;
+  let epochs: usize = 20;
 
-  let lr = Cf32::new(1.0, 0.0);
+  let lr = Cf32::new(1.5, 0.0);
+  let loss_func = ComplexLossFunc::Conventional;
   println!("Begining training and testing pipeline.");
   for e in 0..epochs {
-    /* training pipeline */
-    let ref mut train_tracker = 0;
-    let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();
-    let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
-    let mut train_loss = 0.0;
-    let mut train_acc = 0.0;
-    for b in 0..train_batches {
-      let t: Instant = Instant::now();
-      let train_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(train_data_file, train_label_file, batch_size, train_tracker);
-      
-      network.gradient_opt(train_data.clone(), ComplexLossFunc::Conventional, lr).unwrap();
-
-      let current_train_loss = network.loss(train_data.clone(), &ComplexLossFunc::Conventional).unwrap();
-      let current_train_acc = network.max_pred_test(train_data);
-      train_loss += current_train_loss;
-      train_acc += current_train_acc;
-      
-      
-      print!("\rEpoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", e+1, b+1, current_train_loss, current_train_acc, t.elapsed());
-      io::stdout().flush().unwrap();
-    }
-
-    train_loss /= train_batches as f32;
-    train_acc /= train_batches as f32;
-    println!();
-    println!("Epoch {} -> Mean Loss: {:.3}, Mean Accuracy: {:.3}", e+1, train_loss, train_acc);
-    train_loss_vec.push(train_loss);
-    train_acc_vec.push(train_acc);
-
     /* test pipeline */
     let ref mut test_tracker = 0;
     let test_data_file = &mut File::open("./minist/t10k-images.idx3-ubyte").unwrap();
     let test_label_file = &mut File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
-    let mut test_loss = 0.0;
-    let mut test_acc = 0.0;
+    let mut mean_test_loss = 0.0;
+    let mut mean_test_acc = 0.0;
     for t in 0..test_batches {
       let t_test: Instant = Instant::now();
-      let initial_test_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(test_data_file, test_label_file, batch_size, test_tracker);
-      let initial_test_loss = network.loss(initial_test_data.clone(), &ComplexLossFunc::Conventional).unwrap();
-      let initial_test_acc = network.max_pred_test(initial_test_data);
-      test_loss += initial_test_loss;
-      test_acc += initial_test_acc;
+      let test_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(test_data_file, test_label_file, batch_size, test_tracker);
+      let inst_test_loss = network.loss(test_data.clone(), &loss_func).unwrap();
+      let inst_test_acc = network.max_pred_test(test_data);
+      mean_test_loss += inst_test_loss;
+      mean_test_acc += inst_test_acc;
 
-      print!("\rTest Values | Epoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", e+1, t+1, initial_test_loss, initial_test_acc, t_test.elapsed());
+      //let accu = (t+1) as f32;
+      print!("\rTest Values | Epoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", e+1, t+1, inst_test_loss, inst_test_acc, t_test.elapsed());
       io::stdout().flush().unwrap();
     }
 
-    test_loss /= test_batches as f32;
-    test_acc /= test_batches as f32;
+    mean_test_loss /= test_batches as f32;
+    mean_test_acc /= test_batches as f32;
     println!();
-    println!("Test Values | Epoch {} -> Mean Loss: {:.3}, Mean Accuracy: {:.3}", e+1, test_loss, test_acc);
-    test_loss_vec.push(test_loss);
-    test_acc_vec.push(test_acc);
+    println!("Test Values | Epoch {} -> Mean Loss: {:.3}, Mean Accuracy: {:.3}", e+1, mean_test_loss, mean_test_acc);
+    test_loss_vec.push(mean_test_loss);
+    test_acc_vec.push(mean_test_acc);
+
+    /* training pipeline */
+    let ref mut train_tracker = 0;
+    let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();
+    let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
+    let mut mean_train_loss = 0.0;
+    let mut mean_train_acc = 0.0;
+    for b in 0..train_batches {
+      let t: Instant = Instant::now();
+      let train_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(train_data_file, train_label_file, batch_size, train_tracker);
+
+      network.gradient_opt(train_data.clone(), &loss_func, lr).unwrap();
+
+      let inst_train_loss = network.loss(train_data.clone(), &loss_func).unwrap();
+      let inst_train_acc = network.max_pred_test(train_data);
+      mean_train_loss += inst_train_loss;
+      mean_train_acc += inst_train_acc;
+      
+      //let accu = (b+1) as f32;
+      print!(
+        "\rEpoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", 
+        e+1, b+1, inst_train_loss, inst_train_acc, t.elapsed()
+      );
+      io::stdout().flush().unwrap();
+    }
+
+    mean_train_loss /= train_batches as f32;
+    mean_train_acc /= train_batches as f32;
+    println!();
+    println!("Epoch {} -> Mean Loss: {:.3}, Mean Accuracy: {:.3}", e+1, mean_train_loss, mean_train_acc);
+    train_loss_vec.push(mean_train_loss);
+    train_acc_vec.push(mean_train_acc);
   }
 
   Matrix::from_body(train_loss_vec, [epochs, 1]).to_csv("./out/conv_network_loss.csv").unwrap();
