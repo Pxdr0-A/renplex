@@ -219,7 +219,11 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let batch_size = inputs.len();
     /* accumulate weight and bias derivative */
     for (input, target) in inputs.zip(targets) {
-      let mut activations = self.collect_acts(input).unwrap().into_iter().rev();
+      let mut activations = self.collect_acts(input)
+        .unwrap()
+        .into_iter()
+        .rev();
+      
       /* initial prediction */
       let initial_pred = activations.next().unwrap();
       /* initial value of loss derivatives */
@@ -243,27 +247,6 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
           dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap(); 
         }
       }
-
-      /* decrease the number of layers to go through by one until you reach the input */
-      /* propagate the derivatives backwards */
-      /* Maybe it is not worth it to do the intercept everytime!!! */
-      /* CORRECT THIS! */
-      /*
-      for l in 0..n_layers {
-        /* process for getting previous signal of a layer */
-        /* layer is trainable if it obeys this condition */
-        let (previous_act, last_layer) = self
-          .intercept(input.clone(), n_layers-l-1)
-          .unwrap();
-
-        if last_layer.is_trainable() {
-          (dldw, dldb, dlda, dlda_conj) = last_layer.compute_derivatives(&previous_act, dlda, dlda_conj).unwrap();
-
-          dldw_per_layer[n_layers-l-1].add_slice_mut(&dldw).unwrap();
-          dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap(); 
-        }
-      }
-      */
     }
 
     /* divide the gradient by the count of data samples */

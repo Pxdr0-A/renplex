@@ -171,15 +171,92 @@ fn _get_fully_connected_cvnn(seed: &mut u128) -> CNetwork<Cf32> {
   network
 }
 
-fn main() {
-  /* To Debug  
-    -> Memory allocation issue with the intercept
-      -> Maybe it is not worth the performance strike that it causes.
-  */
+fn test_pipeline(
+  network: &CNetwork<Cf32>,
+  loss_func: &ComplexLossFunc,
+  test_batches: usize,
+  batch_size: usize,
+  epoch: usize,
+  test_loss_vec: &mut Vec<f32>, 
+  test_acc_vec: &mut Vec<f32>,
+) {
+  /* test pipeline */
+  let ref mut test_tracker = 0;
+  let test_data_file = &mut File::open("./minist/t10k-images.idx3-ubyte").unwrap();
+  let test_label_file = &mut File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
+  let mut mean_test_loss = 0.0;
+  let mut mean_test_acc = 0.0;
+  for t in 0..test_batches {
+    let t_test: Instant = Instant::now();
+    let test_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(test_data_file, test_label_file, batch_size, test_tracker);
+    let inst_test_loss = network.loss(test_data.clone(), loss_func).unwrap();
+    let inst_test_acc = network.max_pred_test(test_data);
+    mean_test_loss += inst_test_loss;
+    mean_test_acc += inst_test_acc;
 
-  let ref mut seed = 34987346939856829;
+    //let accu = (t+1) as f32;
+    print!(
+      "\rTest Values | Epoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", 
+      epoch+1, t+1, inst_test_loss, inst_test_acc, t_test.elapsed()
+    );
+    io::stdout().flush().unwrap();
+  }
+
+  mean_test_loss /= test_batches as f32;
+  mean_test_acc /= test_batches as f32;
+  println!();
+  println!("Test Values | Epoch {} -> Mean Loss: {:.3}, Mean Accuracy: {:.3}", epoch+1, mean_test_loss, mean_test_acc);
+  test_loss_vec.push(mean_test_loss);
+  test_acc_vec.push(mean_test_acc);
+}
+
+fn train_pipeline(
+  network: &mut CNetwork<Cf32>,
+  loss_func: &ComplexLossFunc,
+  lr: Cf32,
+  train_batches: usize,
+  batch_size: usize,
+  epoch: usize,
+  train_loss_vec: &mut Vec<f32>, 
+  train_acc_vec: &mut Vec<f32>,
+) {
+  /* training pipeline */
+  let ref mut train_tracker = 0;
+  let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();
+  let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
+  let mut mean_train_loss = 0.0;
+  let mut mean_train_acc = 0.0;
+  for b in 0..train_batches {
+    let t: Instant = Instant::now();
+    let train_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(train_data_file, train_label_file, batch_size, train_tracker);
+
+    network.gradient_opt(train_data.clone(), &loss_func, lr).unwrap();
+
+    let inst_train_loss = network.loss(train_data.clone(), &loss_func).unwrap();
+    let inst_train_acc = network.max_pred_test(train_data);
+    mean_train_loss += inst_train_loss;
+    mean_train_acc += inst_train_acc;
     
-  let mut network = _get_1conv_layer_cvcnn(seed);
+    //let accu = (b+1) as f32;
+    print!(
+      "\rEpoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", 
+      epoch+1, b+1, inst_train_loss, inst_train_acc, t.elapsed()
+    );
+    io::stdout().flush().unwrap();
+  }
+
+  mean_train_loss /= train_batches as f32;
+  mean_train_acc /= train_batches as f32;
+  println!();
+  println!("Epoch {} -> Mean Loss: {:.3}, Mean Accuracy: {:.3}", epoch+1, mean_train_loss, mean_train_acc);
+  train_loss_vec.push(mean_train_loss);
+  train_acc_vec.push(mean_train_acc);
+}
+
+fn main() {
+  let ref mut seed = 34987346939856829;
+  
+  let mut network = _get_fully_connected_cvnn(seed);
   println!("Created the Network.");
 
   let mut train_loss_vec = Vec::new();
@@ -192,73 +269,36 @@ fn main() {
   let batch_size = 100;
   let train_batches = total_train_data / batch_size;
   let test_batches = total_test_data / batch_size;
-  let epochs: usize = 20;
+  let epochs: usize = 50;
 
-  let lr = Cf32::new(1.5, 0.0);
+  let lr = Cf32::new(0.1, 0.0);
   let loss_func = ComplexLossFunc::Conventional;
   println!("Begining training and testing pipeline.");
   for e in 0..epochs {
-    /* test pipeline */
-    let ref mut test_tracker = 0;
-    let test_data_file = &mut File::open("./minist/t10k-images.idx3-ubyte").unwrap();
-    let test_label_file = &mut File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
-    let mut mean_test_loss = 0.0;
-    let mut mean_test_acc = 0.0;
-    for t in 0..test_batches {
-      let t_test: Instant = Instant::now();
-      let test_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(test_data_file, test_label_file, batch_size, test_tracker);
-      let inst_test_loss = network.loss(test_data.clone(), &loss_func).unwrap();
-      let inst_test_acc = network.max_pred_test(test_data);
-      mean_test_loss += inst_test_loss;
-      mean_test_acc += inst_test_acc;
+    test_pipeline(
+      &network, 
+      &loss_func, 
+      test_batches, 
+      batch_size, 
+      e,
+      &mut test_loss_vec, 
+      &mut test_acc_vec
+    );
 
-      //let accu = (t+1) as f32;
-      print!("\rTest Values | Epoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", e+1, t+1, inst_test_loss, inst_test_acc, t_test.elapsed());
-      io::stdout().flush().unwrap();
-    }
-
-    mean_test_loss /= test_batches as f32;
-    mean_test_acc /= test_batches as f32;
-    println!();
-    println!("Test Values | Epoch {} -> Mean Loss: {:.3}, Mean Accuracy: {:.3}", e+1, mean_test_loss, mean_test_acc);
-    test_loss_vec.push(mean_test_loss);
-    test_acc_vec.push(mean_test_acc);
-
-    /* training pipeline */
-    let ref mut train_tracker = 0;
-    let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();
-    let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
-    let mut mean_train_loss = 0.0;
-    let mut mean_train_acc = 0.0;
-    for b in 0..train_batches {
-      let t: Instant = Instant::now();
-      let train_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(train_data_file, train_label_file, batch_size, train_tracker);
-
-      network.gradient_opt(train_data.clone(), &loss_func, lr).unwrap();
-
-      let inst_train_loss = network.loss(train_data.clone(), &loss_func).unwrap();
-      let inst_train_acc = network.max_pred_test(train_data);
-      mean_train_loss += inst_train_loss;
-      mean_train_acc += inst_train_acc;
-      
-      //let accu = (b+1) as f32;
-      print!(
-        "\rEpoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", 
-        e+1, b+1, inst_train_loss, inst_train_acc, t.elapsed()
-      );
-      io::stdout().flush().unwrap();
-    }
-
-    mean_train_loss /= train_batches as f32;
-    mean_train_acc /= train_batches as f32;
-    println!();
-    println!("Epoch {} -> Mean Loss: {:.3}, Mean Accuracy: {:.3}", e+1, mean_train_loss, mean_train_acc);
-    train_loss_vec.push(mean_train_loss);
-    train_acc_vec.push(mean_train_acc);
+    train_pipeline(
+      &mut network, 
+      &loss_func, 
+      lr, 
+      train_batches, 
+      batch_size, 
+      e, 
+      &mut train_loss_vec, 
+      &mut train_acc_vec
+    )
   }
 
-  Matrix::from_body(train_loss_vec, [epochs, 1]).to_csv("./out/conv_network_loss.csv").unwrap();
-  Matrix::from_body(train_acc_vec, [epochs, 1]).to_csv("./out/conv_network_acc.csv").unwrap();
-  Matrix::from_body(test_loss_vec, [epochs, 1]).to_csv("./out/conv_network_test_loss.csv").unwrap();
-  Matrix::from_body(test_acc_vec, [epochs, 1]).to_csv("./out/conv_network_test_acc.csv").unwrap();
+  Matrix::from_body(train_loss_vec, [epochs, 1]).to_csv("./out/loss_0_1.csv").unwrap();
+  Matrix::from_body(train_acc_vec, [epochs, 1]).to_csv("./out/acc_0_1.csv").unwrap();
+  Matrix::from_body(test_loss_vec, [epochs, 1]).to_csv("./out/test_loss_0_1.csv").unwrap();
+  Matrix::from_body(test_acc_vec, [epochs, 1]).to_csv("./out/test_acc_0_1.csv").unwrap();
 }
