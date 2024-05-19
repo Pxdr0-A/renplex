@@ -11,7 +11,7 @@ use renplex::cvnn::layer::CLayer;
 use renplex::cvnn::network::CNetwork;
 use renplex::dataset::Dataset;
 use renplex::init::InitMethod;
-use renplex::input::IOShape;
+use renplex::input::{IOShape, IOType};
 use renplex::math::cfloat::Cf32;
 use renplex::math::matrix::Matrix;
 use renplex::math::Complex;
@@ -34,13 +34,13 @@ fn _get_1conv_layer_cvcnn(seed: &mut u128) -> CNetwork<Cf32> {
   let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[28, 28]; 8]).wrap();
   let first_dense: CLayer<Cf32> = DenseCLayer::init(
     IOShape::Vector(28*28*8), 
-    64,
+    8,
     ComplexActFunc::RITSigmoid, 
     InitMethod::Random(dense_scale),
     seed
   ).unwrap().wrap();
   let output_layer: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(64), 
+    IOShape::Vector(8), 
     10, 
     ComplexActFunc::RITSigmoid, 
     InitMethod::Random(dense_scale), 
@@ -54,6 +54,8 @@ fn _get_1conv_layer_cvcnn(seed: &mut u128) -> CNetwork<Cf32> {
   network.add(flatten_layer).unwrap();
   network.add(first_dense).unwrap();
   network.add(output_layer).unwrap();
+
+  println!("Created 1 layer, CV-CNN.");
 
   network
 }
@@ -100,13 +102,13 @@ fn _get_2conv_layer_cvcnn(seed: &mut u128) -> CNetwork<Cf32> {
   let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[14, 14]; 8*4]).wrap();
   let first_dense: CLayer<Cf32> = DenseCLayer::init(
     IOShape::Vector(14*14*8*4), 
-    64,
+    8*4,
     ComplexActFunc::RITSigmoid, 
     InitMethod::Random(dense_scale),
     seed
   ).unwrap().wrap();
   let output_layer: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(64), 
+    IOShape::Vector(8*4), 
     10, 
     ComplexActFunc::RITSigmoid, 
     InitMethod::Random(dense_scale), 
@@ -122,6 +124,8 @@ fn _get_2conv_layer_cvcnn(seed: &mut u128) -> CNetwork<Cf32> {
   network.add(flatten_layer).unwrap();
   network.add(first_dense).unwrap();
   network.add(output_layer).unwrap();
+
+  println!("Created 2 layer, CV-CNN.");
 
   network
 }
@@ -168,7 +172,48 @@ fn _get_fully_connected_cvnn(seed: &mut u128) -> CNetwork<Cf32> {
   network.add(third_dense).unwrap();
   network.add(forth_dense).unwrap();
 
+  println!("Created fully connected CVNN");
+
   network
+}
+
+fn extract_features(
+  network: &CNetwork<Cf32>,
+  conv_network_id: usize, 
+  lr_re: f32, 
+  lr_im: f32,
+  epochs: usize
+) {
+  /* intercept to inspect feature maps or intermediate activations. */
+  let test_data_file = &mut File::open("./minist/t10k-images.idx3-ubyte").unwrap();
+  let test_label_file = &mut File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
+  let batch_size = 100;
+  let ref mut tracker = 0;
+  let data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(test_data_file, test_label_file, batch_size, tracker);
+  let (image_point, _) = data.get_point(50);
+
+  let image;
+  match image_point {
+    IOType::FeatureMaps(map) => {image = map[0].clone();},
+    _ => {panic!("ups...")}
+  }
+  image.to_csv(format!(
+    "./out/complex_features/lr_conv{}_{}_{}_{}e_original.csv", 
+    conv_network_id, lr_re, lr_im, epochs
+  )).unwrap();
+
+  let (feature_maps, _) = network.intercept(image_point.clone(), 1).unwrap();
+  match feature_maps {
+    IOType::FeatureMaps(maps) => {
+      maps.into_iter().enumerate().for_each(|(id, feature)| {
+        feature.to_csv(format!(
+          "out/complex_features/lr_conv{}_{}_{}_{}e_feature_{}.csv", 
+          conv_network_id, lr_re, lr_im, epochs, id
+        )).unwrap();
+      })
+    },
+    _ => { panic!("nope, not this feature") }
+  }
 }
 
 fn test_pipeline(
@@ -239,7 +284,7 @@ fn train_pipeline(
     
     //let accu = (b+1) as f32;
     print!(
-      "\rEpoch {}, Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", 
+      "\rEpoch {} | Batch {} -> Loss: {:.3}, Accuracy: {:.3} (time: {:.3?})", 
       epoch+1, b+1, inst_train_loss, inst_train_acc, t.elapsed()
     );
     io::stdout().flush().unwrap();
@@ -254,14 +299,16 @@ fn train_pipeline(
 }
 
 fn main() {
-  let ref mut seed = 34987346939856829;
-  
-  let mut network = _get_fully_connected_cvnn(seed);
+  let ref mut seed = 437628367189104305197;
+  println!("Using seed: {}", seed);
+
+  let mut network = _get_1conv_layer_cvcnn(seed);
+  let conv_network_id = 1;
   println!("Created the Network.");
 
-  let mut train_loss_vec = Vec::new();
+  let mut train_loss_vec: Vec<f32> = Vec::new();
   let mut test_loss_vec: Vec<f32> = Vec::new();
-  let mut train_acc_vec = Vec::new();
+  let mut train_acc_vec: Vec<f32> = Vec::new();
   let mut test_acc_vec: Vec<f32> = Vec::new();
 
   let total_train_data = 60000;
@@ -269,22 +316,23 @@ fn main() {
   let batch_size = 100;
   let train_batches = total_train_data / batch_size;
   let test_batches = total_test_data / batch_size;
-  let epochs: usize = 50;
+  let epochs: usize = 5;
 
-  let lr = Cf32::new(0.1, 0.0);
+  /*
+    Dense lr: 4 -> 7 (peak at 6.0)
+    Conv1 lr: 1 -> 3 (peak at 2.5)
+    Conv2 lr: so far 1.0 is better (80%)
+  */
+  let lr_re = 3.0;
+  let lr_im = 0.0;
+  let lr = Cf32::new(lr_re, lr_im);
   let loss_func = ComplexLossFunc::Conventional;
-  println!("Begining training and testing pipeline.");
-  for e in 0..epochs {
-    test_pipeline(
-      &network, 
-      &loss_func, 
-      test_batches, 
-      batch_size, 
-      e,
-      &mut test_loss_vec, 
-      &mut test_acc_vec
-    );
 
+  println!("Begining training and testing pipeline.");
+  println!("Using constant learning rate: {}", lr);
+  println!("Total Epochs: {}", epochs);
+  println!("Batch size: {} | Number of Batches (train, test): {:?}", batch_size, (train_batches, test_batches));
+  for e in 0..epochs {
     train_pipeline(
       &mut network, 
       &loss_func, 
@@ -294,11 +342,41 @@ fn main() {
       e, 
       &mut train_loss_vec, 
       &mut train_acc_vec
-    )
+    );
+
+    test_pipeline(
+      &network, 
+      &loss_func, 
+      test_batches, 
+      batch_size, 
+      e,
+      &mut test_loss_vec, 
+      &mut test_acc_vec
+    );
   }
 
-  Matrix::from_body(train_loss_vec, [epochs, 1]).to_csv("./out/loss_0_1.csv").unwrap();
-  Matrix::from_body(train_acc_vec, [epochs, 1]).to_csv("./out/acc_0_1.csv").unwrap();
-  Matrix::from_body(test_loss_vec, [epochs, 1]).to_csv("./out/test_loss_0_1.csv").unwrap();
-  Matrix::from_body(test_acc_vec, [epochs, 1]).to_csv("./out/test_acc_0_1.csv").unwrap();
+  /* Network exploration */
+  println!("Ended training. Exploring the trained network.");
+  extract_features(&network, conv_network_id, lr_re, lr_im, epochs);
+  
+  /* save results to local memory as .csv file */
+  Matrix::from_body(train_loss_vec, [epochs, 1]).to_csv(format!(
+    "./out/lr_conv{}/loss_{}_{}_{}e.csv", 
+    conv_network_id, lr_re, lr_im, epochs
+  )).unwrap();
+  Matrix::from_body(train_acc_vec, [epochs, 1]).to_csv(format!(
+    "./out/lr_conv{}/acc_{}_{}_{}e.csv", 
+    conv_network_id, lr_re, lr_im, epochs
+  )).unwrap();
+  Matrix::from_body(test_loss_vec, [epochs, 1]).to_csv(format!(
+    "./out/lr_conv{}/test_loss_{}_{}_{}e.csv", 
+    conv_network_id, lr_re, lr_im, epochs
+  )).unwrap();
+  Matrix::from_body(test_acc_vec, [epochs, 1]).to_csv(format!(
+    "./out/lr_conv{}/test_acc_{}_{}_{}e.csv", 
+    conv_network_id, lr_re, lr_im, epochs
+  )).unwrap();
+
+  println!("Saved relevant data.");
+  println!("Ended Pipeline.")
 }
