@@ -31,9 +31,9 @@ impl Display for Cf32 {
     let phase = ( self.phase() * multi ).round() / multi;
     write!(f, "{}ø{}", norm, phase)
     */
-    let precision = 2;
-    let multi = 10_f32.powi(precision);
-    write!(f, "{} {}i", (self.x * multi).round() / multi, (self.y * multi).round() / multi)
+    //let precision = 2;
+    //let multi = 10_f32.powi(precision);
+    write!(f, "{:?}", [self.x, self.y])
   }
 }
 
@@ -46,9 +46,9 @@ impl Display for Cf64 {
     let phase = ( self.phase() * multi ).round() / multi;
     write!(f, "{}ø{}", norm, phase)
     */
-    let precision = 2;
-    let multi = 10_f64.powi(precision);
-    write!(f, "{} {}i", (self.x * multi).round() / multi, (self.y * multi).round() / multi)
+    //let precision = 2;
+    //let multi = 10_f64.powi(precision);
+    write!(f, "{:?}", [self.x, self.y])  
   }
 }
 
