@@ -94,8 +94,8 @@ impl<T: BasicOperations<T>> Reduce<T> {
             .fractional_upsampling(&self.block_size, &self.interp_kernel)
             .unwrap();
           
-          new_dlda.append(&mut dlda_upsampled.export_body());
-          new_dlda_conj.append(&mut dlda_conj_upsampled.export_body());
+          new_dlda.extend(dlda_upsampled.export_body());
+          new_dlda_conj.extend(dlda_conj_upsampled.export_body());
         }
 
         Ok((Vec::new(), Vec::new(), new_dlda, new_dlda_conj))

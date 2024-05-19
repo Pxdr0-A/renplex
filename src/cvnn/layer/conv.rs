@@ -58,7 +58,6 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     match input_shape {
       IOShape::FeatureMaps(input_features_len) => {
         let depth = kernel_sizes.len();
-        let output_features_len = input_features_len * depth;
 
         let mut kernels = Vec::with_capacity(depth);
         let mut biases = Vec::new();
@@ -83,7 +82,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         match method {
           /* method for the biases */
           InitMethod::Random(scale) => {
-            for _ in 0..output_features_len {
+            for _ in 0..depth {
               biases.push(T::gen(seed, scale));
             }
           }
@@ -98,30 +97,23 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
   pub fn forward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       IOType::FeatureMaps(input) => {
-        let n_feature_maps = input.len();
         let depth = self.kernels.len();
-        let n_output_features = n_feature_maps * depth;
 
-        if n_output_features != self.biases.len() {
+        if depth != self.biases.len() {
           return Err(LayerForwardError::InvalidInput)
         }
 
         /* you can make chunks out of this to zip */
         //let bias_iter = self.biases.chunks(depth);
-        let bias_iter = self.biases.par_chunks(depth);
-
         let out = input
           //.into_iter()
           .into_par_iter()
-          .zip(bias_iter)
-          .flat_map(|(input_feature_map, biases)| {
-            let biases_iter = biases
-              //.into_iter();
-              .into_par_iter();
+          .flat_map(|input_feature_map| {
             self.kernels
               //.iter()
               .par_iter()
-              .zip(biases_iter)
+              /* each bias is associated to a kernel */
+              .zip(self.biases.par_iter())
               .map(|(kernel, bias)| {
                 let mut output_map = input_feature_map.conv(&kernel).unwrap();
 
@@ -182,7 +174,9 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
             /* each feature has <depth> output features */
             let size = out_feats_dldq.len() / depth;
             //let out_feats_derivative = out_feats_dldq.chunks(size).zip(out_feats_dldq_conj.chunks(size));
-            let out_feats_derivative = out_feats_dldq.par_chunks(size).zip(out_feats_dldq_conj.par_chunks(size));
+            let out_feats_derivative = out_feats_dldq
+              .par_chunks(size)
+              .zip(out_feats_dldq_conj.par_chunks(size));
             let data = self.kernels
               //.iter()
               .par_iter()
@@ -193,11 +187,11 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
                 let mut dldk_body = Vec::new();
                 for i in 0..kernel_shape[0] {
                   for j in 0..kernel_shape[1] {
+                    /* check if the operation is ok */
                     let dqdk_nm = input_feature
                       .dconv((i, j), kernel_shape)
                       .unwrap();
 
-                    /* MIGHT BE SCALAR PRODUCT ONLY WITH DLDA */
                     let elm = dlda_dadq.scalar_prod(dqdk_nm.get_body()).unwrap();
                     let elm_conj = dlda_conj_da_conj_dq.scalar_prod(dqdk_nm.get_body()).unwrap();
 
@@ -206,10 +200,14 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
                 }
 
                 /* it is implicitly multiplied by 1 */
+                /* check if it is correct */
+                let n_bias_elm_target = dlda_dadq.len();
                 let dldb_feat = dlda_dadq
                   .iter()
                   .zip(dlda_conj_da_conj_dq.iter())
-                  .fold(T::default(), |acc, (lhs, rhs)| { acc + (*lhs + *rhs) });
+                  .fold(T::default(), |acc, (lhs, rhs)| { 
+                    acc + (*lhs + *rhs) 
+                  }) / T::usize_to_complex(n_bias_elm_target);
                 let dldb_feat = vec![dldb_feat];
 
                 /* loss derivatives wtr previous activation */
@@ -249,20 +247,23 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
             (dldk, dldb, new_dlda_feat, new_dlda_conj_feat)
         }).collect::<Vec<_>>();
 
-        let res = data
+        let (mut dldk, mut dldb, new_dlda, new_dlda_conj) = data
           .into_iter()
           .reduce(|mut acc, elm| {
-            // bias derivative
-            acc.1.extend(elm.1);
             // dlda derivative
             acc.2.extend(elm.2);
             // dlda_conj derivative
             acc.3.extend(elm.3);
 
-            (acc.0.add_slice(&elm.0).unwrap(), acc.1, acc.2, acc.3)
+            /* add input feature contributions */
+            (acc.0.add_slice(&elm.0).unwrap(), acc.1.add_slice(&elm.1).unwrap(), acc.2, acc.3)
         }).unwrap();
 
-        Ok(res)
+        /* normalize throughout input features */
+        dldk.div_mut_scalar(T::usize_to_complex(n_input_features)).unwrap();
+        dldb.div_mut_scalar(T::usize_to_complex(n_input_features)).unwrap();
+
+        Ok((dldk, dldb, new_dlda, new_dlda_conj))
       },
       _ => { panic!("Something went terribily wrong.") }
     }
