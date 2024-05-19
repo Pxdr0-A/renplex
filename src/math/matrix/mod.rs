@@ -694,6 +694,8 @@ pub trait SliceOps<T> {
 
   fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError>;
 
+  fn div_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError>;
+
   fn scalar_prod(&self, rhs: &Self) -> Result<T, OperationError>;
 }
 
@@ -757,6 +759,14 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
     Ok(())
   }
 
+  fn div_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
+    self
+      .iter_mut()
+      .for_each(|lhs| { *lhs /= rhs });
+
+    Ok(())
+  }
+
   fn scalar_prod(&self, rhs: &Self) -> Result<T, OperationError> {
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
 
@@ -795,21 +805,19 @@ impl<T: Debug> Display for Matrix<T> {
   }
 }
 
-impl<T: Debug + Copy> Matrix<T> {
-  pub fn to_csv(&self, path: &'static str) -> std::io::Result<()> {
+impl<T: Display + Copy> Matrix<T> {
+  pub fn to_csv(&self, path: String) -> std::io::Result<()> {
     let mut file = File::create(path)?;
     
     let data_row_len = self.get_shape()[1];
     let data_chunks = self.get_body().chunks(data_row_len);
 
-    let mut string_val;
     for row in data_chunks {
-      string_val = format!("{:?}", row)
-        .replace(" ", "")
-        .replace("[", "")
-        .replace("]", "");
-      
-      writeln!(file, "{}", string_val)?;
+      for val in row.into_iter() {
+        write!(file, "{},", val)?;
+      }
+
+      writeln!(file, "")?;
     }
     
     Ok(())
