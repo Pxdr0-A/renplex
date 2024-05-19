@@ -121,7 +121,7 @@ mod basic_tests {
       },
       _ => {panic!("ups...")}
     }
-    image.to_csv("./out/original_pool.csv").unwrap();
+    image.to_csv("./out/original_pool.csv".to_string()).unwrap();
 
     let image_max_pooled = image.block_reduce(
       &[2, 2],
@@ -138,7 +138,7 @@ mod basic_tests {
       }
     ).unwrap();
 
-    image_max_pooled.to_csv("./out/max_pool.csv").unwrap();
+    image_max_pooled.to_csv("./out/max_pool.csv".to_string()).unwrap();
 
     let image_upsampled = image_max_pooled.fractional_upsampling(
       &[2,2], 
@@ -151,7 +151,7 @@ mod basic_tests {
         [3,3])
     ).unwrap();
 
-    image_upsampled.to_csv("./out/max_pool_upsampled.csv").unwrap();
+    image_upsampled.to_csv("./out/max_pool_upsampled.csv".to_string()).unwrap();
   }
 
   #[test]
@@ -172,7 +172,7 @@ mod basic_tests {
       },
       _ => {panic!("ups...")}
     }
-    image.to_csv("./out/original.csv").unwrap();
+    image.to_csv("./out/original.csv".to_string()).unwrap();
 
     let kernel1: Matrix<f32> = Matrix::from_body(
       vec![
@@ -231,10 +231,10 @@ mod basic_tests {
       }
     }
 
-    image_conv1.to_csv("./out/conv_image.csv").unwrap();
-    image_conv2.to_csv("./out/conv_image1.csv").unwrap();
-    image_rev.to_csv("./out/conv_image_rev.csv").unwrap();
-    image_trans_rev.to_csv("out/conv_image_rev1.csv").unwrap();
+    image_conv1.to_csv("./out/conv_image.csv".to_string()).unwrap();
+    image_conv2.to_csv("./out/conv_image1.csv".to_string()).unwrap();
+    image_rev.to_csv("./out/conv_image_rev.csv".to_string()).unwrap();
+    image_trans_rev.to_csv("out/conv_image_rev1.csv".to_string()).unwrap();
   }
 
   #[test]
@@ -255,11 +255,11 @@ mod basic_tests {
       },
       _ => {panic!("ups...")}
     }
-    image.to_csv("./out/original_d.csv").unwrap();
+    image.to_csv("./out/original_d.csv".to_string()).unwrap();
 
     let dimage = image.dconv((0,2), &[3,3]).unwrap();
 
-    dimage.to_csv("./out/dconv_image.csv").unwrap();
+    dimage.to_csv("./out/dconv_image.csv".to_string()).unwrap();
 
   }
 
@@ -302,5 +302,10 @@ mod basic_tests {
     let u = u1 - u2;
 
     println!("{}", u);
+  }
+
+  #[test]
+  fn string_test() {
+    let _a = format!("./out/loss_{}_{}.csv", 0.3, 0.1);
   }
 }
