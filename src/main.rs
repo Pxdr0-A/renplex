@@ -33,13 +33,13 @@ fn _get_1conv_layer_cvcnn(seed: &mut u128) -> CNetwork<Cf32> {
   let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[26, 26]; 8]).wrap();
   let first_dense: CLayer<Cf32> = DenseCLayer::init(
     IOShape::Vector(26*26*8), 
-    8,
+    16,
     ComplexActFunc::RITSigmoid, 
     InitMethod::Random(dense_scale),
     seed
   ).unwrap().wrap();
   let output_layer: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(8), 
+    IOShape::Vector(16), 
     10, 
     ComplexActFunc::RITSigmoid, 
     InitMethod::Random(dense_scale), 
@@ -90,23 +90,23 @@ fn _get_2conv_layer_cvcnn(seed: &mut u128) -> CNetwork<Cf32> {
   ).wrap();
   let another_conv: CLayer<Cf32> = ConvCLayer::init(
     IOShape::FeatureMaps(8),
-    4,
+    8,
     [3,3],
     ComplexActFunc::RITReLU, 
     InitMethod::Random(conv_scale),
     InitMethod::Random(dense_scale),
     seed
   ).unwrap().wrap();
-  let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[11, 11]; 4]).wrap();
+  let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[11, 11]; 8]).wrap();
   let first_dense: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(11*11*4), 
-    8*4,
+    IOShape::Vector(11*11*8), 
+    16,
     ComplexActFunc::RITSigmoid, 
     InitMethod::Random(dense_scale),
     seed
   ).unwrap().wrap();
   let output_layer: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(8*4), 
+    IOShape::Vector(16), 
     10, 
     ComplexActFunc::RITSigmoid, 
     InitMethod::Random(dense_scale), 
@@ -314,7 +314,7 @@ fn main() {
   let batch_size = 100;
   let train_batches = total_train_data / batch_size;
   let test_batches = total_test_data / batch_size;
-  let epochs: usize = 20;
+  let epochs: usize = 50;
 
   /*
     Dense lr: 4 -> 7 (peak at 6.0)

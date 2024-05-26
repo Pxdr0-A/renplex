@@ -242,11 +242,11 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         if layer.is_trainable() {
           let dldw; let dldb;
           (dldw, dldb, dlda, dlda_conj) = layer.compute_derivatives(&prev_act, dlda, dlda_conj).unwrap();
-
           dldw_per_layer[n_layers-l-1].add_slice_mut(&dldw).unwrap();
           dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap(); 
         }
       }
+      drop(dlda); drop(dlda_conj);
     }
 
     /* divide the gradient by the count of data samples */

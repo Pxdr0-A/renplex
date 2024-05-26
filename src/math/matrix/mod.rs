@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display};
 use std::fs::File;
 use std::io::Write;
 use std::vec::IntoIter;
-use super::BasicOperations;
+use super::{BasicOperations, Complex};
 use rayon::prelude::ParallelSlice;
 
 mod err;
@@ -574,6 +574,53 @@ impl<T: BasicOperations<T>> Matrix<T> {
       .unwrap();
 
     Ok(out)
+  }
+}
+
+impl<T: Complex + BasicOperations<T>> Matrix<T> {
+  pub fn cconvolution(&self, kernel: &Self) -> Result<Self, OperationError> {
+    /* Error handling!! */
+
+    let k_shape = kernel.get_shape();
+    let initial_shape = self.get_shape();
+    let final_shape = [
+      initial_shape[0] - (k_shape[0]-1), 
+      initial_shape[1] - (k_shape[1]-1)
+    ];
+    
+    /* maybe transposed conjugate? */
+    let conj_kernel = kernel
+      .get_body()
+      .iter()
+      .map(|elm| {elm.conj()})
+      .collect::<Vec<T>>()
+      .to_matrix([k_shape[0], k_shape[1]])
+      .unwrap();
+
+    let convolved_body = (0..final_shape[0])
+      /* this can now be paralelized! */
+      .into_iter()
+      .flat_map(|i| {
+        let slider = self.get_slider(i, k_shape[0]);
+
+        let conv_row = slider
+          .zip(conj_kernel.rows_as_iter())
+          .fold(vec![T::default(); final_shape[1]], |mut acc, (full_row, kernel_row)| {
+            let reduced_row = full_row
+              .windows(k_shape[1])
+              .map(|section| { section.scalar_prod(kernel_row) })
+              .collect::<Vec<_>>();
+
+            acc.add_slice_mut(&reduced_row).unwrap();
+
+            acc
+        });
+
+        conv_row
+    }).collect::<Vec<_>>();
+
+    
+    Ok(convolved_body.to_matrix(final_shape).unwrap())
   }
 }
 

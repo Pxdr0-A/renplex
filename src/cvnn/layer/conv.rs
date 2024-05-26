@@ -72,7 +72,6 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
                     kernel.push(T::gen(seed, scale));
                   }
                 }
-
                 /* add a channel */
                 kernels.push(Matrix::from_body(kernel, kernel_size));
               }
@@ -129,7 +128,8 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
               .zip(filter.iter())
               .fold(init_matrix, |mut acc, (feature, kernel)| {
                 /* going through channels */
-                let convolved_feature = feature.convolution(kernel).unwrap();
+                /* CHANGED HERE FOR COMPLEX CONVOLUTION */
+                let convolved_feature = feature.cconvolution(kernel).unwrap();
                 acc.add_mut(&convolved_feature).unwrap();
 
                 acc
@@ -195,7 +195,8 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         let mut dldb = Vec::new();
         let mut new_dlda = vec![T::default(); input_shape[0] * input_shape[1] * n_input_features];
         let mut new_dlda_conj = vec![T::default(); input_shape[0] * input_shape[1] * n_input_features];
-        self.kernels.rows_as_iter().enumerate().for_each(|(_filter_id, filter)| {
+        let filters = self.kernels.rows_as_iter();
+        filters.for_each(|filter| {
           /* collecting loss derivatives to matrices */
           /* maybe there is a better way */
           let dlda_dadq_feat = Matrix::from_body(
@@ -210,13 +211,13 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           /* convolve dlda_feat with all input channels to get kernel derivatives for each channel */
           /* gives a vec that goes through all channels of a single filter */
           /* VERIFY IF THIS IS CORRECT */
-          if filter.len() != input.len() { panic!("Test panic!") }
           let dldk_per_filter = input
             .into_iter()
             .flat_map(|feature| {
-              let mut dldk_term1 = feature.convolution(&dlda_dadq_feat).unwrap();
-              let dldk_term2 = feature.convolution(&dlda_conj_da_conj_dq_feat).unwrap();
-
+              /* CHANGED HERE FOR COMPLEX CONVOLUTION */
+              let mut dldk_term1 = feature.cconvolution(&dlda_dadq_feat).unwrap();
+              let dldk_term2 = feature.cconvolution(&dlda_conj_da_conj_dq_feat).unwrap();
+              
               dldk_term1.add_mut(&dldk_term2).unwrap();
               dldk_term1.export_body()
             }).collect::<Vec<_>>();
@@ -224,8 +225,11 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           dldk.extend(dldk_per_filter);
 
           /* calculate bias derivative */
-          let dldb_per_filter = dlda_dadq_feat.get_body().scalar_prod(dlda_dadq_feat.get_body());
-          dldb.push(dldb_per_filter);
+          let dldb_per_filter = dlda_dadq_feat
+            .get_body()
+            .add_slice(dlda_conj_da_conj_dq_feat.get_body())
+            .unwrap();
+          dldb.push(dldb_per_filter.into_iter().reduce(|acc, elm| { acc + elm }).unwrap());
 
           let fliped_filter = filter
             .iter()
@@ -237,18 +241,26 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           /* calculate loss derivative */
           let dlda_padded = dlda_dadq_feat.pad((padx, pady));
           let dlda_conj_padded = dlda_conj_da_conj_dq_feat.pad((padx, pady));
+          /* the next convolutions are technically full convolutions */
+          /* padded + flipped kernel */
           let new_dlda_acc = fliped_filter
             .iter()
-            .flat_map(|kernel| {
-              let res = dlda_padded.convolution(kernel).unwrap();
-              res.export_body()
+            .flat_map(|flip_kernel| {
+              /* CHANGED HERE FOR COMPLEX CONVOLUTION */
+              dlda_padded
+                .cconvolution(flip_kernel)
+                .unwrap()
+                .export_body()
             }).collect::<Vec<_>>();
           
           let new_dlda_conj_acc = fliped_filter
             .iter()
-            .flat_map(|kernel| {
-              let res = dlda_conj_padded.convolution(kernel).unwrap();
-              res.export_body()
+            .flat_map(|flip_kernel| {
+              /* CHANGED HERE FOR COMPLEX CONVOLUTION */
+              dlda_conj_padded
+                .cconvolution(flip_kernel)
+                .unwrap()
+                .export_body()
             }).collect::<Vec<_>>();
           
           new_dlda.add_slice_mut(&new_dlda_acc).unwrap();
@@ -268,7 +280,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     /* if there is an error it can be here */
     let (weights, biases) = self.params_len();
 
-    if dldb_size != biases{
+    if dldb_size != biases {
       return Err(GradientError::InconsistentShape)
     } 
     if dldw_size != weights {
@@ -314,7 +326,8 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
           .zip(filter.iter())
           .fold(init_matrix, |mut acc, (feature, kernel)| {
             /* going through channels */
-            let convolved_feature = feature.convolution(kernel).unwrap();
+            /* CHANGED HERE FOR COMPLEX CONVOLUTION */
+            let convolved_feature = feature.cconvolution(kernel).unwrap();
             acc.add_mut(&convolved_feature).unwrap();
 
             acc
