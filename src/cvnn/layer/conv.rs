@@ -215,6 +215,8 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
               .into_iter()
               .flat_map(|feature| {
                 /* CHANGED HERE FOR COMPLEX CONVOLUTION OR NOT */
+                /* YOU CAN CHECK HERE WHAT HAS GREATER PERFORMANCE: 
+                TWO CONVS -> ADD TERMS OR ADD TERMS -> ONE CONV */
                 let mut dldk_term1 = feature.convolution(&dlda_dadq_feat).unwrap();
                 let dldk_term2 = feature.convolution(&dlda_conj_da_conj_dq_feat).unwrap();
                 
