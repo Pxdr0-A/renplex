@@ -115,6 +115,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         if channels != input_features_len { return Err(LayerForwardError::InvalidInput) }
 
         let output_features = self.kernels
+          //.rows_as_par_chunks()
           .rows_as_iter()
           .zip(self.biases.iter())
           .map(|(filter, bias)| {
@@ -209,61 +210,67 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
             output_shape
           );
 
-          /* convolve dlda_feat with all input channels to get kernel derivatives for each channel */
-          /* gives a vec that goes through all channels of a single filter */
-          /* VERIFY IF THIS IS CORRECT */
-          let dldk_per_filter = input
-            .into_iter()
-            .flat_map(|feature| {
-              /* CHANGED HERE FOR COMPLEX CONVOLUTION OR NOT */
-              let mut dldk_term1 = feature.convolution(&dlda_dadq_feat).unwrap();
-              let dldk_term2 = feature.convolution(&dlda_conj_da_conj_dq_feat).unwrap();
-              
-              dldk_term1.add_mut(&dldk_term2).unwrap();
-              dldk_term1.export_body()
-            }).collect::<Vec<_>>();
-          
-          dldk.extend(dldk_per_filter);
+          let oper_a = || {
+            let dldk_per_filter = input
+              .into_iter()
+              .flat_map(|feature| {
+                /* CHANGED HERE FOR COMPLEX CONVOLUTION OR NOT */
+                let mut dldk_term1 = feature.convolution(&dlda_dadq_feat).unwrap();
+                let dldk_term2 = feature.convolution(&dlda_conj_da_conj_dq_feat).unwrap();
+                
+                dldk_term1.add_mut(&dldk_term2).unwrap();
+                dldk_term1.export_body()
+              }).collect::<Vec<_>>();
+            
+            /* calculate bias derivative */
+            let dldb_per_filter = dlda_dadq_feat
+              .get_body()
+              .add_slice(dlda_conj_da_conj_dq_feat.get_body())
+              .unwrap();
 
-          /* calculate bias derivative */
-          let dldb_per_filter = dlda_dadq_feat
-            .get_body()
-            .add_slice(dlda_conj_da_conj_dq_feat.get_body())
-            .unwrap();
-          dldb.push(dldb_per_filter.into_iter().reduce(|acc, elm| { acc + elm }).unwrap());
+            (dldk_per_filter, dldb_per_filter)
+          };
 
+          /* flipping kernels for derivatives */
           let fliped_filter = filter
             .iter()
             .map(|kernel| {
               kernel.flip().unwrap()
             })
             .collect::<Vec<_>>();
-
           /* calculate loss derivative */
-          let dlda_padded = dlda_dadq_feat.pad((padx, pady));
-          let dlda_conj_padded = dlda_conj_da_conj_dq_feat.pad((padx, pady));
-          /* the next convolutions are technically full convolutions */
-          /* padded + flipped kernel */
-          let new_dlda_acc = fliped_filter
-            .iter()
-            .flat_map(|flip_kernel| {
-              /* CHANGED HERE FOR COMPLEX CONVOLUTION OR NOT */
-              dlda_padded
-                .convolution(flip_kernel)
-                .unwrap()
-                .export_body()
-            }).collect::<Vec<_>>();
-          
-          let new_dlda_conj_acc = fliped_filter
-            .iter()
-            .flat_map(|flip_kernel| {
-              /* CHANGED HERE FOR COMPLEX CONVOLUTION OR NOT */
-              dlda_conj_padded
-                .convolution(flip_kernel)
-                .unwrap()
-                .export_body()
-            }).collect::<Vec<_>>();
-          
+          let dlda_padded = dlda_dadq_feat.clone().pad((padx, pady));
+          let dlda_conj_padded = dlda_conj_da_conj_dq_feat.clone().pad((padx, pady));
+
+          let oper_b = || {
+            let new_dlda_acc = fliped_filter
+              .iter()
+              .flat_map(|flip_kernel| {
+                /* CHANGED HERE FOR COMPLEX CONVOLUTION OR NOT */
+                dlda_padded
+                  .convolution(flip_kernel)
+                  .unwrap()
+                  .export_body()
+              }).collect::<Vec<_>>();
+            
+            let new_dlda_conj_acc = fliped_filter
+              .iter()
+              .flat_map(|flip_kernel| {
+                /* CHANGED HERE FOR COMPLEX CONVOLUTION OR NOT */
+                dlda_conj_padded
+                  .convolution(flip_kernel)
+                  .unwrap()
+                  .export_body()
+              }).collect::<Vec<_>>();
+            
+            (new_dlda_acc, new_dlda_conj_acc)
+          };
+
+          /* using rayon join might be a good addition in the future */
+          /* be careful because if it is not, you can change in the future for a more memory efficient approach */
+          let ((dldk_filter, dldb_filter), (new_dlda_acc, new_dlda_conj_acc)) = (oper_a(), oper_b());
+          dldk.extend(dldk_filter);
+          dldb.push(dldb_filter.into_iter().reduce(|acc, elm| { acc + elm }).unwrap());
           new_dlda.add_slice_mut(&new_dlda_acc).unwrap();
           new_dlda_conj.add_slice_mut(&new_dlda_conj_acc).unwrap();
         });

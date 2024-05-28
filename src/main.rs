@@ -321,7 +321,7 @@ fn main() {
     Conv1 lr: 1 -> 3 (peak at 2.5)
     Conv2 lr: so far 1.0 is better (80%)
   */
-  let lr_re = 1.0;
+  let lr_re = 0.25;
   let lr_im = 0.0;
   let lr = Cf32::new(lr_re, lr_im);
   let loss_func = ComplexLossFunc::Conventional;

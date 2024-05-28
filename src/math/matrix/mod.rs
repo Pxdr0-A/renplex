@@ -280,7 +280,13 @@ impl<T> Matrix<T> {
   }
 }
 
-impl<T: Copy + Sync> Matrix<T> {
+impl<T: Sync> Matrix<T> {
+  pub fn rows_as_par_chunks(&self) -> rayon::slice::Chunks<'_, T> {
+    self.body.par_chunks(self.shape[1])
+  }
+}
+
+impl<T: Copy> Matrix<T> {
   pub fn flip(&self) -> Result<Self, AccessError> {
     let shape = self.shape;
     let mut flipped = Vec::with_capacity(shape[0] * shape[1]);
@@ -292,10 +298,6 @@ impl<T: Copy + Sync> Matrix<T> {
     }
 
     Ok(Matrix::from_body(flipped, shape))
-  }
-
-  pub fn rows_as_par_chunks(&self) -> rayon::slice::Chunks<'_, T> {
-    self.body.par_chunks(self.shape[1])
   }
 
   pub fn row_into_slice(&self, i: usize, result: &mut [T]) -> Result<(), OperationError> {
@@ -353,6 +355,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
     let padded_rows = shape[0] + 2 * pad.0;
     let padded_cols = shape[1] + 2 * pad.1;
 
+    /* try here to parallelize */
     let padded_matrix = (0..padded_rows).into_iter().flat_map(|row_id| {
       if row_id < pad.0 {
         /* outter pad */
@@ -461,6 +464,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
 
     let convolved_body = (0..final_shape[0])
       /* this can now be paralelized! */
+      //.into_iter()
       .into_iter()
       .flat_map(|i| {
         let slider = self.get_slider(i, k_shape[0]);
