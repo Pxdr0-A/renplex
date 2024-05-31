@@ -58,15 +58,11 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
         let mut body = Vec::with_capacity(units * inputs);
         let mut biases = Vec::with_capacity(units);
 
-        match method {
-          InitMethod::Random(scale) => {
-            for _ in 0..units {
-              for _ in 0..inputs {
-                body.push(T::gen(seed, scale));
-              }
-              biases.push(T::gen(seed, scale));
-            }
-          }     
+        for _ in 0..units {
+          for _ in 0..inputs {
+            body.push(method.gen(seed));
+          }
+          biases.push(T::default());
         }
 
         Ok(

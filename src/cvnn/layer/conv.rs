@@ -51,7 +51,6 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     kernel_size: [usize; 2],
     func: ComplexActFunc,
     kernel_method: InitMethod,
-    method: InitMethod,
     seed: &mut u128
   ) -> Result<Self, LayerInitError> {
 
@@ -60,32 +59,21 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
         let mut kernels = Vec::new();
         let mut biases = Vec::new();
 
-        match kernel_method {
-          /* method for the kernels */
-          InitMethod::Random(scale) => {
-            /* going through the number of pixels */
-            for _filter in 0..filters_len {
-              for _channel in 0..input_features_len {
-                let mut kernel = Vec::new();
-                for _ in 0..kernel_size[0] {
-                  for _ in 0..kernel_size[1] {
-                    kernel.push(T::gen(seed, scale));
-                  }
-                }
-                /* add a channel */
-                kernels.push(Matrix::from_body(kernel, kernel_size));
+        for _filter in 0..filters_len {
+          for _channel in 0..input_features_len {
+            let mut kernel = Vec::new();
+            for _ in 0..kernel_size[0] {
+              for _ in 0..kernel_size[1] {
+                kernel.push(kernel_method.gen(seed));
               }
             }
+            /* add a channel */
+            kernels.push(Matrix::from_body(kernel, kernel_size));
           }
         }
 
-        match method {
-          /* method for the biases */
-          InitMethod::Random(scale) => {
-            for _ in 0..filters_len {
-              biases.push(T::gen(seed, scale));
-            }
-          }
+        for _ in 0..filters_len {
+          biases.push(T::default());
         }
 
         let kernels = Matrix::from_body(
