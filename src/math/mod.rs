@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::default::Default;
+use std::f32::consts::PI as PI32;
+use std::f64::consts::PI as PI64;
 
 use crate::act::ComplexActFunc;
 use crate::input::IOType;
@@ -100,6 +102,8 @@ pub trait Complex where Self: Sized {
 
   fn unit() -> Self;
 
+  fn iunit() -> Self;
+
   fn re(&self) -> Self::Precision;
 
   fn im(&self) -> Self::Precision;
@@ -113,6 +117,14 @@ pub trait Complex where Self: Sized {
   fn conj(&self) -> Self;
 
   fn gen(seed: &mut u128, scale: usize) -> Self;
+
+  fn gen_he(seed: &mut u128, i_units: usize) -> Self;
+
+  fn gen_xa(seed: &mut u128, i_units: usize) -> Self;
+
+  fn gen_xagu(seed: &mut u128, io_units: usize) -> Self;
+  
+  fn gen_xagn(seed: &mut u128, io_units: usize) -> Self;
 
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
 
@@ -148,6 +160,10 @@ impl Complex for Cf32 {
     Self { x: 1.0, y: 0.0 }
   }
 
+  fn iunit() -> Self {
+    Self { x: 0.0, y: 1.0 }
+  }
+
   fn re(&self) -> Self::Precision {
     self.x
   }
@@ -165,23 +181,74 @@ impl Complex for Cf32 {
   }
 
   fn phase(&self) -> Self::Precision {
-    (self.y / self.x).atan()
+    self.y.atan2(self.x)
   }
 
   fn conj(&self) -> Self {
-    Self {
-      x: self.x,
-      y: -self.y
-    }
+    Self { x: self.x, y: -self.y }
   }
 
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as Self::Precision;
+    
+    let r = 2.0 * float_scale * lcgf32(seed) - float_scale;
+    let phi = 2.0 * lcgf32(seed) * PI32;
 
-    Self { 
-      x: 2.0 * float_scale * lcgf32(seed) - float_scale,
-      y: 2.0 * float_scale * lcgf32(seed) - float_scale
-    }
+    Self { x: r*phi.cos(), y: r*phi.sin() }
+  }
+
+  fn gen_he(seed: &mut u128, i_units: usize) -> Self {
+    /* normal distribution */
+    /* Using Box-Muller Transform */
+    /* mimics more or less, He Initialization */
+    /* (scale will be the number of units) */
+    let float_i_units = i_units as Self::Precision;
+    let new_std = (2.0 / float_i_units).sqrt();
+
+    let r1 = lcgf32(seed);
+    let phi1 = 2.0 * lcgf32(seed) * PI32;
+
+    /* centered in zero and standard deviation of float scale */
+    /* first term makes a normal distribution */
+    let r = ( (-2.0 * r1.ln()).sqrt() * phi1.cos() ) * new_std;
+    let phi = 2.0 * lcgf32(seed) * PI32;
+
+    Self { x: r * phi.cos(), y: r * phi.sin() }
+  }
+
+  fn gen_xa(seed: &mut u128, i_units: usize) -> Self {
+    let float_i_units = i_units as Self::Precision;
+    let new_std = 1.0 / float_i_units;
+    let new_scale = ( new_std * 12.0 ).sqrt();
+
+    let r = 2.0 * lcgf32(seed) * new_scale - new_scale;
+    let phi = 2.0 * lcgf32(seed) * PI32;
+
+    Self { x: r * phi.cos(), y: r * phi.sin() }
+  }
+
+  fn gen_xagu(seed: &mut u128, io_units: usize) -> Self {
+    let float_io_units = io_units as Self::Precision;
+    let scale = (6.0 / float_io_units).sqrt();
+
+    let r = 2.0 * lcgf32(seed) * scale - scale;
+    let phi = 2.0 * lcgf32(seed) * PI32;
+
+    Self { x: r * phi.cos(), y: r * phi.sin() }
+  }
+
+  fn gen_xagn(seed: &mut u128, io_units: usize) -> Self {
+    let float_io_units = io_units as Self::Precision;
+    let new_std = (2.0 / float_io_units).sqrt();
+
+    let r1 = lcgf32(seed);
+    let phi1 = 2.0 * lcgf32(seed) * PI32;
+
+    /* normal distributed number (centered in 0) with new_std as std */
+    let r = ( (-2.0 * r1.ln()).sqrt() * phi1.cos() ) * new_std;
+    let phi = 2.0 * lcgf32(seed) * PI32;
+
+    Self { x: r * phi.cos(), y: r * phi.sin() }
   }
 
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError> {
@@ -245,6 +312,10 @@ impl Complex for Cf64 {
     Self { x: 1.0, y: 0.0 }
   }
 
+  fn iunit() -> Self {
+    Self { x: 0.0, y: 1.0 }
+  }
+
   fn re(&self) -> Self::Precision {
     self.x
   }
@@ -274,11 +345,66 @@ impl Complex for Cf64 {
 
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as Self::Precision;
+    
+    let r = 2.0 * float_scale * lcgf64(seed) - float_scale;
+    let phi = 2.0 * lcgf64(seed) * PI64;
 
-    Self { 
-      x: 2.0 * float_scale * lcgf64(seed) - float_scale,
-      y: 2.0 * float_scale * lcgf64(seed) - float_scale
-    }
+    Self { x: r * phi.cos(), y: r * phi.sin() }
+  }
+
+  fn gen_he(seed: &mut u128, i_units: usize) -> Self {
+    /* normal distribution */
+    /* Using Box-Muller Transform */
+    /* mimics more or less, He Initialization */
+    /* (scale will be the number of units) */
+    let float_i_units = i_units as Self::Precision;
+    let new_std = (2.0 / float_i_units).sqrt();
+
+    let r1 = lcgf64(seed);
+    let phi1 = 2.0 * lcgf64(seed) * PI64;
+
+    /* centered in zero and standard deviation of float scale */
+    /* first term makes a normal distribution */
+    let r = ( (-2.0 * r1.ln()).sqrt() * phi1.cos() ) * new_std;
+    let phi = 2.0 * lcgf64(seed) * PI64;
+
+    Self { x: r * phi.cos(), y: r * phi.sin() }
+  }
+
+  fn gen_xa(seed: &mut u128, i_units: usize) -> Self {
+    let float_i_units = i_units as Self::Precision;
+    let new_std = 1.0 / float_i_units;
+    let new_scale = ( new_std * 12.0 ).sqrt();
+
+    let r = 2.0 * lcgf64(seed) * new_scale - new_scale;
+    let phi = 2.0 * lcgf64(seed) * PI64;
+
+    Self { x: r * phi.cos(), y: r * phi.sin() }
+  }
+
+  fn gen_xagu(seed: &mut u128, io_units: usize) -> Self {
+    let float_io_units = io_units as Self::Precision;
+    let scale = (6.0 / float_io_units).sqrt();
+
+    let r = 2.0 * lcgf64(seed) * scale - scale;
+    let phi = 2.0 * lcgf64(seed) * PI64;
+
+    Self { x: r * phi.cos(), y: r * phi.sin() }
+  }
+
+  fn gen_xagn(seed: &mut u128, io_units: usize) -> Self {
+    let float_io_units = io_units as Self::Precision;
+    let new_std = (2.0 / float_io_units).sqrt();
+
+    let r1 = lcgf64(seed);
+    let phi1 = 2.0 * lcgf64(seed) * PI64;
+
+    /* normal distributed number (centered in 0) with new_std as std */
+    /* think about using the complete Box-Muller transform */
+    let r = ( (-2.0 * r1.ln()).sqrt() * phi1.cos() ) * new_std;
+    let phi = 2.0 * lcgf64(seed) * PI64;
+
+    Self { x: r * phi.cos(), y: r * phi.sin() }
   }
 
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError> {
