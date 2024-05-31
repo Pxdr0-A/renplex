@@ -188,4 +188,12 @@ mod basic_tests {
   fn string_test() {
     let _a = format!("./out/loss_{}_{}.csv", 0.3, 0.1);
   }
+
+  #[test]
+  fn atan_test() {
+    let x = ((-1.0_f32) / (1.0)).atan();
+    let y = (-1.0_f32).atan2(-1.0);
+    println!("{}", x);
+    println!("{}", y);
+  }
 }
