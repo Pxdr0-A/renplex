@@ -196,4 +196,36 @@ mod basic_tests {
     println!("{}", x);
     println!("{}", y);
   }
+
+  #[test]
+  fn fancy_prints() {
+    // ANSI escape codes
+    let reset = "\x1b[0m";
+    let bold = "\x1b[1m";
+    let red = "\x1b[31m";
+    let green = "\x1b[32m";
+    let yellow = "\x1b[33m";
+    let blue = "\x1b[34m";
+
+    // Example usage
+    println!("{}This is bold text{}", bold, reset);
+    println!("{}This is red text{}", red, reset);
+    println!("{}This is green text{}", green, reset);
+    println!("{}This is yellow text{}", yellow, reset);
+    println!("{}This is blue text{}", blue, reset);
+
+    // Combining styles
+    println!("{}{}This is bold and red text{}",
+            bold, red, reset);
+
+    // More ANSI escape codes
+    let underline = "\x1b[4m";
+    let bright_red = "\x1b[91m";
+    let bg_yellow = "\x1b[43m";
+
+    // Example usage
+    println!("{}{}This is underlined text{}", underline, bright_red, reset);
+    println!("{}{}This has a yellow background{}", bg_yellow, bright_red, reset);
+    println!("{}{}{}This is bold, underlined, and bright red with yellow background{}", bold, underline, bright_red, reset);
+  }
 }
