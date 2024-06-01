@@ -11,7 +11,7 @@ def filter_complex_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
   cols0 = df0.columns
   for col0 in cols0:
-    df0[col0] = df0[col0].apply(lambda x: np.linalg.norm(x))
+    df0[col0] = df0[col0].apply(lambda x: x[0]) # norm -> np.linalg.norm(x) phase -> np.arctan2(x[1], x[0])
 
   return df0
 
