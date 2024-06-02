@@ -11,18 +11,19 @@ def filter_complex_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
   cols0 = df0.columns
   for col0 in cols0:
-    df0[col0] = df0[col0].apply(lambda x: x[0]) # norm -> np.linalg.norm(x) phase -> np.arctan2(x[1], x[0])
+    df0[col0] = df0[col0].apply(lambda x: np.arctan2(x[1], x[0])) 
+    # real -> x[0], imaginary -> x[1], norm -> np.linalg.norm(x), phase -> np.arctan2(x[1], x[0])
 
   return df0
 
 def main():
-  df_image = pd.read_csv("./out/complex_features/conv2/lr_0.6_0_100e_original.csv")
+  df_image = pd.read_csv("./out/complex_features/conv2/lr_1.5_0_20e_original.csv")
   df0 = filter_complex_dataframe(df_image)
   plt.figure()
   plt.imshow(df0.values, cmap='hot', interpolation='nearest')
 
   for i in range(8):
-    df_feature = pd.read_csv(f"./out/complex_features/conv2/lr_0.6_0_100e_feature_{i}.csv")
+    df_feature = pd.read_csv(f"./out/complex_features/conv2/lr_1.5_0_20e_feature_{i}_{1}.csv")
     df = filter_complex_dataframe(df_feature)
 
     plt.figure()

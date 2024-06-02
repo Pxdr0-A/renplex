@@ -340,7 +340,7 @@ fn main() {
   let ref mut seed = 437628367189104305197;
   println!("Using seed: {}", seed);
 
-  let (network_id, mut network) = _get_fully_connected_cvnn(seed);
+  let (network_id, mut network) = _get_2conv_layer_cvcnn(seed);
   println!("Created the Network.");
 
   let mut train_loss_vec: Vec<f32> = Vec::new();
@@ -353,15 +353,15 @@ fn main() {
   let batch_size = 100;
   let train_batches = total_train_data / batch_size;
   let test_batches = total_test_data / batch_size;
-  let epochs: usize = 2;
+  let epochs: usize = 20;
 
   /*
     Dense lr: 4 -> 7 (peak at 6.0)
     Conv1 lr: 1 -> 3 (peak at 2.5)
     Conv2 lr: so far 1.0 is better (80%)
   */
-  let lr_re = 5.0;
-  let lr_im = 0.0;
+  let lr_re = 2.0;
+  let lr_im = 2.0;
   let lr = Cf32::new(lr_re, lr_im);
   let loss_func = ComplexLossFunc::Conventional;
 
