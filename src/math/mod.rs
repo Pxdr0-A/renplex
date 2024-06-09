@@ -191,7 +191,7 @@ impl Complex for Cf32 {
   fn gen(seed: &mut u128, scale: usize) -> Self {
     let float_scale = scale as Self::Precision;
     
-    let r = 2.0 * float_scale * lcgf32(seed) - float_scale;
+    let r = float_scale * lcgf32(seed);
     let phi = 2.0 * lcgf32(seed) * PI32;
 
     Self { x: r*phi.cos(), y: r*phi.sin() }
@@ -221,7 +221,7 @@ impl Complex for Cf32 {
     let new_std = 1.0 / float_i_units;
     let new_scale = ( new_std * 12.0 ).sqrt();
 
-    let r = 2.0 * lcgf32(seed) * new_scale - new_scale;
+    let r = lcgf32(seed) * new_scale;
     let phi = 2.0 * lcgf32(seed) * PI32;
 
     Self { x: r * phi.cos(), y: r * phi.sin() }
@@ -231,7 +231,7 @@ impl Complex for Cf32 {
     let float_io_units = io_units as Self::Precision;
     let scale = (6.0 / float_io_units).sqrt();
 
-    let r = 2.0 * lcgf32(seed) * scale - scale;
+    let r = lcgf32(seed) * scale;
     let phi = 2.0 * lcgf32(seed) * PI32;
 
     Self { x: r * phi.cos(), y: r * phi.sin() }

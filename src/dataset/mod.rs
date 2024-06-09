@@ -100,8 +100,8 @@ impl<T: Real + BasicOperations<T>> Dataset<T, T> {
       *tracker += label_file.read(label_buffer).unwrap();
       let image = image_buffer.iter().map(|elm| { T::usize_to_real(*elm as usize) / T::usize_to_real(255) }).collect::<Vec<T>>();
       data_batch.add_point((
-        IOType::FeatureMaps(vec![Matrix::from_body(image, [28, 28]); 1]),
-        IOType::Vector(T::gen_pred(MINIST_DEGREE, label_buffer[0] as usize, &PredictModel::Sparse).unwrap())
+        IOType::Matrix(vec![Matrix::from_body(image, [28, 28]); 1]),
+        IOType::Scalar(T::gen_pred(MINIST_DEGREE, label_buffer[0] as usize, &PredictModel::Sparse).unwrap())
       ));
 
       if *tracker == MINIST_TRAIN_LABEL_SIZE {
@@ -135,8 +135,8 @@ impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
       *tracker += label_file.read(label_buffer).unwrap();
       let image = image_buffer.iter().map(|elm| { T::usize_to_complex(*elm as usize) / T::usize_to_complex(255) }).collect::<Vec<T>>();
       data_batch.add_point((
-        IOType::FeatureMaps(vec![Matrix::from_body(image, [28, 28]); 1]),
-        IOType::Vector(T::gen_pred(MINIST_DEGREE, label_buffer[0] as usize, &PredictModel::Sparse).unwrap())
+        IOType::Matrix(vec![Matrix::from_body(image, [28, 28]); 1]),
+        IOType::Scalar(T::gen_pred(MINIST_DEGREE, label_buffer[0] as usize, &PredictModel::Sparse).unwrap())
       ));
 
       if *tracker == MINIST_TRAIN_LABEL_SIZE {
@@ -201,8 +201,8 @@ impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
       }
       
       // add_row will clean the added_row vec
-      labels.push(IOType::Vector(one_hot_vec.clone()));
-      sample_body.push(IOType::Vector(added_row.clone()));
+      labels.push(IOType::Scalar(one_hot_vec.clone()));
+      sample_body.push(IOType::Scalar(added_row.clone()));
 
       added_row.drain(..);
     }
@@ -243,8 +243,8 @@ impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
       }
       
       // add_row will clean the added_row vec
-      sample_body.push(IOType::Vector(added_row.clone()));
-      labels.push(IOType::Vector(one_hot_vec.clone()));
+      sample_body.push(IOType::Scalar(added_row.clone()));
+      labels.push(IOType::Scalar(one_hot_vec.clone()));
 
       added_row.drain(..);
     }

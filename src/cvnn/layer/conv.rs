@@ -38,11 +38,11 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
   /// Technically just gives the shape that the input features should have.
   /// It does not matter how many features you give.
   pub fn get_input_shape(&self) -> IOShape {
-    IOShape::FeatureMaps(self.input_features_len)
+    IOShape::Matrix(self.input_features_len)
   }
 
   pub fn get_output_shape(&self) -> IOShape {
-    IOShape::FeatureMaps(self.kernels.get_shape()[0])
+    IOShape::Matrix(self.kernels.get_shape()[0])
   }
 
   pub fn init(
@@ -55,7 +55,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
   ) -> Result<Self, LayerInitError> {
 
     match input_shape {
-      IOShape::FeatureMaps(input_features_len) => {
+      IOShape::Matrix(input_features_len) => {
         let mut kernels = Vec::new();
         let mut biases = Vec::new();
 
@@ -89,7 +89,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
 
   pub fn forward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
-      IOType::FeatureMaps(input) => {
+      IOType::Matrix(input) => {
         let kernels_shape = self.kernels.get_shape();
         let channels = kernels_shape[1];
         let func = &self.func;
@@ -131,7 +131,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
             output_feature
           }).collect::<Vec<_>>();
 
-        Ok(IOType::FeatureMaps(output_features))
+        Ok(IOType::Matrix(output_features))
       },
       _ => { Err(LayerForwardError::InvalidInput) }
     }
@@ -139,7 +139,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
 
   pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     match previous_act {
-      IOType::FeatureMaps(input) => {
+      IOType::Matrix(input) => {
         let n_input_features = input.len();
         /* all of the shapes of the inputs should be the same */
         /* because previous layers always decrease the size equally throughout features */

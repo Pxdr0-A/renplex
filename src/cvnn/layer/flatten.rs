@@ -6,7 +6,7 @@ use super::CLayer;
 /// It needs to transfer this information for subsquent layers.
 #[derive(Debug)]
 pub struct Flatten {
-  input_size: Vec<[usize; 2]>
+  input_size: ([usize; 2], usize)
 }
 
 impl Flatten {
@@ -19,32 +19,28 @@ impl Flatten {
   }
 
   pub fn get_input_shape(&self) -> IOShape {
-    IOShape::FeatureMaps(self.input_size.len())
+    IOShape::Matrix(self.input_size.1)
   }
 
   pub fn get_output_shape(&self) -> IOShape {
-    let flatten_len = self.input_size
-      .iter()
-      .map(|elm| { elm[0] * elm[1] })
-      .reduce(|acc, elm| { acc + elm })
-      .unwrap();
-    
-    IOShape::Vector(flatten_len)
+    let matrix_shape = self.input_size.0;
+
+    IOShape::Scalar(matrix_shape[0] * matrix_shape[1] * self.input_size.1)
   }
 
-  pub fn init(input_size: Vec<[usize; 2]>) -> Flatten {
-    Flatten { input_size }
+  pub fn init(input_shape: [usize; 2], ni: usize) -> Flatten {
+    Flatten { input_size: (input_shape, ni) }
   }
 
   pub fn foward<T: Clone>(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
-      IOType::FeatureMaps(features) => {
+      IOType::Matrix(features) => {
         let flatten_features = features
           .into_iter()
           .flat_map(|feature| { feature.get_body().to_vec() })
           .collect::<Vec<T>>();
 
-        Ok(IOType::Vector(flatten_features))
+        Ok(IOType::Scalar(flatten_features))
       },
       _ => { Err(LayerForwardError::InvalidInput) }
     }

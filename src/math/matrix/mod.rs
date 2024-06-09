@@ -453,22 +453,29 @@ impl<T: BasicOperations<T>> Matrix<T> {
   }
 
   pub fn convolution(&self, kernel: &Self) -> Result<Self, OperationError> {
-    /* Error handling!! */
-
+    // extract kernel and matrix shape
     let k_shape = kernel.get_shape();
     let initial_shape = self.get_shape();
+
+    // check is the kernel is to big
+    if k_shape[0] > initial_shape[0] || k_shape[1] > initial_shape[1] {
+      return Err(OperationError::InvalidRHS)
+    }
+
+    // determine the final shape
     let final_shape = [
       initial_shape[0] - (k_shape[0]-1), 
       initial_shape[1] - (k_shape[1]-1)
     ];
 
+    // go through the number of final rows
     let convolved_body = (0..final_shape[0])
-      /* this can now be paralelized! */
-      //.into_iter()
       .into_iter()
       .flat_map(|i| {
+        // get a retangular matrix to slide the kernel
         let slider = self.get_slider(i, k_shape[0]);
 
+        // slide the kernel
         let conv_row = slider
           .zip(kernel.rows_as_iter())
           .fold(vec![T::default(); final_shape[1]], |mut acc, (full_row, kernel_row)| {
@@ -482,10 +489,11 @@ impl<T: BasicOperations<T>> Matrix<T> {
             acc
         });
 
+        // returns a convolved row
         conv_row
     }).collect::<Vec<_>>();
 
-    
+    /* convert a flatten matrix to the final shape */
     Ok(convolved_body.to_matrix(final_shape).unwrap())
   }
 

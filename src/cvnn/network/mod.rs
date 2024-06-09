@@ -194,12 +194,11 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let n_layers = self.layers.len();
     if n_layers <= 1 { return Err(ForwardError::MissingLayers) }
 
-    /* derivatives to accumulate */
-    /* maybe they need to be allocated first! */
-    /* maybe a get_number_of_params method to the layers */
+    // derivatives to accumulate
     let mut dldw_per_layer = Vec::new();
     let mut dldb_per_layer = Vec::new();
     let mut _total_params: usize = 0;
+    // allocate the memory for the gradients
     for layer in self.layers.iter() {
       if layer.is_trainable() {
         let (weights_len, bias_len) = layer.params_len();
@@ -214,12 +213,16 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       }
     }
 
+    // make an iterator of the data points 
+    // (to be used for training)
     let (inputs, targets) = data.points_into_iter();
 
     let batch_size = inputs.len();
-    /* accumulate weight and bias derivative */
     for (input, target) in inputs.zip(targets) {
-      let mut activations = self.collect_acts(input)
+      // collect all activations of the network
+      // then reverse them to back-propagate values
+      let mut activations = self
+        .collect_acts(input)
         .unwrap()
         .into_iter()
         .rev();
@@ -238,19 +241,29 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         .map(|elm| { elm.conj() })
         .collect();
 
+      // if the layer is trainable or propagates derivatives
+      // extract derivatives
+      // activation is consumed here iteratively
+      // memory starts flushing out
       for (l, (prev_act, layer)) in activations.zip(self.layers.iter().rev()).enumerate() {
         if layer.is_trainable() {
           let dldw; let dldb;
+          // loss and conj loss derivative are being updated
+          // derivative computation only needs previous activation
           (dldw, dldb, dlda, dlda_conj) = layer.compute_derivatives(&prev_act, dlda, dlda_conj).unwrap();
           dldw_per_layer[n_layers-l-1].add_slice_mut(&dldw).unwrap();
           dldb_per_layer[n_layers-l-1].add_slice_mut(&dldb).unwrap(); 
         }
       }
+      // drop unecessary memory usage
       drop(dlda); drop(dlda_conj);
     }
 
-    /* divide the gradient by the count of data samples */
+    // divide the gradient by the count of data samples
     let scale_param = lr / T::usize_to_complex(batch_size);
+
+    // iterator containing the gradients per layer
+    // to update layers weights with the gradients
     let update_iter = dldw_per_layer
       .into_iter()
       .zip(dldb_per_layer.into_iter())
@@ -258,9 +271,13 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
 
     update_iter.for_each(|((mut dldw, mut dldb), layer)| {
       if layer.is_trainable() {
+        // scale the gradients with:
+        // learning rate 
+        // and number of data points in the batch
         dldw.mul_mut_scalar(scale_param).unwrap();
         dldb.mul_mut_scalar(scale_param).unwrap();
 
+        // adjust the weights and biases of that layer
         layer.neg_conj_adjustment(dldw, dldb).unwrap();
       }
     });

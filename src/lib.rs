@@ -96,7 +96,7 @@ mod basic_tests {
 
     let image;
     match image_point {
-      IOType::FeatureMaps(map) => {
+      IOType::Matrix(map) => {
         image = map[0].clone();
       },
       _ => {panic!("ups...")}

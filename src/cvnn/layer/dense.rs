@@ -38,11 +38,11 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
 
   pub fn get_input_shape(&self) -> IOShape {
     let weight_shape = self.weights.get_shape();
-    IOShape::Vector(weight_shape[1])
+    IOShape::Scalar(weight_shape[1])
   }
 
   pub fn get_output_shape(&self) -> IOShape {
-    IOShape::Vector(self.biases.len())
+    IOShape::Scalar(self.biases.len())
   }
 
   pub fn init(
@@ -54,7 +54,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
   ) -> Result<Self, LayerInitError> {
 
     match input_shape {
-      IOShape::Vector(inputs) => {
+      IOShape::Scalar(inputs) => {
         let mut body = Vec::with_capacity(units * inputs);
         let mut biases = Vec::with_capacity(units);
 
@@ -80,7 +80,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
   pub fn forward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       /* dense layer should receive a vector */
-      IOType::Vector(input) => {
+      IOType::Scalar(input) => {
         /* instantiate the result (it is going to be a column matrix) */
         let mut res = self.weights
           .mul_slice(input)
@@ -95,7 +95,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
         T::activate_mut(res.as_mut_slice(), &self.func);
 
         /* layer returns a vector */
-        Ok(IOType::Vector(res))
+        Ok(IOType::Scalar(res))
       },
       _ => { Err(LayerForwardError::InvalidInput) }
     }
@@ -109,7 +109,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     if dlda_conj.len() != weight_shape[0] { return Err(GradientError::InconsistentShape) }
 
     match previous_act {
-      IOType::Vector(input) => {
+      IOType::Scalar(input) => {
         /* determine q (it is an holomorphic function) */
         /* determine q */
         let q = self.compute_q(input);

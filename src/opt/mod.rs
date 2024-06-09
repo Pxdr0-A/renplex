@@ -76,9 +76,9 @@ impl ComplexLossFunc {
     };
 
     match prediction {
-      IOType::Vector(pred) => {
+      IOType::Scalar(pred) => {
         match target {
-          IOType::Vector(targ) => {
+          IOType::Scalar(targ) => {
             let pred_len = pred.len();
             if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
 
@@ -94,9 +94,9 @@ impl ComplexLossFunc {
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::FeatureMaps(pred) => {
+      IOType::Matrix(pred) => {
         match target {
-          IOType::FeatureMaps(targ) => {
+          IOType::Matrix(targ) => {
             let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
             let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
             
@@ -133,9 +133,9 @@ impl ComplexLossFunc {
     };
 
     match prediction {
-      IOType::Vector(pred) => {
+      IOType::Scalar(pred) => {
         match target {
-          IOType::Vector(targ) => {
+          IOType::Scalar(targ) => {
             let pred_len = pred.len();
             if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
 
@@ -151,9 +151,9 @@ impl ComplexLossFunc {
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::FeatureMaps(pred) => {
+      IOType::Matrix(pred) => {
         match target {
-          IOType::FeatureMaps(targ) => {
+          IOType::Matrix(targ) => {
             let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
             let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
             
@@ -189,22 +189,22 @@ impl ComplexLossFunc {
     };
 
     match prediction {
-      IOType::Vector(pred) => {
+      IOType::Scalar(pred) => {
         match target {
-          IOType::Vector(targ) => {
+          IOType::Scalar(targ) => {
             let vec = pred
               .into_iter()
               .zip(targ)
               .map(func)
               .collect::<Vec<TargetType>>();
-            Ok(IOType::Vector(vec))
+            Ok(IOType::Scalar(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::FeatureMaps(pred) => {
+      IOType::Matrix(pred) => {
         match target {
-          IOType::FeatureMaps(targ) => {
+          IOType::Matrix(targ) => {
             let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
             let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
             
@@ -218,7 +218,7 @@ impl ComplexLossFunc {
               .map(func)
               .collect::<Vec<TargetType>>();
             
-            Ok(IOType::Vector(error_der))
+            Ok(IOType::Scalar(error_der))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -239,22 +239,22 @@ impl ComplexLossFunc {
     };
 
     match prediction {
-      IOType::Vector(pred) => {
+      IOType::Scalar(pred) => {
         match target {
-          IOType::Vector(targ) => {
+          IOType::Scalar(targ) => {
             let vec = pred
               .into_iter()
               .zip(targ)
               .map(func)
               .collect::<Vec<TargetType>>();
-            Ok(IOType::Vector(vec))
+            Ok(IOType::Scalar(vec))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
       },
-      IOType::FeatureMaps(pred) => {
+      IOType::Matrix(pred) => {
         match target {
-          IOType::FeatureMaps(targ) => {
+          IOType::Matrix(targ) => {
             let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
             let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
             
@@ -268,7 +268,7 @@ impl ComplexLossFunc {
               .map(func)
               .collect::<Vec<TargetType>>();
             
-            Ok(IOType::Vector(error_der))
+            Ok(IOType::Scalar(error_der))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }

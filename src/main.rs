@@ -22,7 +22,7 @@ fn _get_1conv_layer_cvcnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
   let input_units = 8;
   let k_size = [3, 3];
   let input_layer: CLayer<Cf32> = ConvCLayer::init(
-    IOShape::FeatureMaps(1),
+    IOShape::Matrix(1),
     input_units,
     k_size,
     ComplexActFunc::RITReLU, 
@@ -30,10 +30,10 @@ fn _get_1conv_layer_cvcnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
     seed
   ).unwrap().wrap();
 
-  let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[26, 26]; 8]).wrap();
+  let flatten_layer: CLayer<Cf32> = Flatten::init([26, 26], 8).wrap();
   
   let first_dense: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(26*26*8), 
+    IOShape::Scalar(26*26*8), 
     16,
     ComplexActFunc::RITSigmoid, 
     InitMethod::XavierGlorotU(26*26*8 + 16),
@@ -41,7 +41,7 @@ fn _get_1conv_layer_cvcnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
   ).unwrap().wrap();
   
   let output_layer: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(16), 
+    IOShape::Scalar(16), 
     10, 
     ComplexActFunc::RITSigmoid, 
     InitMethod::XavierGlorotU(16 + 10), 
@@ -65,7 +65,7 @@ fn _get_2conv_layer_cvcnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
   let input_units = 8;
   let k_size = [3, 3];
   let input_layer: CLayer<Cf32> = ConvCLayer::init(
-    IOShape::FeatureMaps(1),
+    IOShape::Matrix(1),
     input_units,
     k_size,
     ComplexActFunc::RITReLU, 
@@ -93,7 +93,7 @@ fn _get_2conv_layer_cvcnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
   let inter_units = 8;
   let inter_k_size = [3, 3];
   let inter_conv: CLayer<Cf32> = ConvCLayer::init(
-    IOShape::FeatureMaps(8),
+    IOShape::Matrix(8),
     inter_units,
     inter_k_size,
     ComplexActFunc::RITReLU, 
@@ -101,16 +101,16 @@ fn _get_2conv_layer_cvcnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
     seed
   ).unwrap().wrap();
 
-  let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[11, 11]; 8]).wrap();
+  let flatten_layer: CLayer<Cf32> = Flatten::init([11, 11], 8).wrap();
   let first_dense: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(11*11*8), 
+    IOShape::Scalar(11*11*8), 
     16,
     ComplexActFunc::RITSigmoid, 
     InitMethod::XavierGlorotU(11*11*8 + 16),
     seed
   ).unwrap().wrap();
   let output_layer: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(16), 
+    IOShape::Scalar(16), 
     10, 
     ComplexActFunc::RITSigmoid, 
     InitMethod::XavierGlorotU(16 + 10), 
@@ -133,10 +133,10 @@ fn _get_2conv_layer_cvcnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
 }
 
 fn _get_fully_connected_cvnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
-  let flatten_layer: CLayer<Cf32> = Flatten::init(vec![[28, 28]; 1]).wrap();
+  let flatten_layer: CLayer<Cf32> = Flatten::init([28, 28], 1).wrap();
 
   let first_dense: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(28*28), 
+    IOShape::Scalar(28*28), 
     28,
     ComplexActFunc::RITSigmoid, 
     InitMethod::XavierGlorotU(28*28 + 28),
@@ -144,7 +144,7 @@ fn _get_fully_connected_cvnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
   ).unwrap().wrap();
 
   let second_dense: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(28), 
+    IOShape::Scalar(28), 
     16, 
     ComplexActFunc::RITSigmoid, 
     InitMethod::XavierGlorotU(28 + 16), 
@@ -152,7 +152,7 @@ fn _get_fully_connected_cvnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
   ).unwrap().wrap();
 
   let third_dense: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(16), 
+    IOShape::Scalar(16), 
     16, 
     ComplexActFunc::RITSigmoid, 
     InitMethod::XavierGlorotU(16 + 16), 
@@ -160,7 +160,7 @@ fn _get_fully_connected_cvnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
   ).unwrap().wrap();
 
   let forth_dense: CLayer<Cf32> = DenseCLayer::init(
-    IOShape::Vector(16), 
+    IOShape::Scalar(16), 
     10, 
     ComplexActFunc::RITSigmoid, 
     InitMethod::XavierGlorotU(16 + 10), 
@@ -198,21 +198,21 @@ fn extract_features(
 
   let image;
   match image_point {
-    IOType::FeatureMaps(map) => {image = map[0].clone();},
+    IOType::Matrix(map) => {image = map[0].clone();},
     _ => {panic!("ups...")}
   }
   image.to_csv(format!(
-    "./out/complex_features/conv{}/lr_{}_{}_{}e_original.csv", 
+    "./out/complex_features/conv{}/lr_{:.2}_{:.2}_{}e_original.csv", 
     conv_network_id, lr_re, lr_im, epochs
   )).unwrap();
 
   if conv_network_id == 1 {
     let (feature_maps, _) = network.intercept(image_point.clone(), 1).unwrap();
     match feature_maps {
-      IOType::FeatureMaps(maps) => {
+      IOType::Matrix(maps) => {
         maps.into_iter().enumerate().for_each(|(id, feature)| {
           feature.to_csv(format!(
-            "out/complex_features/conv{}/lr_{}_{}_{}e_feature_{}.csv", 
+            "out/complex_features/conv{}/lr_{:.2}_{:.2}_{}e_feature_{}.csv", 
             conv_network_id, lr_re, lr_im, epochs, id
           )).unwrap();
         })
@@ -223,10 +223,10 @@ fn extract_features(
     let order = 1;
     let (feature_maps, _) = network.intercept(image_point.clone(), order).unwrap();
     match feature_maps {
-      IOType::FeatureMaps(maps) => {
+      IOType::Matrix(maps) => {
         maps.into_iter().enumerate().for_each(|(id, feature)| {
           feature.to_csv(format!(
-            "out/complex_features/conv{}/lr_{}_{}_{}e_feature_{}_{}.csv", 
+            "out/complex_features/conv{}/lr_{:.2}_{:.2}_{}e_feature_{}_{}.csv", 
             conv_network_id, lr_re, lr_im, epochs, id, order
           )).unwrap();
         })
@@ -237,10 +237,10 @@ fn extract_features(
     let order = 3;
     let (feature_maps, _) = network.intercept(image_point.clone(), 3).unwrap();
     match feature_maps {
-      IOType::FeatureMaps(maps) => {
+      IOType::Matrix(maps) => {
         maps.into_iter().enumerate().for_each(|(id, feature)| {
           feature.to_csv(format!(
-            "out/complex_features/conv{}/lr_{}_{}_{}e_feature_{}_{}.csv", 
+            "out/complex_features/conv{}/lr_{:.2}_{:.2}_{}e_feature_{}_{}.csv", 
             conv_network_id, lr_re, lr_im, epochs, id, order
           )).unwrap();
         })
@@ -340,7 +340,7 @@ fn main() {
   let ref mut seed = 437628367189104305197;
   println!("Using seed: {}", seed);
 
-  let (network_id, mut network) = _get_2conv_layer_cvcnn(seed);
+  let (network_id, mut network) = _get_fully_connected_cvnn(seed);
   println!("Created the Network.");
 
   let mut train_loss_vec: Vec<f32> = Vec::new();
@@ -360,13 +360,15 @@ fn main() {
     Conv1 lr: 1 -> 3 (peak at 2.5)
     Conv2 lr: so far 1.0 is better (80%)
   */
-  let lr_re = 2.0;
-  let lr_im = 2.0;
+  let r = 2.0_f32;
+  let phase = 0.0_f32; //std::f32::consts::FRAC_PI_2;
+  let lr_re = r * phase.cos();
+  let lr_im = r * phase.sin();
   let lr = Cf32::new(lr_re, lr_im);
   let loss_func = ComplexLossFunc::Conventional;
 
   println!("Begining training and testing pipeline.");
-  println!("Using constant learning rate: {}", lr);
+  println!("Using constant learning rate: [{:.1}, {:.1}]", lr_re, lr_im);
   println!("Total Epochs: {}", epochs);
   println!("Batch size: {} | Number of Batches (train, test): {:?}", batch_size, (train_batches, test_batches));
   for e in 0..epochs {
@@ -405,19 +407,19 @@ fn main() {
   
   /* Save Results (learning curves) to local memory as .csv file */
   Matrix::from_body(train_loss_vec, [epochs, 1]).to_csv(format!(
-    "./out/{}/loss_{}_{}_{}e.csv", 
+    "./out/{}/loss_{:.2}_{:.2}_{}e.csv", 
     network_id, lr_re, lr_im, epochs
   )).unwrap();
   Matrix::from_body(train_acc_vec, [epochs, 1]).to_csv(format!(
-    "./out/{}/acc_{}_{}_{}e.csv", 
+    "./out/{}/acc_{:.2}_{:.2}_{}e.csv", 
     network_id, lr_re, lr_im, epochs
   )).unwrap();
   Matrix::from_body(test_loss_vec, [epochs, 1]).to_csv(format!(
-    "./out/{}/test_loss_{}_{}_{}e.csv", 
+    "./out/{}/test_loss_{:.2}_{:.2}_{}e.csv", 
     network_id, lr_re, lr_im, epochs
   )).unwrap();
   Matrix::from_body(test_acc_vec, [epochs, 1]).to_csv(format!(
-    "./out/{}/test_acc_{}_{}_{}e.csv", 
+    "./out/{}/test_acc_{:.2}_{:.2}_{}e.csv", 
     network_id, lr_re, lr_im, epochs
   )).unwrap();
 

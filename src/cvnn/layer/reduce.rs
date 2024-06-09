@@ -32,11 +32,11 @@ impl<T: BasicOperations<T>> Reduce<T> {
   }
 
   pub fn get_input_shape(&self) -> IOShape {
-    IOShape::FeatureMaps(self.input_features_len)
+    IOShape::Matrix(self.input_features_len)
   }
 
   pub fn get_output_shape(&self) -> IOShape {
-    IOShape::FeatureMaps(self.input_features_len)
+    IOShape::Matrix(self.input_features_len)
   }
 
   pub fn init(input_features_len: usize, block_size: [usize; 2], block_func: Box<dyn Fn(&[T]) -> T>, interp_kernel: Matrix<T>) -> Reduce<T> {
@@ -45,7 +45,7 @@ impl<T: BasicOperations<T>> Reduce<T> {
 
   pub fn foward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
-      IOType::FeatureMaps(features) => {
+      IOType::Matrix(features) => {
         let mut new_features = Vec::with_capacity(features.len());
         for feature in features.into_iter() {
           let new_feature = feature.block_reduce(
@@ -56,7 +56,7 @@ impl<T: BasicOperations<T>> Reduce<T> {
           new_features.push(new_feature);
         }
 
-        Ok(IOType::FeatureMaps(new_features))
+        Ok(IOType::Matrix(new_features))
       },
       _ => { Err(LayerForwardError::InvalidInput) }
     }  
@@ -65,7 +65,7 @@ impl<T: BasicOperations<T>> Reduce<T> {
   pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     /* perform unpooling or upsampling */
     match previous_act {
-      IOType::FeatureMaps(features) => {
+      IOType::Matrix(features) => {
         let features_len = features.len();
         let features_chunks = dlda.len() / features_len;
 
