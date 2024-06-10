@@ -39,12 +39,12 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
-  pub fn is_trainable(&self) -> bool {
+  pub fn propagates(&self) -> bool {
     match self {
-      CLayer::Dense(l) => { l.is_trainable() },
-      CLayer::Convolutional(l) => { l.is_trainable() },
-      CLayer::Reduce(l) => { l.is_trainable() },
-      CLayer::Flatten(l) => { l.is_trainable() }
+      CLayer::Dense(l) => { l.propagates() },
+      CLayer::Convolutional(l) => { l.propagates() },
+      CLayer::Reduce(l) => { l.propagates() },
+      CLayer::Flatten(l) => { l.propagates() }
     }
   }
 

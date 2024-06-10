@@ -23,7 +23,7 @@ impl<T: BasicOperations<T>> Reduce<T> {
     false
   }
 
-  pub fn is_trainable(&self) -> bool {
+  pub fn propagates(&self) -> bool {
     true
   }
 

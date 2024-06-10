@@ -200,7 +200,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let mut _total_params: usize = 0;
     // allocate the memory for the gradients
     for layer in self.layers.iter() {
-      if layer.is_trainable() {
+      if layer.propagates() {
         let (weights_len, bias_len) = layer.params_len();
       
         dldw_per_layer.push(vec![T::default(); weights_len]);
@@ -246,7 +246,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       // activation is consumed here iteratively
       // memory starts flushing out
       for (l, (prev_act, layer)) in activations.zip(self.layers.iter().rev()).enumerate() {
-        if layer.is_trainable() {
+        if layer.propagates() {
           let dldw; let dldb;
           // loss and conj loss derivative are being updated
           // derivative computation only needs previous activation
@@ -270,7 +270,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
       .zip(self.layers.iter_mut());
 
     update_iter.for_each(|((mut dldw, mut dldb), layer)| {
-      if layer.is_trainable() {
+      if layer.propagates() {
         // scale the gradients with:
         // learning rate 
         // and number of data points in the batch

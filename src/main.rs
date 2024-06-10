@@ -133,12 +133,14 @@ fn _get_2conv_layer_cvcnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
 }
 
 fn _get_fully_connected_cvnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
+  let dense_act = ComplexActFunc::RITSigmoid;
+
   let flatten_layer: CLayer<Cf32> = Flatten::init([28, 28], 1).wrap();
 
   let first_dense: CLayer<Cf32> = DenseCLayer::init(
     IOShape::Scalar(28*28), 
     28,
-    ComplexActFunc::RITSigmoid, 
+    dense_act, 
     InitMethod::XavierGlorotU(28*28 + 28),
     seed
   ).unwrap().wrap();
@@ -146,7 +148,7 @@ fn _get_fully_connected_cvnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
   let second_dense: CLayer<Cf32> = DenseCLayer::init(
     IOShape::Scalar(28), 
     16, 
-    ComplexActFunc::RITSigmoid, 
+    dense_act, 
     InitMethod::XavierGlorotU(28 + 16), 
     seed
   ).unwrap().wrap();
@@ -154,7 +156,7 @@ fn _get_fully_connected_cvnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
   let third_dense: CLayer<Cf32> = DenseCLayer::init(
     IOShape::Scalar(16), 
     16, 
-    ComplexActFunc::RITSigmoid, 
+    dense_act, 
     InitMethod::XavierGlorotU(16 + 16), 
     seed
   ).unwrap().wrap();
@@ -162,7 +164,7 @@ fn _get_fully_connected_cvnn(seed: &mut u128) -> (usize, CNetwork<Cf32>) {
   let forth_dense: CLayer<Cf32> = DenseCLayer::init(
     IOShape::Scalar(16), 
     10, 
-    ComplexActFunc::RITSigmoid, 
+    dense_act, 
     InitMethod::XavierGlorotU(16 + 10), 
     seed
   ).unwrap().wrap();
@@ -302,6 +304,7 @@ fn train_pipeline(
   let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
   let mut mean_train_loss = 0.0;
   let mut mean_train_acc = 0.0;
+
   for b in 0..train_batches {
     let t_train: Instant = Instant::now();
     let train_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(train_data_file, train_label_file, batch_size, train_tracker);
@@ -310,6 +313,7 @@ fn train_pipeline(
 
     let inst_train_loss = network.loss(train_data.clone(), &loss_func).unwrap();
     let inst_train_acc = network.max_pred_test(train_data);
+
     mean_train_loss += inst_train_loss;
     mean_train_acc += inst_train_acc;
     
@@ -340,7 +344,7 @@ fn main() {
   let ref mut seed = 437628367189104305197;
   println!("Using seed: {}", seed);
 
-  let (network_id, mut network) = _get_fully_connected_cvnn(seed);
+  let (network_id, mut network) = _get_1conv_layer_cvcnn(seed);
   println!("Created the Network.");
 
   let mut train_loss_vec: Vec<f32> = Vec::new();
@@ -355,13 +359,11 @@ fn main() {
   let test_batches = total_test_data / batch_size;
   let epochs: usize = 20;
 
-  /*
-    Dense lr: 4 -> 7 (peak at 6.0)
-    Conv1 lr: 1 -> 3 (peak at 2.5)
-    Conv2 lr: so far 1.0 is better (80%)
+  /* lr
+  Dense : 3 or 4
   */
-  let r = 2.0_f32;
-  let phase = 0.0_f32; //std::f32::consts::FRAC_PI_2;
+  let r = 2.5_f32;
+  let phase = std::f32::consts::PI * 0.0;
   let lr_re = r * phase.cos();
   let lr_im = r * phase.sin();
   let lr = Cf32::new(lr_re, lr_im);

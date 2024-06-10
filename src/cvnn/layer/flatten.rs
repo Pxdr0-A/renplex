@@ -14,7 +14,7 @@ impl Flatten {
     false
   }
 
-  pub fn is_trainable(&self) -> bool {
+  pub fn propagates(&self) -> bool {
     false
   }
 

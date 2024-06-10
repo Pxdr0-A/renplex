@@ -26,7 +26,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     }
   }
 
-  pub fn is_trainable(&self) -> bool {
+  pub fn propagates(&self) -> bool {
     true
   }
 
