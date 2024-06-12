@@ -8,14 +8,14 @@ const SIGMOID_THRESHOLD_F64: f64 = 30.0;
 
 /* Real function utilitis for RIT */
 fn sigmoid_f32(val: f32) -> f32 {
-  if val >= SIGMOID_THRESHOLD_F32 { 1.0 } 
-  else if val <= -SIGMOID_THRESHOLD_F32 { 0.0 } 
+  if val >= SIGMOID_THRESHOLD_F32 { 0.999999 } 
+  else if val <= -SIGMOID_THRESHOLD_F32 { 0.000001 } 
   else { val.exp() / (1.0 + val.exp()) }
 }
 
 fn sigmoid_f64(val: f64) -> f64 {
-  if val >= SIGMOID_THRESHOLD_F64 { 1.0 } 
-  else if val <= -SIGMOID_THRESHOLD_F64 { 0.0 } 
+  if val >= SIGMOID_THRESHOLD_F64 { 0.99999999999999 } 
+  else if val <= -SIGMOID_THRESHOLD_F64 { 0.00000000000001 } 
   else { val.exp() / (1.0 + val.exp()) }
 }
 

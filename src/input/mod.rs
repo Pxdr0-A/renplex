@@ -26,6 +26,13 @@ impl<T> IOType<T> {
     }
   }
 
+  pub fn as_slice(&self) -> &[T] {
+    match self {
+      IOType::Scalar(vec) => { &vec[..] },
+      IOType::Matrix(_mat) => { panic!("Requesting feature maps as mutable slice.") }
+    }
+  }
+
   pub fn as_mut(&mut self) -> &mut [T] {
     match self {
       IOType::Scalar(vec) => { &mut vec[..] },

@@ -71,23 +71,25 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok(())
   }
 
-  pub fn forward(&self, input_type: IOType<T>) -> Result<IOType<T>, ForwardError> {
-    if self.layers.len() == 0 { return Err(ForwardError::MissingLayers) }
+  pub fn forward(&self, input_type: &IOType<T>) -> Result<IOType<T>, ForwardError> {
+    let layers_len = self.layers.len();
+    if layers_len == 0 { return Err(ForwardError::MissingLayers) }
     
-    /* feed input */
-    let mut out = input_type;
-    let layers_iter = self.layers.iter();
-    for layer_ref in layers_iter {
-      /* propagate through hidden layers */
-      /* there might be a better solution without using convert() */
-      out = layer_ref
-        .foward(&out)
-        .unwrap();
+    /* feed input */    
+    let mut layers_iter = self.layers.iter();
+    let input_layer = layers_iter.next().unwrap();
+
+    let mut output = input_layer.foward(input_type).unwrap();
+    if layers_len > 1 {
+      output = layers_iter.fold(output, |acc, layer| {
+        layer.foward(&acc).unwrap()
+      });
     }
 
-    Ok(out)
+    Ok(output)
   }
 
+  /// Not a heavily used function but might be.
   pub fn intercept(&self, input_type: IOType<T>, index: usize) -> Result<(IOType<T>, &CLayer<T>), ForwardError> {
     if index > self.layers.len() - 1 { return Err(ForwardError::InvalidLayerIndex) }
     
@@ -113,7 +115,6 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let layers_iter = self.layers.iter();
     for layer_ref in layers_iter {
       /* propagate through hidden layers */
-      /* there might be a better solution without using convert() */
       outs.push(
         layer_ref
           .foward(outs.last().unwrap())
@@ -125,20 +126,20 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
   }
 
   pub fn loss(&self, 
-    data: Dataset<T, T>,
+    data: &Dataset<T, T>,
     loss_func: &ComplexLossFunc,
   ) -> Result<T::Precision, LossCalcError> {
 
     let mut loss_vals = Vec::new();
 
-    let (input_chunks, target_chunks) = data.points_into_iter();
+    let (input_chunks, target_chunks) = data.points_as_iter();
     let mut prediction;
     for (input, target) in input_chunks.zip(target_chunks) {
       prediction = self
         .forward(input)
         .unwrap();
       
-      loss_vals.push(T::loss(prediction, target, &loss_func).unwrap());
+      loss_vals.push(T::loss(target, &prediction, &loss_func).unwrap());
     }
 
     let loss_len = loss_vals.len();
@@ -151,35 +152,31 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok(mean)
   }
 
-  pub fn max_pred_test(&self, data: Dataset<T, T>) -> T::Precision {
-    let (input_chunks, target_chunks) = data.points_into_iter();
-    let mut prediction;
-    let mut pred;
-    let mut targ;
-
+  pub fn max_pred_test(&self, data: &Dataset<T, T>) -> T::Precision {
+    let (input_chunks, target_chunks) = data.points_as_iter();
     let batch_len = target_chunks.len();
+
     let mut results = Vec::new();
     for (input, target) in input_chunks.zip(target_chunks) {
-      prediction = self
+      let prediction = self
         .forward(input)
         .unwrap();
 
-      /* Potential spot for future optimization. */
-      /* But maybe not... This arrays are usually small. */
-      pred = prediction.release_vec().unwrap();
-      targ = target.release_vec().unwrap();
+      let pred = prediction.as_slice();
+      let targ = target.as_slice();
+
+      // finding max index
       let (pred_index, _) = pred
         .into_iter()
         .enumerate()
         .fold((usize::default(), T::default()), |acc, elm| { 
-          if elm.1 > acc.1 { elm } else { acc } 
+          if *elm.1 > acc.1 { (elm.0, *elm.1) } else { acc } 
         });
-
       let (targ_index, _) = targ
         .into_iter()
         .enumerate()
         .fold((usize::default(), T::default()), |acc, elm| { 
-          if elm.1 > acc.1 { elm } else { acc } 
+          if *elm.1 > acc.1 { (elm.0, *elm.1) } else { acc } 
         });
 
       results.push(if targ_index == pred_index {1_usize} else {0_usize});
@@ -228,13 +225,15 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
         .rev();
       
       /* initial prediction */
-      let initial_pred = activations.next().unwrap();
+      let prediction = activations.next().unwrap();
       /* initial value of loss derivatives */
       let mut dlda = T::d_loss(
-        initial_pred,
-        target,
+        &target,
+        &prediction, 
         &loss_func
-      ).unwrap().to_vec();
+      ).unwrap();
+      drop(prediction); drop(target);
+
       /* initial conjugate derivative of loss */
       let mut dlda_conj: Vec<T> = dlda
         .iter()

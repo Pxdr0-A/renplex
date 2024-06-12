@@ -269,14 +269,17 @@ fn test_pipeline(
   for b in 0..test_batches {
     let t_test: Instant = Instant::now();
     let test_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(test_data_file, test_label_file, batch_size, test_tracker);
-    let inst_test_loss = network.loss(test_data.clone(), loss_func).unwrap();
-    let inst_test_acc = network.max_pred_test(test_data);
+    
+    // Performance Metrics
+    let inst_test_loss = network.loss(&test_data, loss_func).unwrap();
+    let inst_test_acc = network.max_pred_test(&test_data);
+    
     mean_test_loss += inst_test_loss;
     mean_test_acc += inst_test_acc;
 
     let accu = (b+1) as f32;
     print!(
-      "\r| Batch {} -> Loss: ({:.3}, {:.3}), Accuracy: ({:.3}, {:.3}) (time: {:.3?})", 
+      "\r| Batch {} -> Loss: ({:.4}, {:.4}), Accuracy: ({:.4}, {:.4}) (time: {:.3?})", 
       b+1, inst_test_loss, mean_test_loss/accu, inst_test_acc, mean_test_acc/accu, t_test.elapsed()
     );
     io::stdout().flush().unwrap();
@@ -309,20 +312,22 @@ fn train_pipeline(
     let t_train: Instant = Instant::now();
     let train_data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(train_data_file, train_label_file, batch_size, train_tracker);
 
-    network.gradient_opt(train_data.clone(), &loss_func, lr).unwrap();
-
-    let inst_train_loss = network.loss(train_data.clone(), &loss_func).unwrap();
-    let inst_train_acc = network.max_pred_test(train_data);
+    // Performance Metrics First from previous batch (memory efficient)
+    let inst_train_loss = network.loss(&train_data, &loss_func).unwrap();
+    let inst_train_acc = network.max_pred_test(&train_data);
 
     mean_train_loss += inst_train_loss;
     mean_train_acc += inst_train_acc;
-    
+
     let accu = (b+1) as f32;
     print!(
-      "\r| Batch {} -> Loss: ({:.3}, {:.3}), Accuracy: ({:.3}, {:.3}) (time: {:.3?})", 
+      "\r| Batch {} -> Loss: ({:.4}, {:.4}), Accuracy: ({:.4}, {:.4}) (time: {:.3?})", 
       b+1, inst_train_loss, mean_train_loss/accu, inst_train_acc, mean_train_acc/accu, t_train.elapsed()
     );
     io::stdout().flush().unwrap();
+
+    // Train
+    network.gradient_opt(train_data, &loss_func, lr).unwrap();
   }
 
   println!();
@@ -344,7 +349,7 @@ fn main() {
   let ref mut seed = 437628367189104305197;
   println!("Using seed: {}", seed);
 
-  let (network_id, mut network) = _get_1conv_layer_cvcnn(seed);
+  let (network_id, mut network) = _get_fully_connected_cvnn(seed);
   println!("Created the Network.");
 
   let mut train_loss_vec: Vec<f32> = Vec::new();
@@ -357,20 +362,21 @@ fn main() {
   let batch_size = 100;
   let train_batches = total_train_data / batch_size;
   let test_batches = total_test_data / batch_size;
-  let epochs: usize = 20;
+  let epochs: usize = 50;
 
   /* lr
   Dense : 3 or 4
   */
-  let r = 2.5_f32;
+  let r = 2.0_f32;
   let phase = std::f32::consts::PI * 0.0;
   let lr_re = r * phase.cos();
   let lr_im = r * phase.sin();
   let lr = Cf32::new(lr_re, lr_im);
-  let loss_func = ComplexLossFunc::Conventional;
+  let loss_func = ComplexLossFunc::RealCrossEntropy;
 
   println!("Begining training and testing pipeline.");
-  println!("Using constant learning rate: [{:.1}, {:.1}]", lr_re, lr_im);
+  println!("Using constant learning rate: [{:.2}, {:.2}]", lr_re, lr_im);
+  println!("Loss Functions: {:?}", loss_func);
   println!("Total Epochs: {}", epochs);
   println!("Batch size: {} | Number of Batches (train, test): {:?}", batch_size, (train_batches, test_batches));
   for e in 0..epochs {

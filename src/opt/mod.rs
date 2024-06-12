@@ -7,89 +7,248 @@ use crate::input::IOType;
 
 /* Complex Valued (complex input -> real output) */
 
-/* Square Error */
-/* For some reason, I cannot flip the predicted with the target. Investigate! */
-fn conv_err_cf32(data: (Cf32, Cf32)) -> f32 { ( data.0 - data.1 ).norm_sq() }
-fn conv_err_cf64(data: (Cf64, Cf64)) -> f64 { ( data.0 - data.1 ).norm_sq() }
-fn d_conv_err_cf32(data: (Cf32, Cf32)) -> Cf32 { (data.0 - data.1).conj() }
-fn d_conv_err_cf64(data: (Cf64, Cf64)) -> Cf64 { (data.0 - data.1).conj() }
+/* Old version
 
-/* Categorical Cross-Entropy */
-fn cross_entropy_f32(data: (f32, f32)) -> f32 {
-  -data.1 * data.0.ln()
-}
-fn cross_entropy_f64(data: (f64, f64)) -> f64 { 
-  -data.1 * data.0.ln()
-}
-fn d_cross_entropy_f32(data: (f32, f32)) -> f32 {
-  -data.1 / data.0
-}
-fn d_cross_entropy_f64(data: (f64, f64)) -> f64 { 
-  -data.1 / data.0
-}
-/* Complex cross entropy (NOT READY!!!) */
-/* maybe you need the softmax */
-fn ce_err_cf32(data: (Cf32, Cf32)) -> f32 { 
-  let (pred_re, pred_im, targ_re, targ_im) = (data.0.re(), data.0.im(), data.1.re(), data.1.im());
+- 0 is predicted in opt module
 
-  0.5 * ( cross_entropy_f32((pred_re, targ_re)) + cross_entropy_f32((pred_im, targ_im)) )
-}
-fn ce_err_cf64(data: (Cf64, Cf64)) -> f64 { 
-  let (pred_re, pred_im, targ_re, targ_im) = (data.0.re(), data.0.im(), data.1.re(), data.1.im());
+*/
 
-  0.5 * ( cross_entropy_f64((pred_re, targ_re)) + cross_entropy_f64((pred_im, targ_im)) )
-}
-fn d_ce_err_cf32(data: (Cf32, Cf32)) -> Cf32 {
-  let (pred_re, pred_im, targ_re, targ_im) = (data.0.re(), data.0.im(), data.1.re(), data.1.im());
+/* New Approach */
+/* This can be all simplified with macros */
 
-  Cf32 {
-    x: 0.25 * d_cross_entropy_f32((pred_re, targ_re)),
-    y: - 0.25 * d_cross_entropy_f32((pred_im, targ_im))
-  }  
+/// Purely an utility
+fn sq_error_cf32(targ: Cf32, pred: Cf32) -> f32 {
+  ( targ - pred ).norm_sq()
 }
-fn d_ce_err_cf64(data: (Cf64, Cf64)) -> Cf64 {
-  let (pred_re, pred_im, targ_re, targ_im) = (data.0.re(), data.0.im(), data.1.re(), data.1.im());
-
-  Cf64 {
-    x: 0.25 * d_cross_entropy_f64((pred_re, targ_re)),
-    y: - 0.25 * d_cross_entropy_f64((pred_im, targ_im))
-  }  
+/// Purely an utility (to compute the derivative)
+fn d_sq_error_cf32(targ: Cf32, pred: Cf32) -> Cf32 {
+  // the derivative inverts
+  ( pred - targ ).conj()
+}
+/// Purely an utility
+fn sq_error_cf64(targ: Cf64, pred: Cf64) -> f64 {
+  ( targ - pred ).norm_sq()
+}
+/// Purely an utility (to compute the derivative)
+fn d_sq_error_cf64(targ: Cf64, pred: Cf64) -> Cf64 {
+  // the derivative inverts
+  ( pred - targ ).conj()
 }
 
+/// Loss function that represents the mean squared error.
+/// Complex Loss Functions defined here always return a real number.
+/// Used for regression type task since it requires a complex target.
+fn mean_sq_loss_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(targ: T1, pred: T2) -> f32 {
+  let mut len = 0;
+  let sum_err = targ
+    .zip(pred)
+    .enumerate()
+    .fold(0.0,|acc, (id, (t, p))| {
+      len = id;
+      acc + sq_error_cf32(*t, *p)
+    });
+  
+  sum_err / ( len as f32 )
+}
+
+fn d_mean_sq_loss_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(targ: T1, pred: T2) -> Vec<Cf32> {
+  let mean_err = targ
+    .zip(pred)
+    .map(|(t, p)| {
+      d_sq_error_cf32(*t, *p)
+    }).collect();
+  
+  mean_err
+}
+
+/// Loss function that represents the mean squared error.
+/// Complex Loss Functions defined here always return a real number.
+/// Used for regression type task since it requires a complex target.
+fn mean_sq_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(targ: T1, pred: T2) -> f64 {
+  let mut len = 0;
+  let sum_err = targ
+    .zip(pred)
+    .enumerate()
+    .fold(0.0,|acc, (id, (t, p))| {
+      len = id;
+      acc + sq_error_cf64(*t, *p)
+    });
+  
+  sum_err / ( len as f64 )
+}
+
+fn d_mean_sq_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(targ: T1, pred: T2) -> Vec<Cf64> {
+  let mean_err = targ
+    .zip(pred)
+    .map(|(t, p)| {
+      d_sq_error_cf64(*t, *p)
+    }).collect();
+  
+  mean_err
+}
+
+/// Real Cross Entropy Loss Function.
+/// Suitable for classification tasks so it requires a "real" target (in complex format)
+fn real_ce_loss_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(targ: T1, pred: T2) -> f32 {
+  // The real part should contain the one-hot-encoding
+  let real_targ = targ.map(|elm| { elm.re() });
+
+  // Compute softmax of the prediction
+  let exp_map = pred
+    .map(|elm| { elm.re().exp() })
+    .collect::<Vec<_>>();
+  let exp_sum = exp_map.iter()
+    .fold(0.0, |acc, elm| { acc + *elm });
+
+  // Compute Cross entropy with the softmax values
+  let loss = real_targ
+    .zip(exp_map)
+    .fold(0.0,|acc, (t, exp)| {
+      let s = exp / exp_sum;
+      acc - t * s.ln() 
+    });
+
+  loss
+}
+
+/// Derivative of Real Cross Entropy Loss Function
+fn d_real_ce_loss_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(targ: T1, pred: T2) -> Vec<Cf32> {
+  // Compute derivative of real function 
+  // (maybe it is non-holomorphic, take both)
+  // it is the same for the conjugate derivative
+  let dfdz = 0.5;
+
+  // Compute derivative of loss function (together with softmax)
+  let real_targ = targ.map(|elm| { elm.re() });
+  // Compute softmax
+  let exp_map = pred
+    .map(|elm| { elm.re().exp() }).collect::<Vec<_>>();
+  let exp_sum = exp_map.iter()
+    .fold(0.0, |acc, elm| { acc + *elm });  
+  
+  let dl = real_targ
+    .zip(exp_map)
+    .map(|(t, exp)| {
+      let s = exp / exp_sum;
+      s - t 
+    })
+    .collect::<Vec<_>>();
+
+
+  // Apply chain rule
+  let dl_final = dl
+    .into_iter()
+    // in this case it simplifies a lot
+    .map(|elm| { Cf32::new(4.0 * elm * dfdz, 0.0) })
+    .collect::<Vec<_>>();
+
+  dl_final
+}
+
+/// Real Cross Entropy Loss Function.
+/// Suitable for classification tasks so it requires a real target
+fn real_ce_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(targ: T1, pred: T2) -> f64 {
+  // The real part should contain the one-hot-encoding
+  let real_targ = targ.map(|elm| { elm.re() });
+
+  // Compute softmax of the prediction
+  let exp_map = pred
+    .map(|elm| { elm.re().exp() })
+    .collect::<Vec<_>>();
+  let exp_sum = exp_map.iter()
+    .fold(0.0, |acc, elm| { acc + *elm });
+
+  // Compute Cross entropy with the softmax values
+  let loss = real_targ
+    .zip(exp_map)
+    .fold(0.0,|acc, (t, exp)| {
+      let s = exp / exp_sum;
+      acc - t * s.ln() 
+    });
+
+  loss
+}
+
+/// Derivative of Real Cross Entropy Loss Function
+fn d_real_ce_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(targ: T1, pred: T2) -> Vec<Cf64> {
+  // Compute derivative of real function 
+  let dfdz = 0.5;
+  // dfdz = dfdz_conj
+
+  // Compute derivative of loss function (together with softmax)
+  let real_targ = targ.map(|elm| { elm.re() });
+  // Compute softmax
+  let exp_map = pred
+    .map(|elm| { elm.re().exp() }).collect::<Vec<_>>();
+  let exp_sum = exp_map.iter()
+    .fold(0.0, |acc, elm| { acc + *elm });  
+  
+  let dl = real_targ
+    .zip(exp_map)
+    .map(|(t, exp)| {
+      let s = exp / exp_sum;
+      s - t 
+    })
+    .collect::<Vec<_>>();
+
+
+  // Apply chain rule
+  let dl_final = dl
+    .into_iter()
+    // in this case it simplifies a lot
+    .map(|elm| { Cf64::new(4.0 * elm * dfdz, 0.0) })
+    .collect::<Vec<_>>();
+
+  dl_final
+}
+
+#[derive(Debug)]
 pub enum ComplexLossFunc {
-  Conventional,
-  CCrossEntropy
+  MeanSquare,
+  RealCrossEntropy
 }
 
 impl ComplexLossFunc {
-  pub fn compute_cf32(&self, prediction: IOType<Cf32>, target: IOType<Cf32>) -> Result<f32, LossCalcError> {
-    type TargetType = Cf32;
-    type SubTargetType = f32;
 
-    let func = match self {
-      ComplexLossFunc::Conventional => {
-        conv_err_cf32
-      },
-      ComplexLossFunc::CCrossEntropy => {
-        ce_err_cf32
-      }
-    };
+  /* Provide the Loss function. */
 
+  pub fn release_func_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(&self) -> impl Fn(T1, T2) -> f32 {
+    match self {
+      Self::MeanSquare => { mean_sq_loss_cf32 },
+      Self::RealCrossEntropy => { real_ce_loss_cf32 }
+    }
+  }
+
+  pub fn release_dfunc_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(&self) -> impl Fn(T1, T2) -> Vec<Cf32> {
+    match self {
+      Self::MeanSquare => { d_mean_sq_loss_cf32 },
+      Self::RealCrossEntropy => { d_real_ce_loss_cf32 }
+    }
+  }
+
+  pub fn release_func_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(&self) -> impl Fn(T1, T2) -> f64 {
+    match self {
+      Self::MeanSquare => { mean_sq_loss_cf64 },
+      Self::RealCrossEntropy => { real_ce_loss_cf64 }
+    }
+  }
+
+  pub fn release_dfunc_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(&self) -> impl Fn(T1, T2) -> Vec<Cf64> {
+    match self {
+      Self::MeanSquare => { d_mean_sq_loss_cf64 },
+      Self::RealCrossEntropy => { d_real_ce_loss_cf64 }
+    }
+  }
+
+  /* Loss function computation. */
+
+  pub fn compute_cf32(&self, target: &IOType<Cf32>, prediction: &IOType<Cf32>) -> Result<f32, LossCalcError> {
     match prediction {
       IOType::Scalar(pred) => {
         match target {
           IOType::Scalar(targ) => {
-            let pred_len = pred.len();
-            if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
-
-            let mean_err = pred
-              .into_iter()
-              .zip(targ)
-              .fold(SubTargetType::default(),|acc, data| {
-                acc + func(data)
-              }) / ( pred_len as SubTargetType );
-            
-            Ok(mean_err)
+            let func = self.release_func_cf32::<_,_>();
+            Ok(func(targ.iter(), pred.iter()))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -97,21 +256,13 @@ impl ComplexLossFunc {
       IOType::Matrix(pred) => {
         match target {
           IOType::Matrix(targ) => {
-            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
-            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
-            
-            let pred_len = pred_flatten.len();
-            let targ_len = targ_flatten.len();
-            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
+            let pred_flatten = pred
+              .iter().flat_map(|elm| { elm.get_body() });
+            let targ_flatten = targ
+              .iter().flat_map(|elm| { elm.get_body() });
 
-            let mean_err = pred_flatten
-              .into_iter()
-              .zip(targ_flatten)
-              .fold(SubTargetType::default(),|acc, data| {
-                acc + func(data)
-              }) / ( pred_len as SubTargetType );
-            
-            Ok(mean_err)
+            let func = self.release_func_cf32::<_,_>();
+            Ok(func(targ_flatten, pred_flatten))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -119,34 +270,13 @@ impl ComplexLossFunc {
     }
   }
 
-  pub fn compute_cf64(&self, prediction: IOType<Cf64>, target: IOType<Cf64>) -> Result<f64, LossCalcError> {
-    type TargetType = Cf64;
-    type SubTargetType = f64;
-
-    let func = match self {
-      ComplexLossFunc::Conventional => {
-        conv_err_cf64
-      },
-      ComplexLossFunc::CCrossEntropy => {
-        ce_err_cf64
-      }
-    };
-
+  pub fn compute_cf64(&self, target: &IOType<Cf64>, prediction: &IOType<Cf64>) -> Result<f64, LossCalcError> {
     match prediction {
       IOType::Scalar(pred) => {
         match target {
           IOType::Scalar(targ) => {
-            let pred_len = pred.len();
-            if pred_len != targ.len() { return Err(LossCalcError::InconsistentIO) }
-
-            let mean_err = pred
-              .into_iter()
-              .zip(targ)
-              .fold(SubTargetType::default(),|acc, data| {
-                acc + func(data)
-              }) / ( pred_len as SubTargetType );
-            
-            Ok(mean_err)
+            let func = self.release_func_cf64::<_,_>();
+            Ok(func(targ.iter(), pred.iter()))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -154,21 +284,13 @@ impl ComplexLossFunc {
       IOType::Matrix(pred) => {
         match target {
           IOType::Matrix(targ) => {
-            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
-            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
-            
-            let pred_len = pred_flatten.len();
-            let targ_len = targ_flatten.len();
-            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
+            let pred_flatten = pred
+              .iter().flat_map(|elm| { elm.get_body() });
+            let targ_flatten = targ
+              .iter().flat_map(|elm| { elm.get_body() });
 
-            let mean_err = pred_flatten
-              .into_iter()
-              .zip(targ_flatten)
-              .fold(SubTargetType::default(),|acc, data| {
-                acc + func(data)
-              }) / ( pred_len as SubTargetType );
-            
-            Ok(mean_err)
+            let func = self.release_func_cf64::<_,_>();
+            Ok(func(targ_flatten, pred_flatten))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -176,28 +298,13 @@ impl ComplexLossFunc {
     }
   }
 
-  pub fn compute_d_cf32(&self, prediction: IOType<Cf32>, target: IOType<Cf32>) -> Result<IOType<Cf32>, LossCalcError> {
-    type TargetType = Cf32;
-
-    let func = match self {
-      ComplexLossFunc::Conventional => {
-        d_conv_err_cf32
-      },
-      ComplexLossFunc::CCrossEntropy => {
-        d_ce_err_cf32
-      }
-    };
-
+  pub fn compute_d_cf32(&self, target: &IOType<Cf32>, prediction: &IOType<Cf32>) -> Result<Vec<Cf32>, LossCalcError> {
     match prediction {
       IOType::Scalar(pred) => {
         match target {
           IOType::Scalar(targ) => {
-            let vec = pred
-              .into_iter()
-              .zip(targ)
-              .map(func)
-              .collect::<Vec<TargetType>>();
-            Ok(IOType::Scalar(vec))
+            let func = self.release_dfunc_cf32::<_,_>();
+            Ok(func(targ.iter(), pred.iter()))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -205,20 +312,13 @@ impl ComplexLossFunc {
       IOType::Matrix(pred) => {
         match target {
           IOType::Matrix(targ) => {
-            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
-            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            let pred_flatten = pred
+              .iter().flat_map(|elm| { elm.get_body() });
+            let targ_flatten = targ
+              .iter().flat_map(|elm| { elm.get_body() });
             
-            let pred_len = pred_flatten.len();
-            let targ_len = targ_flatten.len();
-            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
-
-            let error_der = pred_flatten
-              .into_iter()
-              .zip(targ_flatten)
-              .map(func)
-              .collect::<Vec<TargetType>>();
-            
-            Ok(IOType::Scalar(error_der))
+            let func = self.release_dfunc_cf32::<_,_>();
+            Ok(func(targ_flatten, pred_flatten))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -226,28 +326,13 @@ impl ComplexLossFunc {
     }
   }
 
-  pub fn compute_d_cf64(&self, prediction: IOType<Cf64>, target: IOType<Cf64>) -> Result<IOType<Cf64>, LossCalcError> {
-    type TargetType = Cf64;
-
-    let func = match self {
-      ComplexLossFunc::Conventional => {
-        d_conv_err_cf64
-      },
-      ComplexLossFunc::CCrossEntropy => {
-        d_ce_err_cf64
-      }
-    };
-
+  pub fn compute_d_cf64(&self, target: &IOType<Cf64>, prediction: &IOType<Cf64>) -> Result<Vec<Cf64>, LossCalcError> {
     match prediction {
       IOType::Scalar(pred) => {
         match target {
           IOType::Scalar(targ) => {
-            let vec = pred
-              .into_iter()
-              .zip(targ)
-              .map(func)
-              .collect::<Vec<TargetType>>();
-            Ok(IOType::Scalar(vec))
+            let func = self.release_dfunc_cf64::<_,_>();
+            Ok(func(targ.iter(), pred.iter()))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
@@ -255,20 +340,13 @@ impl ComplexLossFunc {
       IOType::Matrix(pred) => {
         match target {
           IOType::Matrix(targ) => {
-            let pred_flatten = pred.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
-            let targ_flatten = targ.into_iter().map(|elm| { elm.export_body() }).flatten().collect::<Vec<TargetType>>();
+            let pred_flatten = pred
+              .iter().flat_map(|elm| { elm.get_body() });
+            let targ_flatten = targ
+              .iter().flat_map(|elm| { elm.get_body() });
             
-            let pred_len = pred_flatten.len();
-            let targ_len = targ_flatten.len();
-            if pred_len != targ_len { return Err(LossCalcError::InconsistentIO) }
-
-            let error_der = pred_flatten
-              .into_iter()
-              .zip(targ_flatten)
-              .map(func)
-              .collect::<Vec<TargetType>>();
-            
-            Ok(IOType::Scalar(error_der))
+            let func = self.release_dfunc_cf64::<_,_>();
+            Ok(func(targ_flatten, pred_flatten))
           },
           _ => { Err(LossCalcError::InconsistentIO) }
         }
