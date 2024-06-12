@@ -89,13 +89,13 @@ fn d_mean_sq_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'
 
 /// Real Cross Entropy Loss Function.
 /// Suitable for classification tasks so it requires a "real" target (in complex format)
-fn real_ce_loss_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(targ: T1, pred: T2) -> f32 {
+fn norm_ce_loss_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(targ: T1, pred: T2) -> f32 {
   // The real part should contain the one-hot-encoding
   let real_targ = targ.map(|elm| { elm.re() });
 
   // Compute softmax of the prediction
   let exp_map = pred
-    .map(|elm| { elm.re().exp() })
+    .map(|elm| { elm.norm_sq().exp() })
     .collect::<Vec<_>>();
   let exp_sum = exp_map.iter()
     .fold(0.0, |acc, elm| { acc + *elm });
@@ -112,48 +112,20 @@ fn real_ce_loss_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a 
 }
 
 /// Derivative of Real Cross Entropy Loss Function
-fn d_real_ce_loss_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(targ: T1, pred: T2) -> Vec<Cf32> {
-  // Compute derivative of real function 
-  // (maybe it is non-holomorphic, take both)
-  // it is the same for the conjugate derivative
-  let dfdz = 0.5;
-
-  // Compute derivative of loss function (together with softmax)
-  let real_targ = targ.map(|elm| { elm.re() });
-  // Compute softmax
-  let exp_map = pred
-    .map(|elm| { elm.re().exp() }).collect::<Vec<_>>();
-  let exp_sum = exp_map.iter()
-    .fold(0.0, |acc, elm| { acc + *elm });  
-  
-  let dl = real_targ
-    .zip(exp_map)
-    .map(|(t, exp)| {
-      let s = exp / exp_sum;
-      s - t 
-    })
-    .collect::<Vec<_>>();
-
-
-  // Apply chain rule
-  let dl_final = dl
-    .into_iter()
-    // in this case it simplifies a lot
-    .map(|elm| { Cf32::new(4.0 * elm * dfdz, 0.0) })
-    .collect::<Vec<_>>();
-
-  dl_final
+fn d_norm_ce_loss_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(targ: T1, pred: T2) -> Vec<Cf32> {
+  // for now until I figure out what is wrong
+  d_mean_sq_loss_cf32(targ, pred)
 }
 
 /// Real Cross Entropy Loss Function.
 /// Suitable for classification tasks so it requires a real target
-fn real_ce_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(targ: T1, pred: T2) -> f64 {
+fn norm_ce_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(targ: T1, pred: T2) -> f64 {
   // The real part should contain the one-hot-encoding
   let real_targ = targ.map(|elm| { elm.re() });
 
   // Compute softmax of the prediction
   let exp_map = pred
-    .map(|elm| { elm.re().exp() })
+    .map(|elm| { elm.norm_sq().exp() })
     .collect::<Vec<_>>();
   let exp_sum = exp_map.iter()
     .fold(0.0, |acc, elm| { acc + *elm });
@@ -170,42 +142,15 @@ fn real_ce_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a 
 }
 
 /// Derivative of Real Cross Entropy Loss Function
-fn d_real_ce_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(targ: T1, pred: T2) -> Vec<Cf64> {
-  // Compute derivative of real function 
-  let dfdz = 0.5;
-  // dfdz = dfdz_conj
-
-  // Compute derivative of loss function (together with softmax)
-  let real_targ = targ.map(|elm| { elm.re() });
-  // Compute softmax
-  let exp_map = pred
-    .map(|elm| { elm.re().exp() }).collect::<Vec<_>>();
-  let exp_sum = exp_map.iter()
-    .fold(0.0, |acc, elm| { acc + *elm });  
-  
-  let dl = real_targ
-    .zip(exp_map)
-    .map(|(t, exp)| {
-      let s = exp / exp_sum;
-      s - t 
-    })
-    .collect::<Vec<_>>();
-
-
-  // Apply chain rule
-  let dl_final = dl
-    .into_iter()
-    // in this case it simplifies a lot
-    .map(|elm| { Cf64::new(4.0 * elm * dfdz, 0.0) })
-    .collect::<Vec<_>>();
-
-  dl_final
+fn d_norm_ce_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(targ: T1, pred: T2) -> Vec<Cf64> {
+  // for now until I figure out what is wrong
+  d_mean_sq_loss_cf64(targ, pred)
 }
 
 #[derive(Debug)]
 pub enum ComplexLossFunc {
   MeanSquare,
-  RealCrossEntropy
+  NormCrossEntropy
 }
 
 impl ComplexLossFunc {
@@ -215,28 +160,28 @@ impl ComplexLossFunc {
   pub fn release_func_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(&self) -> impl Fn(T1, T2) -> f32 {
     match self {
       Self::MeanSquare => { mean_sq_loss_cf32 },
-      Self::RealCrossEntropy => { real_ce_loss_cf32 }
+      Self::NormCrossEntropy => { norm_ce_loss_cf32 }
     }
   }
 
   pub fn release_dfunc_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(&self) -> impl Fn(T1, T2) -> Vec<Cf32> {
     match self {
       Self::MeanSquare => { d_mean_sq_loss_cf32 },
-      Self::RealCrossEntropy => { d_real_ce_loss_cf32 }
+      Self::NormCrossEntropy => { d_norm_ce_loss_cf32 }
     }
   }
 
   pub fn release_func_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(&self) -> impl Fn(T1, T2) -> f64 {
     match self {
       Self::MeanSquare => { mean_sq_loss_cf64 },
-      Self::RealCrossEntropy => { real_ce_loss_cf64 }
+      Self::NormCrossEntropy => { norm_ce_loss_cf64 }
     }
   }
 
   pub fn release_dfunc_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(&self) -> impl Fn(T1, T2) -> Vec<Cf64> {
     match self {
       Self::MeanSquare => { d_mean_sq_loss_cf64 },
-      Self::RealCrossEntropy => { d_real_ce_loss_cf64 }
+      Self::NormCrossEntropy => { d_norm_ce_loss_cf64 }
     }
   }
 

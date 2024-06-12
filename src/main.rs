@@ -367,12 +367,12 @@ fn main() {
   /* lr
   Dense : 3 or 4
   */
-  let r = 2.0_f32;
+  let r = 4.0_f32;
   let phase = std::f32::consts::PI * 0.0;
   let lr_re = r * phase.cos();
   let lr_im = r * phase.sin();
   let lr = Cf32::new(lr_re, lr_im);
-  let loss_func = ComplexLossFunc::RealCrossEntropy;
+  let loss_func = ComplexLossFunc::MeanSquare;
 
   println!("Begining training and testing pipeline.");
   println!("Using constant learning rate: [{:.2}, {:.2}]", lr_re, lr_im);
