@@ -112,28 +112,28 @@ fn rittanh_cf64(val: Cf64) -> Cf64 {
 
 fn d_rittanh_cf32(val: Cf32) -> Cf32 {
   Cf32 {
-    x: ( (1.0 / val.x.cosh().powi(2)) + (1.0 / val.x.cosh().powi(2)) ) * 0.5,
+    x: ( (1.0 / val.x.cosh().powi(2)) + (1.0 / val.y.cosh().powi(2)) ) * 0.5,
     y: 0.0
   }
 }
 
 fn d_rittanh_cf64(val: Cf64) -> Cf64 {
   Cf64 {
-    x: ( (1.0 / val.x.cosh().powi(2)) + (1.0 / val.x.cosh().powi(2)) ) * 0.5,
+    x: ( (1.0 / val.x.cosh().powi(2)) + (1.0 / val.y.cosh().powi(2)) ) * 0.5,
     y: 0.0
   }
 }
 
 fn d_conj_rittanh_cf32(val: Cf32) -> Cf32 {
   Cf32 {
-    x: ( (1.0 / val.x.cosh().powi(2)) - (1.0 / val.x.cosh().powi(2)) ) * 0.5,
+    x: ( (1.0 / val.x.cosh().powi(2)) - (1.0 / val.y.cosh().powi(2)) ) * 0.5,
     y: 0.0
   }
 }
 
 fn d_conj_rittanh_cf64(val: Cf64) -> Cf64 {
   Cf64 {
-    x: ( (1.0 / val.x.cosh().powi(2)) - (1.0 / val.x.cosh().powi(2)) ) * 0.5,
+    x: ( (1.0 / val.x.cosh().powi(2)) - (1.0 / val.y.cosh().powi(2)) ) * 0.5,
     y: 0.0
   }
 }

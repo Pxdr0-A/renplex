@@ -6,3 +6,8 @@
 
 /out
 /minist
+/sig_rec
+/tensorflow
+
+test.csv
+train.csv

@@ -1,11 +1,10 @@
-mod err;
-
 use std::fmt::Display;
 use std::{fmt::Debug, fs::File, slice::Iter, vec::IntoIter};
 use std::io::{Read, Write};
 
-use crate::{init::PredictModel, input::IOType, math::{matrix::Matrix, random::lcgi, BasicOperations, Complex, Real}};
-use err::DatasetSampleError;
+use crate::math::cfloat::Cf32;
+use crate::math::random::{lcgf32, lcgi};
+use crate::{init::PredictModel, input::IOType, math::{matrix::Matrix, BasicOperations, Complex, Real}};
 //use crate::math::random::{lcgf32, lcgf64};
 
 /// A very low-level and simple dataset representation.
@@ -19,20 +18,21 @@ pub struct Dataset<B, T> {
 }
 
 impl<T: Display + Copy> Dataset<T, T> {
-  pub fn to_csv(&self) -> std::io::Result<()> {
-    let mut file = File::create("dataset.csv")?;
+  pub fn to_csv(&self, name: String) -> std::io::Result<()> {
+    let mut file = File::create(name)?;
 
     let (inputs_iter, targets_iter) = self.points_as_iter();
     let mut string_row_input;
     let mut string_row_target;
+
     for (input, target) in inputs_iter.zip(targets_iter) {
-      let mut input_iter = input.to_vec().into_iter();
+      let mut input_iter = input.as_slice().into_iter();
       write!(file, "{}", input_iter.next().unwrap())?;
       for elm_input in input_iter {
         string_row_input = format!(",{}", elm_input);
         write!(file, "{}", string_row_input)?;
       }
-      for elm_input in target.to_vec().into_iter() {
+      for elm_input in target.as_slice().into_iter() {
         string_row_target = format!(",{}", elm_input);
         write!(file, "{}", string_row_target)?;
       }
@@ -148,112 +148,160 @@ impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
   }
 }
 
-impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
-  pub fn gen_complex_centers(features: usize, degree: usize, scale: usize, seed: &mut u128) -> Matrix<T> {
-    // spray focal points
-    let mut centers: Matrix<T> = Matrix::with_capacity([degree, features]);
-    let mut center: Vec<T> = Vec::with_capacity(features);
-    for _ in 0..degree {
-      for _ in 0..features {
-        center.push(
-          // random point relative to origin
-          T::gen(seed, scale)
-        );
+
+use std::f32::consts::PI as PI32;
+
+impl Dataset<Cf32, Cf32> {
+  pub fn signal_reconstruction(
+    samples: usize,
+    batch_size: usize,
+    noise_threshold: f32,
+    train_seed: &mut u128,
+    test_seed: &mut u128
+  ) -> (Dataset<Cf32, Cf32>, Dataset<Cf32, Cf32>) {
+    let mut train_batch = Dataset::new();
+    let mut test_batch = Dataset::new();
+
+    // frequencies will be between 0.1 and 1
+    // perform at least 1 revolution
+    let t_max = 4.0 * PI32;
+    let sampling_period = t_max / ( samples as f32 );
+    let n_waves = 8;
+
+    let t = (0..samples).map(|elm| {
+      sampling_period * (elm as f32)
+    }).collect::<Vec<_>>();
+
+    for _b in 0..batch_size {
+      // training samples logic
+      let train_waves_len = lcgi(train_seed, n_waves) + 1;
+      let train_waves = (0..train_waves_len).map(|_id| {
+        // generate amplitude
+        // one order of magnitude of amplitudes
+        let a = lcgf32(train_seed) * 0.9 + 0.1;
+        // generate frequency
+        // one order of magnitude of frequencies
+        let w = lcgf32(train_seed) * 0.9 + 0.1;
+        // generate phase
+        let phi = 2.0 * PI32 * lcgf32(train_seed);
+
+        (a, w, phi)
+      }).collect::<Vec<_>>();
+
+      let train_func = |time: &f32| { 
+        let sample = train_waves.iter().fold(Cf32::new(0.0, 0.0), 
+        |acc, (a, w, phi)| {
+          let phase = *w * *time + *phi;
+          acc + Cf32::newe(*a, phase)
+        });
+        
+        sample
+      };
+
+      // testing samples logic
+      let test_waves_len = lcgi(test_seed, n_waves) + 1;
+      let test_waves = (0..test_waves_len).map(|_id| {
+        // generate amplitude (around 1)
+        let a = lcgf32(test_seed) * 0.9 + 0.1;
+        // generate frequency
+        let w = lcgf32(test_seed) * 0.9 + 0.1;
+        // generate phase
+        let phi = 2.0 * PI32 * lcgf32(test_seed);
+
+        (a, w, phi)
+      }).collect::<Vec<_>>();
+
+      let test_func = |time: &f32| { 
+        let sample = test_waves.iter().fold(Cf32::new(0.0, 0.0), 
+        |acc, (a, w, phi)| {
+            let phase = *w * *time + *phi;
+            acc + Cf32::newe(*a, phase)
+        });
+
+        sample
+      };
+
+      // determine original signal
+      let mut clean_signal = t.iter()
+        // compute signal
+        .map(train_func)
+        .collect::<Vec<_>>();
+      // normalization
+      let train_max = clean_signal.iter().fold(0.0, |acc, elm| { 
+        let norm = elm.norm();
+        if norm > acc { norm } else { acc }
+      });
+      if train_max != 0.0 { 
+        clean_signal.iter_mut().for_each(|elm| { *elm /= Cf32::new(train_max, 0.0); }); 
+      }
+      
+      // determine original signal (test)
+      let mut clean_signal_t = t.iter()
+        // compute signal
+        .map(test_func)
+        .collect::<Vec<_>>();
+      // normalization
+      let test_max = clean_signal_t.iter().fold(0.0, |acc, elm| { 
+        let norm = elm.norm();
+        if norm > acc { norm } else { acc }
+      });
+      if test_max != 0.0 { 
+        clean_signal_t.iter_mut().for_each(|elm| { *elm /= Cf32::new(test_max, 0.0); });
       }
 
-      // add_row will clean the center vector
-      centers.add_mut_row(&mut center).unwrap();
+      // exagerated power line noise on amplitude
+      let int_percentage = noise_threshold / 20.0;
+      // corrupt the signal with gausian noise
+      let corrupted_signal = clean_signal.chunks(2).flat_map(|elm| {
+        let elm1 = elm[0];
+        let elm2 = elm[1];
+        // check point amplitude
+        let a1 = elm1.norm();
+        let noise1 = noise_threshold + int_percentage * a1;
+        let a2 = elm2.norm();
+        let noise2 = noise_threshold + int_percentage * a2;
+
+        // generates random uniform values between 0 and 1
+        let u1 = lcgf32(test_seed);
+        let u2 = lcgf32(test_seed);
+        // Box-Muller transform (normal distribution with noise as std)
+        let z1 = ( (-2.0 * u1.ln()).sqrt() * (2.0 * PI32 * u2).cos() ) * noise1;
+        let z2 = ( (-2.0 * u1.ln()).sqrt() * (2.0 * PI32 * u2).sin() ) * noise2;
+
+        let p1 = 2.0 * PI32 * lcgf32(train_seed);
+        let p2 = 2.0 * PI32 * lcgf32(train_seed);
+
+        // corrupt point
+        [elm1 + Cf32::newe(z1, p1), elm2 + Cf32::newe(z2, p2)]
+      }).collect::<Vec<_>>();
+      let corrupted_signal_t = clean_signal_t.chunks(2).flat_map(|elm| {
+        let elm1 = elm[0];
+        let elm2 = elm[1];
+        // check point amplitude
+        let a1 = elm1.norm();
+        let noise1 = noise_threshold + int_percentage * a1;
+        let a2 = elm2.norm();
+        let noise2 = noise_threshold + int_percentage * a2;
+
+        // generates random uniform values between 0 and 1
+        let u1 = lcgf32(test_seed);
+        let u2 = lcgf32(test_seed);
+        // Box-Muller transform (normal distribution with noise as std)
+        let z1 = ( (-2.0 * u1.ln()).sqrt() * (2.0 * PI32 * u2).cos() ) * noise1;
+        let z2 = ( (-2.0 * u1.ln()).sqrt() * (2.0 * PI32 * u2).sin() ) * noise2;
+
+        let p1 = 2.0 * PI32 * lcgf32(test_seed);
+        let p2 = 2.0 * PI32 * lcgf32(test_seed);
+
+        // corrupt point
+        [elm1 + Cf32::newe(z1, p1), elm2 + Cf32::newe(z2, p2)]
+      }).collect::<Vec<_>>();
+
+      // add to the dataset
+      train_batch.add_point((IOType::Scalar(corrupted_signal), IOType::Scalar(clean_signal)));
+      test_batch.add_point((IOType::Scalar(corrupted_signal_t), IOType::Scalar(clean_signal_t)));
     }
-
-    centers
-  }
-
-  /// Samples a [`Dataset`] with complex values with vector inputs and vector outputs.
-  /// This artificial data has rectangular-like symmetry.
-  pub fn sample_complex(
-    dims: [usize; 2],
-    degree: usize,
-    macro_scale: usize,
-    micro_scale: usize,
-    pred_method: PredictModel,
-    seed: &mut u128
-  ) -> Result<Dataset<T, T>, DatasetSampleError> {
-
-    if dims[0] < degree { return Err(DatasetSampleError::BellowMinimumSamples) }
-      
-    let centers = Dataset::<T, T>::gen_complex_centers(dims[1], degree, macro_scale, seed);
-
-    let mut class_center: &[T];
-    let mut selected_class: usize;
-    let mut one_hot_vec: Vec<T>;
-    let mut sample_body: Vec<IOType<T>> = Vec::with_capacity(dims[0]);
-    let mut labels: Vec<IOType<T>> = Vec::with_capacity(dims[0]);
-    let mut added_row: Vec<T> = Vec::with_capacity(dims[1]);
-    for _ in 0..dims[0] {
-      selected_class = lcgi(seed, degree as u128);
-      one_hot_vec = T::gen_pred(degree, selected_class, &pred_method).unwrap();
-      
-      class_center = centers.row(selected_class).unwrap();
-      for col in 0..dims[1] {
-        added_row.push(
-          ( class_center[col] + T::gen(seed, micro_scale) ) / T::usize_to_complex(macro_scale)
-        );
-      }
-      
-      // add_row will clean the added_row vec
-      labels.push(IOType::Scalar(one_hot_vec.clone()));
-      sample_body.push(IOType::Scalar(added_row.clone()));
-
-      added_row.drain(..);
-    }
-
-    Ok(
-      Dataset {
-        inputs: sample_body,
-        target: labels
-      }
-    )
-  }
-
-  pub fn gen_complex_batch_sample(
-    dims: [usize; 2],
-    centers: Matrix<T>,
-    micro_scale: usize,
-    pred_method: PredictModel,
-    seed: &mut u128
-  ) -> Result<Dataset<T, T>, DatasetSampleError> {
-    let centers_shape = centers.get_shape();
-    let degree = centers_shape[0];
-    let _features = centers_shape[1];
-    let mut class_center: &[T];
-    let mut selected_class: usize;
-    let mut one_hot_vec: Vec<T>;
-    let mut sample_body: Vec<IOType<T>> = Vec::with_capacity(dims[0]);
-    let mut labels: Vec<IOType<T>> = Vec::with_capacity(dims[0]);
-    let mut added_row: Vec<T> = Vec::with_capacity(dims[1]);
-    for _ in 0..dims[0] {
-      selected_class = lcgi(seed, degree as u128);
-      one_hot_vec = T::gen_pred(degree, selected_class, &pred_method).unwrap();
-
-      class_center = centers.row(selected_class).unwrap();
-      for col in 0..dims[1] {
-        added_row.push(
-          class_center[col] + T::gen(seed, micro_scale)
-        );
-      }
-      
-      // add_row will clean the added_row vec
-      sample_body.push(IOType::Scalar(added_row.clone()));
-      labels.push(IOType::Scalar(one_hot_vec.clone()));
-
-      added_row.drain(..);
-    }
-
-    Ok(
-      Dataset {
-        inputs: sample_body,
-        target: labels
-      }
-    )
+    
+    (train_batch, test_batch)
   }
 }

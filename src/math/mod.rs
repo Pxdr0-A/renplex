@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::default::Default;
 use std::f32::consts::PI as PI32;
@@ -18,9 +18,9 @@ pub mod random;
 pub mod cfloat;
 
 
-pub trait BasicOperations<T>: AddAssign + SubAssign + MulAssign + DivAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + PartialOrd + Default + Debug + Copy + Send + Sync + 'static {}
+pub trait BasicOperations<T>: AddAssign + SubAssign + MulAssign + DivAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + PartialOrd + Default + Display + Debug + Copy + Send + Sync + 'static {}
 
-impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + MulAssign + DivAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + PartialOrd + Default + Debug + Copy + Send + Sync + 'static {}
+impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + MulAssign + DivAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + PartialOrd + Default + Display + Debug + Copy + Send + Sync + 'static {}
 
 /// Trait containing utilities for RVNNs
 pub trait Real 
@@ -98,6 +98,8 @@ pub trait Complex where Self: Sized {
 
   fn new(re: Self::Precision, im: Self::Precision) -> Self;
 
+  fn newe(a: Self::Precision, p: Self::Precision) -> Self;
+
   fn usize_to_complex(num: usize) -> Self;
 
   fn unit() -> Self;
@@ -150,6 +152,10 @@ impl Complex for Cf32 {
 
   fn new(re: Self::Precision, im: Self::Precision) -> Self {
     Self { x: re, y: im }
+  }
+
+  fn newe(a: Self::Precision, p: Self::Precision) -> Self {
+    Self { x: a * p.cos(), y: a * p.sin() }
   }
 
   fn usize_to_complex(num: usize) -> Self {
@@ -302,6 +308,10 @@ impl Complex for Cf64 {
 
   fn new(re: Self::Precision, im: Self::Precision) -> Self {
     Self { x: re, y: im }
+  }
+
+  fn newe(a: Self::Precision, p: Self::Precision) -> Self {
+    Self { x: a * p.cos(), y: a * p.sin() }
   }
 
   fn usize_to_complex(num: usize) -> Self {

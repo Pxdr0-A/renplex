@@ -7,27 +7,69 @@ def filter_complex_dataframe(df: pd.DataFrame) -> pd.DataFrame:
   cols = df.columns
   df0 = pd.DataFrame()
   for index in range(0, len(cols)-1, 2):
-    df0[str(index)] = [ast.literal_eval(s) for s in df[cols[index]] + "," + df[cols[index+1]]]
-
+    df0[str(index)] = [[0, 0]] + [ast.literal_eval(s) for s in df[cols[index]] + "," + df[cols[index+1]]]
+  
   cols0 = df0.columns
   for col0 in cols0:
-    df0[col0] = df0[col0].apply(lambda x: np.arctan2(x[1], x[0])) 
+    df0[col0] = df0[col0].apply(lambda x: [int(255 * (np.linalg.norm(x))), int(255 * (np.arctan2(x[1], x[0]))), int(0)]) 
     # real -> x[0], imaginary -> x[1], norm -> np.linalg.norm(x), phase -> np.arctan2(x[1], x[0])
 
-  return df0
+  image = []
+  for row in df0.values:
+    image_row = []
+    for rgb in row:
+      pixel = []
+      for channel in rgb:
+        pixel.append(int(channel))
+      
+      image_row.append(pixel)
+
+    image.append(image_row)
+  
+  return image
+
 
 def main():
-  df_image = pd.read_csv("./out/complex_features/conv2/lr_1.5_0_20e_original.csv")
-  df0 = filter_complex_dataframe(df_image)
+  seed_list = [
+    891298565,
+    435726692,
+    328557473,
+    348769349,
+    224783561,
+    981347827
+  ]
+
+  epochs = 1
+  model_id = 2
+
+  df_image1 = pd.read_csv(f"./out/complex_features/conv{model_id}/{seed_list[0]}_2_{epochs}e_original.csv")
+  df1 = filter_complex_dataframe(df_image1)
+
+  df_image2 = pd.read_csv(f"./out/complex_features/conv{model_id}/{seed_list[0]}_4_{epochs}e_original.csv")
+  df2 = filter_complex_dataframe(df_image2)
+
   plt.figure()
-  plt.imshow(df0.values, cmap='hot', interpolation='nearest')
+  plt.imshow(df1)
+
+  plt.figure()
+  plt.imshow(df2)
 
   for i in range(8):
-    df_feature = pd.read_csv(f"./out/complex_features/conv2/lr_1.5_0_20e_feature_{i}_{1}.csv")
+    df_feature = pd.read_csv(
+      f"./out/complex_features/conv{model_id}/{seed_list[0]}_2_{epochs}e_feature_{i}_{3}.csv"
+    )
     df = filter_complex_dataframe(df_feature)
 
     plt.figure()
-    plt.imshow(df.values, cmap='hot', interpolation='nearest')
+    plt.imshow(df)
+
+    df_feature = pd.read_csv(
+      f"./out/complex_features/conv{model_id}/{seed_list[0]}_4_{epochs}e_feature_{i}_{3}.csv"
+    )
+    df = filter_complex_dataframe(df_feature)
+
+    plt.figure()
+    plt.imshow(df)
   
   plt.show()
 

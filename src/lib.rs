@@ -10,7 +10,8 @@ pub mod cvnn;
 
 #[cfg(test)]
 mod basic_tests {
-  use std::fs::File;
+  use std::f32::consts::PI;
+use std::fs::File;
   use std::time::Instant;
   use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
   use rayon::ThreadPoolBuilder;
@@ -227,5 +228,34 @@ mod basic_tests {
     println!("{}{}This is underlined text{}", underline, bright_red, reset);
     println!("{}{}This has a yellow background{}", bg_yellow, bright_red, reset);
     println!("{}{}{}This is bold, underlined, and bright red with yellow background{}", bold, underline, bright_red, reset);
+  }
+
+  #[test]
+  fn signal_data() {
+    let train_seed = &mut 223895746827_u128;
+    let test_seed = &mut 4346877248692_u128;
+    
+    let (train_batch, test_batch) = Dataset::signal_reconstruction(
+      512,
+      100,
+      25e-3, 
+      train_seed,
+      test_seed
+    );
+
+    train_batch.to_csv("train.csv".to_string()).unwrap();
+    test_batch.to_csv("test.csv".to_string()).unwrap();
+  }
+
+  #[test]
+  fn hyper_tan() {
+    let a = 1000000000.0_f32.tanh();
+
+    use crate::math::Complex;
+    use crate::math::cfloat::Cf32;
+
+    let z1 = Cf32::newe(100.0, PI / 3.0);
+
+    println!("{}, {}", a, z1);
   }
 }

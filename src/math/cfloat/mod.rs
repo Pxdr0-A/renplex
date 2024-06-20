@@ -33,7 +33,7 @@ impl Display for Cf32 {
     */
     //let precision = 2;
     //let multi = 10_f32.powi(precision);
-    write!(f, "{:?}", [self.x, self.y])
+    write!(f, "[{} {}]", self.x, self.y)
   }
 }
 
@@ -48,7 +48,7 @@ impl Display for Cf64 {
     */
     //let precision = 2;
     //let multi = 10_f64.powi(precision);
-    write!(f, "{:?}", [self.x, self.y])  
+    write!(f, "[{} {}]", self.x, self.y) 
   }
 }
 
