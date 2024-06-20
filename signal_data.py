@@ -13,7 +13,7 @@ def main():
   xi_test = pd.read_csv("sig_rec/xi_test.csv", index_col=0)
   yi_test = pd.read_csv("sig_rec/yi_test.csv", index_col=0)
 
-  point = 12
+  point = 0
   samples = 512
 
   narrows = range(0, samples, 63)

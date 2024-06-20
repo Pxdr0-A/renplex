@@ -6,26 +6,22 @@ import ast
 def filter_complex_dataframe(df: pd.DataFrame) -> pd.DataFrame:
   cols = df.columns
   df0 = pd.DataFrame()
-  for index in range(0, len(cols)-1, 2):
-    df0[str(index)] = [[0, 0]] + [ast.literal_eval(s) for s in df[cols[index]] + "," + df[cols[index+1]]]
-  
+  for col in cols:
+    df0[col] = df[col].apply(lambda x: ast.literal_eval(x.replace(" ", ",")))
+
   cols0 = df0.columns
   for col0 in cols0:
-    df0[col0] = df0[col0].apply(lambda x: [int(255 * (np.linalg.norm(x))), int(255 * (np.arctan2(x[1], x[0]))), int(0)]) 
+    df0[col0] = df0[col0].apply(lambda x: [int(255 * (x[0])), int(255 * (x[1])), int(0)]) 
     # real -> x[0], imaginary -> x[1], norm -> np.linalg.norm(x), phase -> np.arctan2(x[1], x[0])
 
   image = []
   for row in df0.values:
     image_row = []
-    for rgb in row:
-      pixel = []
-      for channel in rgb:
-        pixel.append(int(channel))
-      
-      image_row.append(pixel)
-
+    for elm in row:
+      image_row.append(elm)
+    
     image.append(image_row)
-  
+
   return image
 
 
@@ -38,37 +34,47 @@ def main():
     224783561,
     981347827
   ]
-
-  epochs = 1
+  # 981347827
+  # 224783561
+  epochs = 16
   model_id = 2
+  seed = seed_list[4]
 
-  df_image1 = pd.read_csv(f"./out/complex_features/conv{model_id}/{seed_list[0]}_2_{epochs}e_original.csv")
+  df_image1 = pd.read_csv(f"./out/complex_features/conv{model_id}/{seed}_2_{epochs}e_original.csv", header=None)
+  df_image1.drop(28, axis=1, inplace=True)
   df1 = filter_complex_dataframe(df_image1)
-
-  df_image2 = pd.read_csv(f"./out/complex_features/conv{model_id}/{seed_list[0]}_4_{epochs}e_original.csv")
+  
+  df_image2 = pd.read_csv(f"./out/complex_features/conv{model_id}/{seed}_4_{epochs}e_original.csv", header=None)
+  df_image2.drop(28, axis=1, inplace=True)
   df2 = filter_complex_dataframe(df_image2)
 
   plt.figure()
   plt.imshow(df1)
+  plt.axis("off")
 
   plt.figure()
   plt.imshow(df2)
+  plt.axis("off")
 
   for i in range(8):
     df_feature = pd.read_csv(
-      f"./out/complex_features/conv{model_id}/{seed_list[0]}_2_{epochs}e_feature_{i}_{3}.csv"
+      f"./out/complex_features/conv{model_id}/{seed}_2_{epochs}e_feature_{i}_{1}.csv", header=None
     )
+    df_feature.drop(26, axis=1, inplace=True)
     df = filter_complex_dataframe(df_feature)
 
     plt.figure()
+    plt.axis('off')
     plt.imshow(df)
 
     df_feature = pd.read_csv(
-      f"./out/complex_features/conv{model_id}/{seed_list[0]}_4_{epochs}e_feature_{i}_{3}.csv"
+      f"./out/complex_features/conv{model_id}/{seed}_4_{epochs}e_feature_{i}_{1}.csv", header=None
     )
+    df_feature.drop(26, axis=1, inplace=True)
     df = filter_complex_dataframe(df_feature)
 
     plt.figure()
+    plt.axis('off')
     plt.imshow(df)
   
   plt.show()

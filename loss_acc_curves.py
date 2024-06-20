@@ -166,6 +166,15 @@ def lr_studies_dense_tensorflow():
 def comp():
   seed_list = [
     891298565,
+    918232853, # 435726692
+    328557473,
+    348769349,
+    224783561,
+    981347827
+  ]
+
+  seed_tensorflow = [
+    891298565,
     435726692,
     328557473,
     348769349,
@@ -173,10 +182,10 @@ def comp():
     981347827
   ]
 
-  epochs = 16
-  model_id = 2
-  lr_renplex = "0.75_0.00"
-  lr_tensorflow = "3.0"
+  epochs = 32
+  model_id = 3
+  lr_renplex = "0.0350_0.0011"
+  lr_tensorflow = "17.5"
 
   # setting up plot axes
   f1 = plt.figure(figsize=(6.5, 6.5))
@@ -185,8 +194,8 @@ def comp():
   ax2 = f2.add_subplot(111)
   
   # loss and accuracy zoom region
-  e1, e2 = int(0.8 * epochs), int(1.10 * epochs)
-  l1, l2 = 0.002, 0.0045
+  e1, e2 = int(0.8 * epochs), int(1.05 * epochs)
+  l1, l2 = 0.01, 0.03
   a1, a2 = 0.975, 0.990
 
   x_pos = -0.05
@@ -212,43 +221,43 @@ def comp():
   ax2_inset.tick_params(axis='both', which='major', labelsize=12)
 
   e = list(range(1, epochs+1))
-  e_ticks = list(range(1, epochs+1, 2))
+  e_ticks = list(range(1, epochs+1, 4))
 
   # getting values
   loss_vals = []
-  accu_vals = []
+  #accu_vals = []
   loss_tf_vals = []
-  accu_tf_vals = []
-  for id, seed in enumerate(seed_list):
+  #accu_tf_vals = []
+  for seed, seed_tf in zip(seed_list, seed_tensorflow):
     df_test_loss = pd.read_csv(f"out/{model_id}/{seed}_tloss_{lr_renplex}_{epochs}e.csv", header=None, names=["vals", "empty"])
-    df_test_accu = pd.read_csv(f"out/{model_id}/{seed}_taccu_{lr_renplex}_{epochs}e.csv", header=None, names=["vals", "empty"])
-    df_test_loss_tf = pd.read_csv(f"tensorflow/{seed}_id{model_id}_tloss_{lr_tensorflow}_{epochs}e.csv")
-    df_test_accu_tf = pd.read_csv(f"tensorflow/{seed}_id{model_id}_taccu_{lr_tensorflow}_{epochs}e.csv")
+    #df_test_accu = pd.read_csv(f"out/{model_id}/{seed}_taccu_{lr_renplex}_{epochs}e.csv", header=None, names=["vals", "empty"])
+    df_test_loss_tf = pd.read_csv(f"tensorflow/{seed_tf}_id{model_id}_tloss_{lr_tensorflow}_{epochs}e.csv")
+    #df_test_accu_tf = pd.read_csv(f"tensorflow/{seed_tf}_id{model_id}_taccu_{lr_tensorflow}_{epochs}e.csv")
     
     loss = df_test_loss["vals"]
-    accu = df_test_accu["vals"]
+    #accu = df_test_accu["vals"]
     loss_tf = df_test_loss_tf["vals"]
-    accu_tf = df_test_accu_tf["vals"]
+    #accu_tf = df_test_accu_tf["vals"]
 
     loss_vals.append(loss)
-    accu_vals.append(accu)
+    #accu_vals.append(accu)
     loss_tf_vals.append(loss_tf)
-    accu_tf_vals.append(accu_tf)
+    #accu_tf_vals.append(accu_tf)
 
   loss_array = np.array(loss_vals)
   loss_tf_array = np.array(loss_tf_vals)
-  accu_array = np.array(accu_vals)
-  accu_tf_array = np.array(accu_tf_vals)
+  #accu_array = np.array(accu_vals)
+  #accu_tf_array = np.array(accu_tf_vals)
 
   mean_loss = np.mean(loss_array, axis=0)
   mean_loss_tf = np.mean(loss_tf_array, axis=0)
-  mean_accu = np.mean(accu_array, axis=0)
-  mean_accu_tf = np.mean(accu_tf_array, axis=0)
+  #mean_accu = np.mean(accu_array, axis=0)
+  #mean_accu_tf = np.mean(accu_tf_array, axis=0)
 
   std_loss = 2 * np.std(loss_array, axis=0)
   std_loss_tf = 2 * np.std(loss_tf_array, axis=0)
-  std_accu = 2 * np.std(accu_array, axis=0)
-  std_accu_tf = 2 * np.std(accu_tf_array, axis=0)
+  #std_accu = 2 * np.std(accu_array, axis=0)
+  #std_accu_tf = 2 * np.std(accu_tf_array, axis=0)
 
   line_width = 2.5
   trans = 0.3
@@ -263,15 +272,15 @@ def comp():
   ax1_inset.fill_between(e, mean_loss_tf-std_loss_tf, mean_loss_tf+std_loss_tf, color='orange', alpha=trans)
 
 
-  ax2.plot(e, mean_accu, '--', color="blue", linewidth=line_width, label=r"Renplex $\mu$")
-  ax2.plot(e, mean_accu_tf, '--', color="orange", linewidth=line_width, label=r"Tensorflow $\mu$")
-  ax2.fill_between(e, mean_accu-std_accu, mean_accu+std_accu, color='blue', alpha=trans, label=r'Renplex $\mu \pm 2\sigma$')
-  ax2.fill_between(e, mean_accu_tf-std_accu_tf, mean_accu_tf+std_accu_tf, color='orange', alpha=trans, label=r'Tensorflow $\mu \pm 2\sigma$')
+  #ax2.plot(e, mean_accu, '--', color="blue", linewidth=line_width, label=r"Renplex $\mu$")
+  #ax2.plot(e, mean_accu_tf, '--', color="orange", linewidth=line_width, label=r"Tensorflow $\mu$")
+  #ax2.fill_between(e, mean_accu-std_accu, mean_accu+std_accu, color='blue', alpha=trans, label=r'Renplex $\mu \pm 2\sigma$')
+  #ax2.fill_between(e, mean_accu_tf-std_accu_tf, mean_accu_tf+std_accu_tf, color='orange', alpha=trans, label=r'Tensorflow $\mu \pm 2\sigma$')
   # zoom regions
-  ax2_inset.plot(e, mean_accu, '--', color="blue", linewidth=line_width)
-  ax2_inset.plot(e, mean_accu_tf, '--', color="orange", linewidth=line_width)
-  ax2_inset.fill_between(e, mean_accu-std_accu, mean_accu+std_accu, color='blue', alpha=trans)
-  ax2_inset.fill_between(e, mean_accu_tf-std_accu_tf, mean_accu_tf+std_accu_tf, color='orange', alpha=trans)
+  #ax2_inset.plot(e, mean_accu, '--', color="blue", linewidth=line_width)
+  #ax2_inset.plot(e, mean_accu_tf, '--', color="orange", linewidth=line_width)
+  #ax2_inset.fill_between(e, mean_accu-std_accu, mean_accu+std_accu, color='blue', alpha=trans)
+  #ax2_inset.fill_between(e, mean_accu_tf-std_accu_tf, mean_accu_tf+std_accu_tf, color='orange', alpha=trans)
 
   ax1.legend(fontsize=14, loc=1)
   ax1.set_xlabel('Epochs', fontsize=16)
