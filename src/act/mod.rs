@@ -353,8 +353,71 @@ fn d_conj_card_cf64(val: Cf64) -> Cf64 {
   dfdx + i * dfdy
 }
 
+/* modz */
+fn mod_z_cf32(val: Cf32) -> Cf32 {
+  let norm = val.norm();
+
+  val / Cf32::new(norm, 0.0)
+}
+
+fn d_mod_z_cf32(val: Cf32) -> Cf32 {
+  let norm2 = 2.0 * val.norm();
+
+  Cf32::new(1.0 / norm2, 0.0) 
+}
+
+fn d_conj_mod_z_cf32(val: Cf32) -> Cf32 {
+  let norm2 = 2.0 * val.norm();
+
+  (val / val.conj()) / Cf32::new(-norm2, 0.0)
+}
+
+fn mod_z_cf64(val: Cf64) -> Cf64 {
+  let norm = val.norm();
+
+  val / Cf64::new(norm, 0.0)
+}
+
+fn d_mod_z_cf64(val: Cf64) -> Cf64 {
+  let norm2 = 2.0 * val.norm();
+
+  Cf64::new(1.0 / norm2, 0.0) 
+}
+
+fn d_conj_mod_z_cf64(val: Cf64) -> Cf64 {
+  let norm2 = 2.0 * val.norm();
+
+  (val / val.conj()) / Cf64::new(-norm2, 0.0)
+}
+
+fn none_cf32(val: Cf32) -> Cf32 {
+  val
+}
+
+fn none_cf64(val: Cf64) -> Cf64 {
+  val
+}
+
+fn d_none_cf32(_val: Cf32) -> Cf32 {
+  Cf32::unit()
+}
+
+fn d_none_cf64(_val: Cf64) -> Cf64 {
+  Cf64::unit()
+}
+
+fn d_conj_none_cf32(_val: Cf32) -> Cf32 {
+  Cf32::default()
+}
+
+fn d_conj_none_cf64(_val: Cf64) -> Cf64 {
+  Cf64::default()
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum ComplexActFunc {
+  None,
+  ModZ,
   RITSigmoid,
   RITTanh,
   RITReLU,
@@ -365,6 +428,8 @@ pub enum ComplexActFunc {
 impl ComplexActFunc {
   pub fn release_func_cf32(&self) -> fn(Cf32) -> Cf32 {
     match self {
+      Self::None => { none_cf32 },
+      Self::ModZ => { mod_z_cf32 },
       Self::RITSigmoid => { ritsigmoid_cf32 },
       Self::RITTanh => { rittanh_cf32 }
       Self::RITReLU => { ritrelu_cf32 },
@@ -375,6 +440,8 @@ impl ComplexActFunc {
 
   pub fn release_func_cf64(&self) -> fn(Cf64) -> Cf64 {
     match self {
+      Self::None => { none_cf64 },
+      Self::ModZ => { mod_z_cf64 },
       Self::RITSigmoid => { ritsigmoid_cf64 },
       Self::RITTanh => { rittanh_cf64 }
       Self::RITReLU => { ritrelu_cf64 },
@@ -385,6 +452,8 @@ impl ComplexActFunc {
 
   pub fn release_dfunc_cf32(&self) -> fn(Cf32) -> Cf32 {
     match self {
+      Self::None => { d_none_cf32 },
+      Self::ModZ => { d_mod_z_cf32 },
       Self::RITSigmoid => { d_ritsigmoid_cf32 },
       Self::RITTanh => { d_rittanh_cf32 },
       Self::RITReLU => { d_ritrelu_cf32 },
@@ -395,6 +464,8 @@ impl ComplexActFunc {
 
   pub fn release_dfunc_cf64(&self) -> fn(Cf64) -> Cf64 {
     match self {
+      Self::None => { d_none_cf64 },
+      Self::ModZ => { d_mod_z_cf64 },
       Self::RITSigmoid => { d_ritsigmoid_cf64 },
       Self::RITTanh => { d_rittanh_cf64 },
       Self::RITReLU => { d_ritrelu_cf64 },
@@ -405,6 +476,8 @@ impl ComplexActFunc {
 
   pub fn release_dfunc_conj_cf32(&self) -> fn(Cf32) -> Cf32 {
     match self {
+      Self::None => { d_conj_none_cf32 },
+      Self::ModZ => { d_conj_mod_z_cf32 },
       Self::RITSigmoid => { d_conj_ritsigmoid_cf32 },
       Self::RITTanh => { d_conj_rittanh_cf32 },
       Self::RITReLU => { d_conj_ritrelu_cf32 },
@@ -415,6 +488,8 @@ impl ComplexActFunc {
 
   pub fn release_dfunc_conj_cf64(&self) -> fn(Cf64) -> Cf64 {
     match self {
+      Self::None => { d_conj_none_cf64 },
+      Self::ModZ => { d_conj_mod_z_cf64 },
       Self::RITSigmoid => { d_conj_ritsigmoid_cf64 },
       Self::RITTanh => { d_conj_rittanh_cf64 },
       Self::RITReLU => { d_conj_ritrelu_cf64 },

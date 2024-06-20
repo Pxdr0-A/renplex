@@ -133,9 +133,8 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let mut loss_vals = Vec::new();
 
     let (input_chunks, target_chunks) = data.points_as_iter();
-    let mut prediction;
     for (input, target) in input_chunks.zip(target_chunks) {
-      prediction = self
+      let prediction = self
         .forward(input)
         .unwrap();
       
@@ -150,6 +149,47 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     let mean = total / T::Precision::usize_to_real(loss_len);
     
     Ok(mean)
+  }
+
+  pub fn snr(&self, 
+    data: &Dataset<T, T>,
+  ) -> Result<T::Precision, LossCalcError> {
+    
+    let mut snr_vals = Vec::new();
+
+    let (input_chunks, target_chunks) = data.points_as_iter();
+    for (input, _) in input_chunks.zip(target_chunks) {
+      let prediction = self
+        .forward(input)
+        .unwrap();
+
+      let pred_slice = prediction.as_slice();
+      let pred_len = T::Precision::usize_to_real(pred_slice.len());
+      let sum = pred_slice.iter().fold(T::Precision::default(), |acc, elm| {
+        let norm = elm.norm_sq();
+        acc + norm
+      });
+
+      let mean = sum / pred_len;
+
+      let sum_sq = pred_slice.iter().fold(T::Precision::default(), |acc, elm| {
+        let norm = elm.norm_sq();
+
+        acc + (norm - mean) * (norm - mean)
+      });
+
+      let std = sum_sq / pred_len;
+
+      snr_vals.push(mean / std);
+    }
+
+    let snr_mean = snr_vals
+      .into_iter()
+      .fold(T::Precision::default(), |acc, elm| { 
+        acc + elm
+    });
+
+    Ok(snr_mean)
   }
 
   pub fn max_pred_test(&self, data: &Dataset<T, T>) -> T::Precision {

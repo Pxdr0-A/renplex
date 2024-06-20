@@ -237,7 +237,7 @@ use std::fs::File;
     
     let (train_batch, test_batch) = Dataset::signal_reconstruction(
       512,
-      100,
+      200 * 100,
       25e-3, 
       train_seed,
       test_seed

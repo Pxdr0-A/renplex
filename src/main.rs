@@ -192,7 +192,7 @@ fn _get_auto_encoder(seed: &mut u128, samples: usize) -> (usize, CNetwork<Cf32>)
   let min_encoding = 16;
 
   let inter_act = ComplexActFunc::RITTanh;
-  let out_act = ComplexActFunc::RITReLU;
+  let out_act = ComplexActFunc::None;
 
   let first_dense: CLayer<Cf32> = DenseCLayer::init(
     IOShape::Scalar(samples), 
@@ -257,7 +257,7 @@ fn extract_features(
   /* intercept to inspect feature maps or intermediate activations. */
   let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();
   let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
-  let batch_size = 10;
+  let batch_size = 60;
   let ref mut tracker = 0;
   let data: Dataset<Cf32, Cf32> = Dataset::minist_as_complex_batch(train_data_file, train_label_file, batch_size, tracker);
   
@@ -436,7 +436,7 @@ fn _train_pipeline(
   train_acc_vec.push(mean_train_acc);
 }
 
-fn signal_pipeline(
+fn _signal_pipeline(
   network: &mut CNetwork<Cf32>,
   loss_func: &ComplexLossFunc,
   lr: Cf32,
@@ -444,13 +444,15 @@ fn signal_pipeline(
   noise_thr: f32,
   batches: usize,
   batch_size: usize,
+  mut train_gen_seed: u128,
+  mut test_gen_seed: u128,
   train_loss_vec: &mut Vec<f32>,
-  test_loss_vec: &mut Vec<f32>
+  test_loss_vec: &mut Vec<f32>,
 ) {
   // this pipeline does 1 epoch
 
-  let train_seed = &mut 223895746827_u128;
-  let test_seed = &mut 4346877248692_u128;
+  let train_seed = &mut train_gen_seed; // 223895746827_u128;
+  let test_seed = &mut  test_gen_seed; // 4346877248692_u128;
 
   let mut mean_train_loss = 0.0;
   let mut mean_test_loss = 0.0;
@@ -465,10 +467,11 @@ fn signal_pipeline(
       test_seed
     );
   
-    let inst_loss = network.loss(&train_batch, loss_func).unwrap();
-    mean_train_loss += inst_loss;
-
     let accu = (b+1) as f32;
+
+    let inst_loss = network.loss(&train_batch, loss_func).unwrap();
+    mean_train_loss = ( mean_train_loss + inst_loss ) / accu;
+
     //let mean_loss = mean_train_loss/accu;
     // work from the initial value lr
     //let mut lr= lr;
@@ -476,33 +479,24 @@ fn signal_pipeline(
     //if mean_loss < 0.0500 {
     //  lr = lr / Cf32::new((9.9*mean_loss).powi(4), 0.0);
     //}
-    /*
-    if mean_loss < 0.0450 && mean_loss > 0.0400 {
-      lr = lr / Cf32::new(2.0, 0.0);
-    } else if mean_loss < 0.0400 && mean_loss > 0.0350 {
-      lr = lr / Cf32::new(4.0, 0.0);
-    } else if mean_loss < 0.0350 && mean_loss > 0.0300 {
-      lr = lr / Cf32::new(10.0, 0.0);
-    } else if mean_loss < 0.0300 && mean_loss > 0.0000 {
-      lr = lr / Cf32::new(20.0, 0.0);
-    }
-    */
 
     network.gradient_opt(train_batch, loss_func, lr).unwrap();
 
     let inst_tloss = network.loss(&test_batch, loss_func).unwrap();
-    mean_test_loss += inst_tloss;
+
+    mean_test_loss = ( mean_test_loss + inst_tloss ) / accu;
 
     print!(
-      "\r| Batch {} -> Loss: ({:.4}, {:.4}), Validation Loss: ({:.4}, {:.4}) (time: {:.3?})", 
-      b+1, inst_loss, mean_train_loss/accu, inst_tloss, mean_test_loss/accu, batch_time.elapsed()
+      "\r| Batch {} -> Loss: ({:.4}, {:.4}), Val Loss: ({:.4}, {:.4}) (time: {:.3?})", 
+      b+1, 
+      inst_loss, mean_train_loss, 
+      inst_tloss, mean_test_loss, 
+      batch_time.elapsed()
     );
     io::stdout().flush().unwrap();
   }
 
   println!();
-  mean_train_loss /= batches as f32;
-  mean_test_loss /= batches as f32;
 
   train_loss_vec.push(mean_train_loss);
   test_loss_vec.push(mean_test_loss);
@@ -519,22 +513,27 @@ fn main() {
     
   let mut seeds = [
     891298565,
-    435726692,
+    918232853,
     328557473,
     348769349,
     224783561,
     981347827
   ];
-  let ref mut seed = seeds[0];
+
+  let ref mut seed = seeds[4];
   let init_seed_val = *seed;
   println!("Using seed: {}", init_seed_val);
+
+  // for generating datasets
+  let train_gen_seed = 223895746827_u128;
+  let test_gen_seed = 4346877248692_u128;
 
   // for signal applications
   let samples = 512;
   let noise_thr = 25e-3;
-  let batches = 200;
+  let _batches = 200;
 
-  let (network_id, mut network) = _get_auto_encoder(seed, samples);
+  let (network_id, mut network) = _get_2conv_layer_cvcnn(seed);
   println!("Created the Network.");
 
   let mut train_loss_vec: Vec<f32> = Vec::new();
@@ -545,7 +544,7 @@ fn main() {
   let mut _test_acc_vec: Vec<f32> = Vec::new();
 
   let batch_size = 100;
-  let epochs: usize = 32; // 32 for dense
+  let epochs: usize = 16; // 32 for dense
 
   // MNIST Data
   let _total_train_data = 60000;
@@ -557,8 +556,8 @@ fn main() {
   Dense : 3 or 4
   Signal: 0.0050 (could progress) 0.01 (slightly better)
   */
-  let r = 75e-4_f32;
-  let phase = std::f32::consts::PI / 100.0;
+  let r = 7500e-4_f32;
+  let phase = 0.0 * std::f32::consts::PI / 100.0;
   let lr_re = r * phase.cos();
   let lr_im = r * phase.sin();
   let lr = Cf32::new(lr_re, lr_im);
@@ -572,6 +571,8 @@ fn main() {
   for e in 0..epochs {
     println!();
     println!("{}Epoch {}/{}{}",bold, e+1, epochs, reset);
+    // Pipeline for signal reconstruction
+    /*
     println!("| {}{}{}Signal Pipeline{}", bold, underline, yellow, reset);
     signal_pipeline(
       &mut network, 
@@ -580,12 +581,15 @@ fn main() {
       samples,
       noise_thr,
       batches, 
-      batch_size, 
+      batch_size,
+      train_gen_seed,
+      test_gen_seed,
       &mut train_loss_vec, 
       &mut test_loss_vec
     );
+    */
 
-    /* Pipeline for classification
+    // Pipeline for classification
     println!("| {}{}{}Train Pipeline{}", bold, underline, yellow, reset);
     _train_pipeline(
       &mut network, 
@@ -605,8 +609,7 @@ fn main() {
       batch_size, 
       &mut test_loss_vec, 
       &mut _test_acc_vec
-    );
-    */
+    );  
   }
   
   println!();
@@ -618,28 +621,24 @@ fn main() {
     extract_features(&network, network_id, init_seed_val, epochs);
   } else if network_id == 3 {
     let mini_batch_size = 10;
-    let (train_batch, test_batch) = Dataset::signal_reconstruction(
+    let mut train_seed = train_gen_seed;
+    let mut test_seed = test_gen_seed;
+    let (train_batch, _) = Dataset::signal_reconstruction(
       samples,
       mini_batch_size, 
       noise_thr, 
-      &mut 223895746827_u128, 
-      &mut 4346877248692_u128
+      &mut train_seed, 
+      &mut test_seed
     );
 
     for b in 0..mini_batch_size {
       let (corrupted_signal, clean_signal) = train_batch.get_point(b);
-      let (corrupted_signalt, clean_signalt) = test_batch.get_point(b);
-
       let clean_prediction = network.forward(corrupted_signal).unwrap();
-      let clean_predictiont = network.forward(corrupted_signalt).unwrap();
 
       // save results
-      corrupted_signal.as_slice().to_matrix([samples, 1]).unwrap().to_csv(format!("out/signal_rec/x{}_lr_{:.4}_{:.4}_signal_{}e.csv", b, lr_re, lr_im, epochs)).unwrap();
-      corrupted_signalt.as_slice().to_matrix([samples, 1]).unwrap().to_csv(format!("out/signal_rec/x{}_lr_{:.4}_{:.4}_signal_{}e_t.csv", b, lr_re, lr_im, epochs)).unwrap();
-      clean_signal.as_slice().to_matrix([samples, 1]).unwrap().to_csv(format!("out/signal_rec/y{}_lr_{:.4}_{:.4}_signal_{}e.csv", b, lr_re, lr_im, epochs)).unwrap();
-      clean_signalt.as_slice().to_matrix([samples, 1]).unwrap().to_csv(format!("out/signal_rec/y{}_lr_{:.4}_{:.4}_signal_{}e_t.csv", b, lr_re, lr_im, epochs)).unwrap();
-      clean_prediction.as_slice().to_matrix([samples, 1]).unwrap().to_csv(format!("out/signal_rec/yp{}_lr_{:.4}_{:.4}_signal_{}e.csv", b, lr_re, lr_im, epochs)).unwrap();
-      clean_predictiont.as_slice().to_matrix([samples, 1]).unwrap().to_csv(format!("out/signal_rec/yp{}_lr_{:.4}_{:.4}_signal_{}e_t.csv", b, lr_re, lr_im, epochs)).unwrap();
+      corrupted_signal.as_slice().to_matrix([samples, 1]).unwrap().to_csv(format!("out/signal_rec/{}_x{}_lr_{:.4}_{:.4}_signal_{}e.csv", init_seed_val, b, lr_re, lr_im, epochs)).unwrap();
+      clean_signal.as_slice().to_matrix([samples, 1]).unwrap().to_csv(format!("out/signal_rec/{}_y{}_lr_{:.4}_{:.4}_signal_{}e.csv", init_seed_val, b, lr_re, lr_im, epochs)).unwrap();
+      clean_prediction.as_slice().to_matrix([samples, 1]).unwrap().to_csv(format!("out/signal_rec/{}_yp{}_lr_{:.4}_{:.4}_signal_{}e.csv", init_seed_val, b, lr_re, lr_im, epochs)).unwrap();
     }
   }
 
