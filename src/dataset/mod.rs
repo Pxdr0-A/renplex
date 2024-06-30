@@ -270,7 +270,7 @@ impl Dataset<Cf32, Cf32> {
 
         let p1 = 2.0 * PI32 * lcgf32(train_seed);
         let p2 = 2.0 * PI32 * lcgf32(train_seed);
-
+        
         // corrupt point
         [elm1 + Cf32::newe(z1, p1), elm2 + Cf32::newe(z2, p2)]
       }).collect::<Vec<_>>();
