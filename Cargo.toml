@@ -1,6 +1,6 @@
 [package]
 name = "renplex"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Pedro Alves <pedromfa98@gmail.com>"]
 description = "A library capable of modeling complexed-valued neural networks built with Rust."

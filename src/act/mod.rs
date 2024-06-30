@@ -1,4 +1,4 @@
-/// Module containing everything related to activation functions and respective derivatives.
+//! Module containing everything related to activation functions and respective derivatives.
 
 use crate::math::{cfloat::{Cf32, Cf64}, Complex};
 

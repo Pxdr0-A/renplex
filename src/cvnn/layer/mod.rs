@@ -1,3 +1,5 @@
+//! Module containing layer interfaces for scafolding CVNN.
+
 use crate::input::{IOShape, IOType};
 use crate::math::{BasicOperations, Complex};
 use crate::err::{LayerInitError, LayerForwardError};

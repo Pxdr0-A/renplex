@@ -1,3 +1,5 @@
+//! Module containing various mathematical utilities for general interaction with the library.
+
 use std::fmt::{Debug, Display};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::default::Default;

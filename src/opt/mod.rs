@@ -1,3 +1,5 @@
+//! Module related to optimization procedures.
+
 use crate::err::LossCalcError;
 use crate::math::cfloat::{Cf32, Cf64};
 use crate::math::Complex;
@@ -147,6 +149,7 @@ fn d_norm_ce_loss_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'
   d_mean_sq_loss_cf64(targ, pred)
 }
 
+/// List of possible loss function to use.
 #[derive(Debug)]
 pub enum ComplexLossFunc {
   MeanSquare,
@@ -157,6 +160,8 @@ impl ComplexLossFunc {
 
   /* Provide the Loss function. */
 
+  /// Returns a function related to the current loss function option 
+  /// for complex numbers with 64-bit precision.
   pub fn release_func_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(&self) -> impl Fn(T1, T2) -> f32 {
     match self {
       Self::MeanSquare => { mean_sq_loss_cf32 },
@@ -164,6 +169,8 @@ impl ComplexLossFunc {
     }
   }
 
+  /// Returns a function related to the current loss function derivative option 
+  /// for complex numbers with 64-bit precision.
   pub fn release_dfunc_cf32<'a, T1: Iterator<Item = &'a Cf32>, T2: Iterator<Item = &'a Cf32>>(&self) -> impl Fn(T1, T2) -> Vec<Cf32> {
     match self {
       Self::MeanSquare => { d_mean_sq_loss_cf32 },
@@ -171,6 +178,8 @@ impl ComplexLossFunc {
     }
   }
 
+  /// Returns a function related to the current loss function option 
+  /// for complex numbers with 128-bit precision.
   pub fn release_func_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(&self) -> impl Fn(T1, T2) -> f64 {
     match self {
       Self::MeanSquare => { mean_sq_loss_cf64 },
@@ -178,6 +187,8 @@ impl ComplexLossFunc {
     }
   }
 
+  /// Returns a function related to the current loss function derivative option 
+  /// for complex numbers with 128-bit precision.
   pub fn release_dfunc_cf64<'a, T1: Iterator<Item = &'a Cf64>, T2: Iterator<Item = &'a Cf64>>(&self) -> impl Fn(T1, T2) -> Vec<Cf64> {
     match self {
       Self::MeanSquare => { d_mean_sq_loss_cf64 },
@@ -187,6 +198,12 @@ impl ComplexLossFunc {
 
   /* Loss function computation. */
 
+  /// Returns the loss value related to a certain loss function option with 64-bit precision.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `target` - [IOType] related to the target output of the network.
+  /// * `prediction` - [IOType] related to the prediction of the network.
   pub fn compute_cf32(&self, target: &IOType<Cf32>, prediction: &IOType<Cf32>) -> Result<f32, LossCalcError> {
     match prediction {
       IOType::Scalar(pred) => {
@@ -215,6 +232,12 @@ impl ComplexLossFunc {
     }
   }
 
+  /// Returns the loss value related to a certain loss function option with 128-bit precision.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `target` - [IOType] related to the target output of the network.
+  /// * `prediction` - [IOType] related to the prediction of the network.
   pub fn compute_cf64(&self, target: &IOType<Cf64>, prediction: &IOType<Cf64>) -> Result<f64, LossCalcError> {
     match prediction {
       IOType::Scalar(pred) => {
@@ -243,6 +266,12 @@ impl ComplexLossFunc {
     }
   }
 
+  /// Returns the derivative loss value related to a certain loss function option with 64-bit precision.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `target` - [IOType] related to the target output of the network.
+  /// * `prediction` - [IOType] related to the prediction of the network.
   pub fn compute_d_cf32(&self, target: &IOType<Cf32>, prediction: &IOType<Cf32>) -> Result<Vec<Cf32>, LossCalcError> {
     match prediction {
       IOType::Scalar(pred) => {
@@ -271,6 +300,12 @@ impl ComplexLossFunc {
     }
   }
 
+  /// Returns the conjugate derivative loss value related to a certain loss function option with 128-bit precision.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `target` - [IOType] related to the target output of the network.
+  /// * `prediction` - [IOType] related to the prediction of the network.
   pub fn compute_d_cf64(&self, target: &IOType<Cf64>, prediction: &IOType<Cf64>) -> Result<Vec<Cf64>, LossCalcError> {
     match prediction {
       IOType::Scalar(pred) => {

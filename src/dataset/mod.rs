@@ -1,4 +1,4 @@
-/// Module containing simple dataset utilities.
+//! Module containing simple dataset utilities.
 
 
 use std::fmt::Display;

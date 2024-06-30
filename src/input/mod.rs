@@ -1,3 +1,5 @@
+//! Module for dealing with inputs and outputs to layers.
+
 use crate::math::matrix::Matrix;
 
 #[derive(Debug)]

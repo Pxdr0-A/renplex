@@ -1,3 +1,5 @@
+//! Module for intialization methods.
+
 use crate::math::Complex;
 
 /// List of initialization methods that can be applied to the initialization of a layer.

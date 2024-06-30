@@ -1,3 +1,5 @@
+//! Module containing matrix utilities for the CVNNs.
+
 use std::fmt::{Debug, Display};
 use std::fs::File;
 use std::io::Write;

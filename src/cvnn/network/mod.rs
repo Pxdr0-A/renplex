@@ -1,3 +1,5 @@
+//! Module containing operations within CVNN.
+
 use crate::dataset::Dataset;
 use crate::input::{IOShape, IOType};
 use crate::math::{BasicOperations, Real, Complex};
