@@ -7,18 +7,19 @@ pub mod init;
 pub mod err;
 pub mod cvnn;
 
-
 #[cfg(test)]
 mod basic_tests {
   use std::f32::consts::PI;
-use std::fs::File;
+  use std::fs::File;
   use std::time::Instant;
   use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
   use rayon::ThreadPoolBuilder;
   use crate::dataset::Dataset;
   use crate::input::IOType;
+  use crate::math::cfloat::Cf32;
   use crate::math::matrix::Matrix;
   use crate::math::matrix::SliceOps;
+  use crate::math::Complex;
 
   #[test]
   fn matrix_add() {
@@ -86,14 +87,14 @@ use std::fs::File;
 
   #[test]
   fn image_conv_test() {
-    let train_data_file = &mut File::open("./minist/t10k-images.idx3-ubyte").unwrap();
-    let train_label_file = &mut File::open("./minist/t10k-labels.idx1-ubyte").unwrap();
+    let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();
+    let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
     let batch_size = 100;
     let ref mut tracker = 0;
 
     let data: Dataset<f32, f32> = Dataset::minist_as_batch(train_data_file, train_label_file, batch_size, tracker);
 
-    let (image_point, _) = data.get_point(23);
+    let (image_point, _) = data.get_point(58);
 
     let image;
     match image_point {
@@ -105,32 +106,87 @@ use std::fs::File;
 
     image.to_csv("./out/conv_tests/original.csv".to_string()).unwrap();
 
-    /* to test
-      get_slider•
-      convolution•
-      flipped kernel•
-      padding•
-      fractional upsampling•
-    */
+    let image_convx = image.convolution(
+      &Matrix::from_body(
+        vec![
+          1.0, 0.0, -1.0,
+          2.0, 0.0, -2.0,
+          1.0, 0.0, -1.0
+        ], 
+        [3,3])
+    ).unwrap();
 
-    let image_max_pooled = image.block_reduce(
+    let image_convy = image.convolution(
+      &Matrix::from_body(
+        vec![
+          1.0, 2.0, 1.0,
+          0.0, 0.0, 0.0,
+          -1.0, -2.0, -1.0
+        ], 
+        [3,3])
+    ).unwrap();
+
+    let image_conv = image_convx
+      .get_body()
+      .iter()
+      .zip(image_convy.get_body().iter())
+      .map(|(elmx, elmy)| { ( elmx.powi(2) + elmy.powi(2) ).sqrt() })
+      .collect::<Vec<_>>();
+
+    let complex_img = image_convx
+      .get_body()
+      .iter()
+      .zip(image_convy.get_body().iter())
+      .map(|(elmx, elmy)| { 
+        let norm = ( elmx.powi(2) + elmy.powi(2) ).sqrt();
+        let phase;
+        if *elmx == 0.0 { phase = PI; }
+        else { phase = elmy.atan2(*elmx); }
+
+        Cf32::new(norm, phase)
+      }).collect::<Vec<_>>();
+
+    let image_conv = Matrix::from_body(image_conv, [26, 26]);
+    let image_cconv = Matrix::from_body(complex_img, [26, 26]);
+
+    image_conv.to_csv("./out/conv_tests/conv_sobel.csv".to_string()).unwrap();
+    image_cconv.to_csv("./out/conv_tests/conv_csobel.csv".to_string()).unwrap();
+  }
+
+  #[test]
+  fn image_pool_test() {
+    let train_data_file = &mut File::open("./minist/train-images.idx3-ubyte").unwrap();
+    let train_label_file = &mut File::open("./minist/train-labels.idx1-ubyte").unwrap();
+    let batch_size = 100;
+    let ref mut tracker = 0;
+
+    let data: Dataset<f32, f32> = Dataset::minist_as_batch(train_data_file, train_label_file, batch_size, tracker);
+
+    let (image_point, _) = data.get_point(58);
+
+    let image;
+    match image_point {
+      IOType::Matrix(map) => {
+        image = map[0].clone();
+      },
+      _ => {panic!("ups...")}
+    }
+
+    image.to_csv("./out/conv_tests/original.csv".to_string()).unwrap();
+
+    let image_avg_pooled = image.block_reduce(
       &[2, 2],
-      |slice| {
-        slice
-          .iter()
-          .fold(-f32::INFINITY,|acc, elm| {
-            if acc < *elm { 
-              *elm
-            } else {
-              acc
-            }
-          })
+      |block: &[f32]| { 
+        let block_len = block.len(); 
+        block
+          .into_iter()
+          .fold(f32::default(), |acc, elm| { acc + *elm }) / (block_len as f32)
       }
     ).unwrap();
 
-    image_max_pooled.to_csv("./out/conv_tests/max_pool.csv".to_string()).unwrap();
+    image_avg_pooled.to_csv("./out/conv_tests/avg_pool.csv".to_string()).unwrap();
 
-    let image_upsampled = image_max_pooled.fractional_upsampling(
+    let image_upsampled = image_avg_pooled.fractional_upsampling(
       &[2,2], 
       &Matrix::from_body(
         vec![
@@ -141,7 +197,7 @@ use std::fs::File;
         [3,3])
     ).unwrap();
 
-    image_upsampled.to_csv("./out/conv_tests/max_pool_upsampled.csv".to_string()).unwrap();
+    image_upsampled.to_csv("./out/conv_tests/avg_pool_upsampled.csv".to_string()).unwrap();
   }
 
   #[test]
