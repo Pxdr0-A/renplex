@@ -19,6 +19,16 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     }
   }
 
+  pub fn params_len(&self) -> usize {
+    let mut len = 0;
+    for l in self.layers.iter() {
+      let layer_len = l.params_len();
+      len += layer_len.0 + layer_len.1;
+    }
+    
+    len
+  }
+
   pub fn get_input_shape(&self) -> Result<IOShape, LayerAdditionError> {
     if self.layers.len() == 0 { return Err(LayerAdditionError::MissingInput) }
     

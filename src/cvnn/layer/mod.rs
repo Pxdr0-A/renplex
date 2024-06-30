@@ -71,7 +71,7 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
       CLayer::Dense(l) => { l.params_len() },
       CLayer::Convolutional(l) => { l.params_len() },
       CLayer::Reduce(l) => { l.params_len() },
-      CLayer::Flatten(_l) => { panic!("Flatten layer does not have parameters.") }
+      CLayer::Flatten(_l) => { (0, 0) }
     }
   }
 
