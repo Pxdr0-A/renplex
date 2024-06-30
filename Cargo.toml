@@ -1,14 +1,19 @@
 [package]
 name = "renplex"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 authors = ["Pedro Alves <pedromfa98@gmail.com>"]
-description = "A library capable of handling complexed valued neural network alternatives built with Rust."
+description = "A library capable of modeling complexed-valued neural networks built with Rust."
 readme = "README.md"
-repository = "https://github.com/Pxdr0-A/renplex"
-license = "MIT"
+homepage = "https://github.com/Pxdr0-A/renplex.git"
+repository = "https://github.com/Pxdr0-A/renplex.git"
+license-file = "LICENSE"
 keywords = ["neural-networks", "library"]
 categories = ["lib"]
+
+[lib]
+name = "renplex"
+path = "src/lib.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
