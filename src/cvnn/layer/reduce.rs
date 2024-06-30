@@ -56,7 +56,6 @@ impl<T: BasicOperations<T>> Reduce<T> {
   /// * `block_size` - array of two element indicating the size of the block to reduce the matrix with.
   /// * `block_func` - function that takes a slice of complex numbers representing a flatten block of the
   /// matrix and reduces it to one complex value for image down-sampling.
-  /// * `func` - the [`ComplexActFunc`] to be used in the layer.
   /// * `interp_kernel` - kernel that will be involved in the up-sampling of the gradients and conjugate
   /// gradients when back-propagating the derivatives. Usually a mean or a Gaussian kernel, work very well :).
   pub fn init(

@@ -48,7 +48,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok(self.layers.last().unwrap().get_output_shape())
   }
 
-  /// Adds an empty input [`Layer`] to the [`Network`] and initializes it.
+  /// Adds an empty input [`CLayer`] to the [`CNetwork`] and initializes it.
   ///
   /// # Arguments
   /// 

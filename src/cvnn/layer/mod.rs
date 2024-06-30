@@ -15,7 +15,7 @@ pub mod flatten;
 
 pub type ComplexDerivatives<T> = (Vec<T>, Vec<T>, Vec<T>, Vec<T>);
 
-/// General static interface for a given layer to be inserted in a [`Network<T>`].
+/// General static interface for a given layer to be inserted in a CVNN.
 /// Every layer should contain the wrap method to converted into this type.
 #[derive(Debug)]
 pub enum CLayer<T> {
