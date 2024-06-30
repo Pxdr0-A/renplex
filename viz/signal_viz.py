@@ -74,7 +74,6 @@ def main():
   plt.legend(fontsize=14)
   plt.show()
 
-
   plt.show()
 
 if __name__ == "__main__":
