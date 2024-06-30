@@ -137,8 +137,8 @@ def run_model():
         epochs=1
       )
 
-      re_pred = model.predict(xr_test)
-      im_pred = modeli.predict(xi_test)
+      re_pred = model.predict(xr_train)
+      im_pred = modeli.predict(xi_train)
 
       pred = re_pred + 1j*im_pred
       clean_signal = yr_test + 1j*yi_test
@@ -163,7 +163,7 @@ def run_model():
       plt.xlabel(r"$\Re\left\{ s(t) \right\}$", fontsize=14)
       plt.ylabel(r"$\Im\left\{ s(t) \right\}$", fontsize=14)
       plt.tick_params(axis='both', which='major', labelsize=12)
-      plt.plot(xr_test.values[i], xi_test.values[i], '.b', label=r"$x(t)$", alpha=0.6)
+      plt.plot(xr_train.values[i], xi_train.values[i], '.b', label=r"$x(t)$", alpha=0.6)
       plt.plot(re_pred[i], im_pred[i], '-y', linewidth=lw, label=r"$s(t)$")
       for j in narrows:
         plt.annotate(
@@ -173,12 +173,12 @@ def run_model():
           arrowprops=dict(arrowstyle="->", lw=2.5, color="yellow"),
           fontsize=24
         )
-      plt.plot(yr_test.values[i], yi_test.values[i], '--g', linewidth=lw, label=r"$y(t)$")
+      plt.plot(yr_train.values[i], yi_train.values[i], '--g', linewidth=lw, label=r"$y(t)$")
       for j in narrows:
         plt.annotate(
           '', 
-          xy=(yr_test.values[i][j], yi_test.values[i][j]), 
-          xytext=(yr_test.values[i][j+rem], yi_test.values[i][j+rem]),
+          xy=(yr_train.values[i][j], yi_train.values[i][j]), 
+          xytext=(yr_train.values[i][j+rem], yi_train.values[i][j+rem]),
           arrowprops=dict(arrowstyle="->", lw=2.5, color="green"),
           fontsize=24
         )
