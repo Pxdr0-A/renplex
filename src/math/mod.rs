@@ -22,16 +22,19 @@ pub trait BasicOperations<T>: AddAssign + SubAssign + MulAssign + DivAssign + Ad
 
 impl<T, U> BasicOperations<T> for U where U: AddAssign + SubAssign + MulAssign + DivAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + PartialOrd + Default + Display + Debug + Copy + Send + Sync + 'static {}
 
-/// Trait containing utilities for RVNNs
+/// Trait utilities for real values.
 pub trait Real 
   where Self: Sized {
-  
+  /// Returns 1.0
   fn unit() -> Self;
 
+  /// Converts a usize into a float. Either f32 or f64 depending on initial definition.
   fn usize_to_real(num: usize) -> Self;
 
+  /// Generates a random number based on a scale.
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
+  /// Generate a prediction, e.g. a one-hot-encoded vector.
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
 }
 
@@ -93,57 +96,88 @@ impl Real for f64 {
   }
 }
 
+/// Trait containing utilities for imaginary values.
 pub trait Complex where Self: Sized {
   type Precision: Real + BasicOperations<Self::Precision>;
 
+  /// Creates a new complex value based on real an imaginary value.
   fn new(re: Self::Precision, im: Self::Precision) -> Self;
 
+  /// Creates a new complex values based on abolute value and phase.
   fn newe(a: Self::Precision, p: Self::Precision) -> Self;
 
+  /// Converts a usize into a complex number.
   fn usize_to_complex(num: usize) -> Self;
 
+  /// Returns 1.0 + i0.0
   fn unit() -> Self;
 
+  /// Returns 0.0 + i1.0
   fn iunit() -> Self;
 
+  /// Returns the real part of the complex number.
   fn re(&self) -> Self::Precision;
 
+  /// Returns the imaginary part of the complex number.
   fn im(&self) -> Self::Precision;
 
+  /// Returns the absolute value of the complex number.
   fn norm(&self) -> Self::Precision;
 
+  /// Returns the absolute value squared of the complex number.
+  /// 
+  /// # Note
+  /// 
+  /// If possible use this because it is more efficient then the
+  /// true absolute value.
   fn norm_sq(&self) -> Self::Precision;
 
+  /// Returns the phase of the complex value.
   fn phase(&self) -> Self::Precision;
 
+  /// Returns the conjugate of the complex number.
   fn conj(&self) -> Self;
 
+  /// Generates a random complex number uniformily in a circle.
   fn gen(seed: &mut u128, scale: usize) -> Self;
 
+  /// Generates a random complex number in a circle analougous to the He Initialization distribution.
   fn gen_he(seed: &mut u128, i_units: usize) -> Self;
 
+  /// Generates a random complex number in a circle according to the Xavier Initialization distribution.
   fn gen_xa(seed: &mut u128, i_units: usize) -> Self;
 
+  /// Generates a random complex number in a circle according to the Xavier uniform Initialization distribution.
   fn gen_xagu(seed: &mut u128, io_units: usize) -> Self;
   
+  /// Generates a random complex number in a circle according to the Xavier normal Initialization distribution.
   fn gen_xagn(seed: &mut u128, io_units: usize) -> Self;
 
+  /// Generates a prediction like one-hot-encoding but parsed to the complex domain with real values.
   fn gen_pred(size: usize, critical_index: usize, pred_method: &PredictModel) -> Result<Vec<Self>, PredicionError>;
 
+  /// Computes the activation value of a complex number.
   fn activate(&self, func: &ComplexActFunc) -> Self;
 
+  /// Computes the activation derivative value of a complex number.
   fn d_activate(&self, func: &ComplexActFunc) -> Self;
 
+  /// Computes the activation conjugate derivative value of a complex number.
   fn d_conj_activate(&self, func: &ComplexActFunc) -> Self;
 
+  /// Computes the activation values inplace of a mutable slice with complex numbers.
   fn activate_mut(vals: &mut [Self], func: &ComplexActFunc);
 
+  /// Computes the activation derivative values inplace of a mutable slice with complex numbers.
   fn d_activate_mut(vals: &mut [Self], func: &ComplexActFunc);
 
+  /// Computes the activation conjugate derivative values inplace of a mutable slice with complex numbers.
   fn d_conj_activate_mut(vals: &mut [Self], func: &ComplexActFunc);
   
+  /// Computes the loss based on a loss function between a target and a prediction.
   fn loss(target: &IOType<Self>, prediction: &IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Self::Precision, LossCalcError>;
 
+  /// Computes the derivative of a loss based on a loss function between a target and a prediction.
   fn d_loss(target: &IOType<Self>, prediction: &IOType<Self>, loss_func: &ComplexLossFunc) -> Result<Vec<Self>, LossCalcError>;
 }
 

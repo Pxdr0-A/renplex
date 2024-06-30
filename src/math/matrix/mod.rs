@@ -31,6 +31,7 @@ pub struct Matrix<T> {
 }
 
 impl<T> Matrix<T> {
+  /// Creates a new empty matrix.
   pub fn new() -> Matrix<T> {
     let body = Vec::new();
     let shape = [0_usize, 0];
@@ -57,6 +58,7 @@ impl<T> Matrix<T> {
     Matrix { body, shape, capacity }
   }
 
+  /// Checks if the matrix is empty.
   pub fn is_empty(&self) -> bool {
     if self.body.len() == 0 && self.shape == [0, 0] && self.capacity == [0, 0] {
       true
@@ -65,32 +67,39 @@ impl<T> Matrix<T> {
     }
   }
 
+  /// Creates a matrix from a flattened matrix (vector).
   pub fn from_body(mut body: Vec<T>, shape: [usize; 2]) -> Matrix<T> {
     body.shrink_to_fit();
 
     Matrix { body, shape, capacity: shape }
   }
 
+  /// Consumes the matrix and returns its flattened body.
   pub fn export_body(self) -> Vec<T> {
     self.body
   }
 
+  /// Returns a slice of the flattened body.
   pub fn get_body(&self) -> &[T] {
     &self.body[..]
   }
 
+  /// Returns a mutable slice of the flattened body.
   pub fn get_body_as_mut(&mut self) -> &mut [T] {
     &mut self.body[..]
   }
 
+  /// Returns the shape of the matrix as a slice.
   pub fn get_shape(&self) -> &[usize] {
     &self.shape[..]
   }
 
+  /// Returns the capacity of the matrix as a slice.
   pub fn get_capacity(&self) -> &[usize] {
     &self.capacity[..]
   }
 
+  /// Dealocates unecessary memory allocated by the matrix using `shrink_to_fit()` method on a vector.
   pub fn dealloc(&mut self) {
     self.body.shrink_to_fit();
     self.capacity = self.shape;
@@ -142,6 +151,11 @@ impl<T> Matrix<T> {
     Ok(&self.body[init..end])
   }
 
+  /// Returns a mutable slice correspondent to the `i`th row of a [`Matrix<T>`].
+  /// 
+  /// # Arguments
+  /// 
+  /// * `i` - reference to a `usize` representing the row's index.
   pub fn row_as_mut(&mut self, i: usize) -> Result<&mut [T], AccessError> {
     if i >= self.shape[0] {
       return Err(AccessError::OutOfBounds);
@@ -158,8 +172,7 @@ impl<T> Matrix<T> {
   /// 
   /// # Arguments
   /// 
-  /// * `row` - mutable reference to a generic `Vec<T>`. 
-  ///           Gets consumed after the addition of the row to `Matrix<T>`.
+  /// * `row` - a `Vec<T>` that gets consumed after the addition of the row to `Matrix<T>`.
   pub fn add_row(&mut self, row: Vec<T>) -> Result<(), UpdateError> {
     if !(row.len() == self.shape[1] || (self.shape == [0, 0])) {
       return Err(UpdateError::InconsistentLength);
@@ -179,6 +192,13 @@ impl<T> Matrix<T> {
     Ok(())
   }
 
+  /// Updates the body of a `Matrix<T>` by flushing a 
+  /// specified row at the last respective axis position.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `row` - mutable reference to a generic `Vec<T>`. 
+  ///           Gets flushed after the addition of the row to `Matrix<T>`.
   pub fn add_mut_row(&mut self, row: &mut Vec<T>) -> Result<(), UpdateError> {
     if !(row.len() == self.shape[1] || self.shape[1] == 0) {
       return Err(UpdateError::InconsistentLength);
@@ -195,6 +215,7 @@ impl<T> Matrix<T> {
     Ok(())
   }
 
+  /// Deletes a row from a matrix.
   pub fn del_row(&mut self, i: usize) -> Result<Vec<T>, DeletionError> {
     if i >= self.shape[0] {
       return Err(DeletionError::OutOfBounds);
@@ -259,14 +280,18 @@ impl<T> Matrix<T> {
     Ok(())
   }
 
+  /// Returns an iterator that goes through the rows of the matrix.
   pub fn rows_as_iter(&self) -> std::slice::Chunks<'_, T> {
     self.body.chunks(self.shape[1])
   }
 
+  /// Returns an iterator that goes through mutable rows of the matrix.
   pub fn rows_as_iter_mut(&mut self) -> std::slice::ChunksMut<'_, T> {
     self.body.chunks_mut(self.shape[1])
   }
 
+  /// Returns the i-th slider of matrix with the number of rows of `rows`. 
+  /// Usefull for convolution operations for instance.
   pub fn get_slider(&self, i: usize, rows: usize) -> std::slice::Chunks<'_, T> {
     let cols = self.shape[1];
     let start = i*cols;
@@ -275,18 +300,21 @@ impl<T> Matrix<T> {
     self.body[start..end].chunks(cols)
   }
 
+  /// Consumes the matrix and puts its body into an iterator.
   pub fn body_into_iter(self) -> IntoIter<T> {
     self.body.into_iter()
   }
 }
 
 impl<T: Sync> Matrix<T> {
+  /// Returns rows as parallel chunks with the help of rayon.
   pub fn rows_as_par_chunks(&self) -> rayon::slice::Chunks<'_, T> {
     self.body.par_chunks(self.shape[1])
   }
 }
 
 impl<T: Copy> Matrix<T> {
+  /// Flips a matrix.
   pub fn flip(&self) -> Result<Self, AccessError> {
     let shape = self.shape;
     let mut flipped = Vec::with_capacity(shape[0] * shape[1]);
@@ -300,6 +328,7 @@ impl<T: Copy> Matrix<T> {
     Ok(Matrix::from_body(flipped, shape))
   }
 
+  /// Extracts a row from the matrix into a mutable slice.
   pub fn row_into_slice(&self, i: usize, result: &mut [T]) -> Result<(), OperationError> {
     if i >= self.shape[0] { return Err(OperationError::OutOfBounds); }
 
@@ -335,6 +364,7 @@ impl<T: Copy> Matrix<T> {
     Ok(())
   }
   
+  /// Copies a column of a matrix into a vector and returns it.
   pub fn copy_col_into_vec(&self, j: usize) -> Result<Vec<T>, OperationError> {
     if j >= self.shape[1] { return Err(OperationError::OutOfBounds); }
 
@@ -348,6 +378,7 @@ impl<T: Copy> Matrix<T> {
 }
 
 impl<T: BasicOperations<T>> Matrix<T> {
+  /// Applies exterior padding on a matrix with default values.
   pub fn pad(self, pad: (usize, usize)) -> Self {
     let shape = self.shape;
     let mut self_body = self.export_body();
@@ -377,8 +408,8 @@ impl<T: BasicOperations<T>> Matrix<T> {
     Matrix::from_body(padded_matrix, [padded_rows, padded_cols])
   }
 
+  /// Adds to matrices together element by element.
   pub fn add_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
-    
     if self.shape != rhs.shape && (!self.is_empty() && !rhs.is_empty()) { 
       return Err(OperationError::InconsistentShape);
     }
@@ -402,13 +433,14 @@ impl<T: BasicOperations<T>> Matrix<T> {
     }
   }
 
+  /// Adds a scalar to all elements of a matrix.
   pub fn add_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
     self.body.iter_mut().for_each(|elm| { *elm += rhs; });
     
     Ok(())
   }
 
-  /// Usefull for multiplying columns or rows with a matrix
+  /// Usefull for multiplying columns or rows with a matrix.
   pub fn mul_vec(&self, rhs: Vec<T>) -> Result<Vec<T>, OperationError> {
     if self.shape[1] != rhs.len() { return Err(OperationError::InvalidRHS); }
 
@@ -440,18 +472,21 @@ impl<T: BasicOperations<T>> Matrix<T> {
     Ok(res)
   }
 
+  /// Multiplies all elements of a matrix with a scalar.
   pub fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
     self.body.iter_mut().for_each(|elm| { *elm *= rhs; });
     
     Ok(())
   }
 
+  /// Divides all matrix elements with a scalar.
   pub fn div_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
     self.body.iter_mut().for_each(|elm| { *elm /= rhs; });
 
     Ok(())
   }
 
+  /// Applies the 2D convolution operation on the matrix, given a kernel.
   pub fn convolution(&self, kernel: &Self) -> Result<Self, OperationError> {
     // extract kernel and matrix shape
     let k_shape = kernel.get_shape();
@@ -497,6 +532,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
     Ok(convolved_body.to_matrix(final_shape).unwrap())
   }
 
+  /// Block reduces a matrix given a block size and a reduce function.
   pub fn block_reduce(&self, block_size: &[usize], block_func: impl Fn(&[T]) -> T) -> Result<Self, OperationError> {
     let matrix_shape = self.get_shape();
 
@@ -538,6 +574,8 @@ impl<T: BasicOperations<T>> Matrix<T> {
     Ok(result)
   }
 
+  /// Applies fractional up-sampling on a matrix given a block size 
+  /// for the upsampling ((3,3) is recommended) and a kernel for smoothing the data.
   pub fn fractional_upsampling(&self, block_size: &[usize], kernel: &Self) -> Result<Matrix<T>, OperationError> {
     let matrix_shape = self.get_shape();
     let mut matrix_rows = self.rows_as_iter();
@@ -590,6 +628,7 @@ impl<T: BasicOperations<T>> Matrix<T> {
 }
 
 impl<T: Complex + BasicOperations<T>> Matrix<T> {
+  /// Experimental attempt on complex convolution. Not suitable for usage.
   pub fn cconvolution(&self, kernel: &Self) -> Result<Self, OperationError> {
     /* Error handling!! */
 
@@ -665,6 +704,7 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
     Ok(())
   }
 
+  /// Slice addition returning a vector.
   fn add_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError> {
     if self.len() == 0 {
       return Ok(rhs.to_vec())
@@ -681,6 +721,7 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
     Ok(res)
   }
 
+  /// Element-wise slice multiplication mutating original matrix with the result.
   fn mul_slice_mut(&mut self, rhs: &Self) -> Result<(), OperationError> {
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
     
@@ -692,6 +733,7 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
     Ok(())
   }
 
+  /// Multiplies two slices element-wise
   fn mul_slice(&self, rhs: &Self) -> Result<Vec<T>, OperationError> {
     if self.len() != rhs.len() { return Err(OperationError::InconsistentShape) }
     
@@ -704,6 +746,7 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
     Ok(res)
   }
 
+  /// Multiplies all vector elements with a scalar.
   fn mul_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
     self
       .iter_mut()
@@ -712,6 +755,7 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
     Ok(())
   }
 
+  /// Divides all vector elements with a scalar.
   fn div_mut_scalar(&mut self, rhs: T) -> Result<(), OperationError> {
     self
       .iter_mut()
@@ -720,6 +764,7 @@ impl<T: BasicOperations<T>> SliceOps<T> for [T] {
     Ok(())
   }
 
+  /// Applies the scalar product between slices.
   fn scalar_prod(&self, rhs: &Self) -> T {
     self
       .iter()

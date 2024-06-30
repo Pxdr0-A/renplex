@@ -1,3 +1,6 @@
+/// Module containing simple dataset utilities.
+
+
 use std::fmt::Display;
 use std::{fmt::Debug, fs::File, slice::Iter, vec::IntoIter};
 use std::io::{Read, Write};
@@ -7,9 +10,9 @@ use crate::math::random::{lcgf32, lcgi};
 use crate::{init::PredictModel, input::IOType, math::{matrix::Matrix, BasicOperations, Complex, Real}};
 //use crate::math::random::{lcgf32, lcgf64};
 
-/// A very low-level and simple dataset representation.
-/// Body contains the input that will be feed directly onto a Network.
-/// Target contains the expected output to be directly used in calculating the cost function.
+/// A simple representation for a batch of data with independent and dependent variable.
+/// Body contains the independent variable, i.e. input that will be feed directly onto a Network.
+/// Target contains the independent variable i.e. expected output to be directly used in calculating the cost function.
 #[derive(Debug, Clone)]
 pub struct Dataset<B, T> {
     inputs: Vec<IOType<B>>,
@@ -18,6 +21,7 @@ pub struct Dataset<B, T> {
 }
 
 impl<T: Display + Copy> Dataset<T, T> {
+  /// Exports a `Dataset` struct to a csv file.
   pub fn to_csv(&self, name: String) -> std::io::Result<()> {
     let mut file = File::create(name)?;
 
@@ -45,26 +49,40 @@ impl<T: Display + Copy> Dataset<T, T> {
 }
 
 impl<B, T> Dataset<B, T> {
+  /// Creates a new empty [`Dataset`] struct.
   pub fn new() -> Dataset<B, T> {
     Dataset { inputs: Vec::new(), target: Vec::new() }
   }
 
+  /// Returns the number of points in the data batch.
   pub fn get_n_points(&self) -> usize {
     self.inputs.len()
   }
 
+  /// Returns a reference to the i-th point inside the data batch.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `i` - index of the i-th point in the data batch.
   pub fn get_point(&self, i: usize) -> (&IOType<B>, &IOType<T>) {
     (&self.inputs[i], &self.target[i])
   }
 
+  /// Returns an iterator over all body and target points on the data batch.
   pub fn points_as_iter(&self) -> (Iter<'_, IOType<B>>, Iter<'_, IOType<T>>) {
     (self.inputs.iter(), self.target.iter())
   }
 
+  /// Consumes the dataset and returns an iterator over all body and target points on the data batch.
   pub fn points_into_iter(self) -> (IntoIter<IOType<B>>, IntoIter<IOType<T>>) {
     (self.inputs.into_iter(), self.target.into_iter())
   }
 
+  /// Adds a point to the data batch.
+  /// 
+  /// # Argument
+  /// 
+  /// * `point` - point containing independent and dependent variable sample to be added on the data batch.
   pub fn add_point(&mut self, point: (IOType<B>, IOType<T>)) {
     self.inputs.push(point.0);
     self.target.push(point.1);
@@ -79,8 +97,13 @@ const _MINIST_TEST_LABEL_SIZE: usize = 4542;
 const MINIST_IMAGE_DIMS: (usize, usize) = (28, 28);
 
 impl<T: Real + BasicOperations<T>> Dataset<T, T> {
-  /// To extract a batch from MINIST tarining dataset.
-  pub fn minist_as_batch(data_file: &mut File, label_file: &mut File, batch_size: usize, tracker: &mut usize) -> Dataset<T, T> {
+  /// To extract a batch of real pixels from MINIST training or test dataset.
+  pub fn minist_as_batch(
+    data_file: &mut File, 
+    label_file: &mut File, 
+    batch_size: usize, 
+    tracker: &mut usize
+  ) -> Dataset<T, T> {
     /* batch_size needs to be a multiple of the data or not? */
     /* have not read a single byte */
     if *tracker == 0 {
@@ -114,7 +137,7 @@ impl<T: Real + BasicOperations<T>> Dataset<T, T> {
 }
 
 impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
-  /// To extract a batch from MINIST tarining dataset.
+  /// To extract a batch of imaginary (with only real part) pixels from MINIST training or test dataset.
   pub fn minist_as_complex_batch(data_file: &mut File, label_file: &mut File, batch_size: usize, tracker: &mut usize) -> Dataset<T, T> {
     /* batch_size needs to be a multiple of the data or not? */
     /* have not read a single byte */
@@ -152,6 +175,7 @@ impl<T: Complex + BasicOperations<T>> Dataset<T, T> {
 use std::f32::consts::PI as PI32;
 
 impl Dataset<Cf32, Cf32> {
+  /// Contructs and returns a bacth of data for a signal reconstruction application.
   pub fn signal_reconstruction(
     samples: usize,
     batch_size: usize,

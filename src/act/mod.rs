@@ -1,3 +1,5 @@
+/// Module containing everything related to activation functions and respective derivatives.
+
 use crate::math::{cfloat::{Cf32, Cf64}, Complex};
 
 /* Activation functions. */
@@ -414,6 +416,7 @@ fn d_conj_none_cf64(_val: Cf64) -> Cf64 {
   Cf64::default()
 }
 
+/// Enumeration containing all the possibilities of complex activation functions.
 #[derive(Debug, Clone, Copy)]
 pub enum ComplexActFunc {
   None,
@@ -426,6 +429,8 @@ pub enum ComplexActFunc {
 }
 
 impl ComplexActFunc {
+  /// Returns a function related to the current complex activation function option 
+  /// for complex numbers with 64-bit precision.
   pub fn release_func_cf32(&self) -> fn(Cf32) -> Cf32 {
     match self {
       Self::None => { none_cf32 },
@@ -438,6 +443,8 @@ impl ComplexActFunc {
     }
   }
 
+  /// Returns a function related to the current complex activation function option 
+  /// for complex numbers with 128-bit precision.
   pub fn release_func_cf64(&self) -> fn(Cf64) -> Cf64 {
     match self {
       Self::None => { none_cf64 },
@@ -450,6 +457,9 @@ impl ComplexActFunc {
     }
   }
 
+  /// Returns a function related to the derivative of 
+  /// current complex activation function option 
+  /// for complex numbers with 64-bit precision.
   pub fn release_dfunc_cf32(&self) -> fn(Cf32) -> Cf32 {
     match self {
       Self::None => { d_none_cf32 },
@@ -462,6 +472,9 @@ impl ComplexActFunc {
     }
   }
 
+  /// Returns a function related to the derivative of 
+  /// current complex activation function option 
+  /// for complex numbers with 128-bit precision.
   pub fn release_dfunc_cf64(&self) -> fn(Cf64) -> Cf64 {
     match self {
       Self::None => { d_none_cf64 },
@@ -474,6 +487,9 @@ impl ComplexActFunc {
     }
   }
 
+  /// Returns a function related to the conjugate derivative of 
+  /// current complex activation function option 
+  /// for complex numbers with 64-bit precision.
   pub fn release_dfunc_conj_cf32(&self) -> fn(Cf32) -> Cf32 {
     match self {
       Self::None => { d_conj_none_cf32 },
@@ -486,6 +502,9 @@ impl ComplexActFunc {
     }
   }
 
+  /// Returns a function related to the conjugate derivative of 
+  /// current complex activation function option 
+  /// for complex numbers with 128-bit precision.
   pub fn release_dfunc_conj_cf64(&self) -> fn(Cf64) -> Cf64 {
     match self {
       Self::None => { d_conj_none_cf64 },
@@ -500,31 +519,67 @@ impl ComplexActFunc {
 
   /* multiple values */
 
+  /// Modifies a slice of complex values with 64-bit precision by 
+  /// computing the respective complex activation option defined.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `vals` - values to be replaced by the respective activations.
   pub fn compute_cf32(&self, vals: &mut [Cf32]) {
     let act_func = self.release_func_cf32();
     vals.iter_mut().for_each(|val| {*val = act_func(*val);});
   }
 
+  /// Modifies a slice of complex values with 128-bit precision by 
+  /// computing the respective complex activation option defined.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `vals` - values to be replaced by the respective activations.
   pub fn compute_cf64(&self, vals: &mut [Cf64]) {
     let act_func = self.release_func_cf64();
     vals.iter_mut().for_each(|val| {*val = act_func(*val);});
   }
 
+  /// Modifies a slice of complex values with 64-bit precision by 
+  /// computing the respective derivative of the complex activation option defined.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `vals` - values to be replaced by the respective activations.
   pub fn compute_d_cf32(&self, vals: &mut [Cf32]) {
     let act_func = self.release_dfunc_cf32();
     vals.iter_mut().for_each(|val| {*val = act_func(*val);});
   }
 
+  /// Modifies a slice of complex values with 128-bit precision by 
+  /// computing the respective derivative of the complex activation option defined.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `vals` - values to be replaced by the respective activations.
   pub fn compute_d_cf64(&self, vals: &mut [Cf64]) {
     let act_func = self.release_dfunc_cf64();
     vals.iter_mut().for_each(|val| {*val = act_func(*val);});
   }
 
+  /// Modifies a slice of complex values with 64-bit precision by 
+  /// computing the respective conjugate derivative of the complex activation option defined.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `vals` - values to be replaced by the respective activations.
   pub fn compute_d_conj_cf32(&self, vals: &mut [Cf32]) {
     let act_func = self.release_dfunc_conj_cf32();
     vals.iter_mut().for_each(|val| {*val = act_func(*val);});
   }
 
+  /// Modifies a slice of complex values with 128-bit precision by 
+  /// computing the respective conjugate derivative of the complex activation option defined.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `vals` - values to be replaced by the respective activations.
   pub fn compute_d_conj_cf64(&self, vals: &mut [Cf64]) {
     let act_func = self.release_dfunc_conj_cf64();
     vals.iter_mut().for_each(|val| {*val = act_func(*val);});
@@ -532,31 +587,67 @@ impl ComplexActFunc {
 
   /* single value */
 
+  /// Return the activation of a compelx value with 64-bit precision given current
+  /// complex activation function option.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `val` - value to be given as an argument replaced for the activation.
   pub fn compute_val_cf32(&self, val: &Cf32) -> Cf32 {
     let act_func = self.release_func_cf32();
     act_func(*val)
   }
 
+  /// Return the activation of a compelx value with 128-bit precision given current
+  /// complex activation function option.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `val` - value to be given as an argument replaced for the activation.
   pub fn compute_val_cf64(&self, val: &Cf64) -> Cf64 {
     let act_func = self.release_func_cf64();
     act_func(*val)
   }
 
+  /// Return the derivative of the activation of a compelx value with 64-bit precision given current
+  /// complex activation function option.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `val` - value to be given as an argument replaced for the activation.
   pub fn compute_d_val_cf32(&self, val: &Cf32) -> Cf32 {
     let act_func = self.release_dfunc_cf32();
     act_func(*val)
   }
 
+  /// Return the derivative of the activation of a compelx value with 128-bit precision given current
+  /// complex activation function option.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `val` - value to be given as an argument replaced for the activation.
   pub fn compute_d_val_cf64(&self, val: &Cf64) -> Cf64 {
     let act_func = self.release_dfunc_cf64();
     act_func(*val)
   }
 
+  /// Return the conjugate derivative of the activation of a compelx value with 64-bit precision given current
+  /// complex activation function option.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `val` - value to be given as an argument replaced for the activation.
   pub fn compute_d_conj_val_cf32(&self, val: &Cf32) -> Cf32 {
     let act_func = self.release_dfunc_conj_cf32();
     act_func(*val)
   }
 
+  /// Return the conjugate derivative of the activation of a compelx value with 128-bit precision given current
+  /// complex activation function option.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `val` - value to be given as an argument replaced for the activation.
   pub fn compute_d_conj_val_cf64(&self, val: &Cf64) -> Cf64 {
     let act_func = self.release_dfunc_conj_cf64();
     act_func(*val)

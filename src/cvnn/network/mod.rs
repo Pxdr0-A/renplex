@@ -7,18 +7,21 @@ use crate::err::{LossCalcError, ForwardError, LayerAdditionError};
 use crate::opt::ComplexLossFunc;
 
 
+/// Struct that represents a Complex-Valued Neural Network with definable percision.
 #[derive(Debug)]
 pub struct CNetwork<T> {
   layers: Vec<CLayer<T>>,
 }
 
 impl<T: Complex + BasicOperations<T>> CNetwork<T> {
+  /// Creates a new empty network.
   pub fn new() -> CNetwork<T> {
     CNetwork {
       layers: Vec::new()
     }
   }
 
+  /// Returns the total number of parameters of the network.
   pub fn params_len(&self) -> usize {
     let mut len = 0;
     for l in self.layers.iter() {
@@ -29,12 +32,16 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     len
   }
 
+  /// Returns the input shape of the network, 
+  /// which is the input shape of the layer added with the `add_input()` method.
   pub fn get_input_shape(&self) -> Result<IOShape, LayerAdditionError> {
     if self.layers.len() == 0 { return Err(LayerAdditionError::MissingInput) }
     
     Ok(self.layers[0].get_input_shape())
   }
 
+  /// Returns the output shape of the network, 
+  /// which is the output shape of the last layer added with the `add()` method.
   pub fn get_output_shape(&self) -> Result<IOShape, LayerAdditionError> {
     if self.layers.len() == 0 { return Err(LayerAdditionError::MissingInput) }
     
@@ -45,11 +52,7 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
   ///
   /// # Arguments
   /// 
-  /// * `layer` - Layer to add.
-  /// * `input_shape` - Type of input of the layer containing the size. 
-  /// Represents the number of weights that each neuron is going to have.
-  /// * `units` - Number of neurons, will translate into the output size of the layer.
-  /// * `method` - Initialization method
+  /// * `layer` - layer to add already initialized.
   pub fn add_input(&mut self, layer: CLayer<T>) -> Result<(), LayerAdditionError> {
     
     if self.layers.len() > 0 { return Err(LayerAdditionError::ExistentInput) }
@@ -81,6 +84,12 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok(())
   }
 
+  /// Forwards and input throught the network to perform a prediction returning a [`Result`] 
+  /// for the respective [`IOType<T>`].
+  /// 
+  /// # Arguments
+  /// * `input_type` - a reference to a [`IOType<T>`] representing the input features of the
+  /// input layer.
   pub fn forward(&self, input_type: &IOType<T>) -> Result<IOType<T>, ForwardError> {
     let layers_len = self.layers.len();
     if layers_len == 0 { return Err(ForwardError::MissingLayers) }
@@ -99,7 +108,16 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok(output)
   }
 
-  /// Not a heavily used function but might be.
+  /// Returns the output features of the index-th layer and a reference to that layer.
+  /// Error handling is not yet properly implemented.
+  /// 
+  /// # Arguments
+  /// * `input_type` - a reference to a [`IOType<T>`] representing the input features of the input layer.
+  /// 
+  /// #  Notes
+  /// 
+  /// Not an heavily used function but might be for obtaining the activations in the
+  /// back-propagation algorithm.
   pub fn intercept(&self, input_type: IOType<T>, index: usize) -> Result<(IOType<T>, &CLayer<T>), ForwardError> {
     if index > self.layers.len() - 1 { return Err(ForwardError::InvalidLayerIndex) }
     
@@ -117,6 +135,11 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     panic!("Something went terribily wrong.");
   }
 
+  /// Returns a vector with all activations of the network from input to output.
+  /// Error handling is not yet properly managed.
+  /// 
+  /// # Arguments
+  /// * `input_type` - a reference to a [`IOType<T>`] representing the input features of the input layer.
   pub fn collect_acts(&self, input_type: IOType<T>) -> Result<Vec<IOType<T>>, ForwardError> {
     if self.layers.len() == 0 { return Err(ForwardError::MissingLayers) }
     
@@ -135,6 +158,12 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok(outs)
   }
 
+  /// Returns the loss of a network with respect to a data batch.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `data` - batch of data to calculate the loss with.
+  /// * `loss_func` - type of loss function to use in the calculation.
   pub fn loss(&self, 
     data: &Dataset<T, T>,
     loss_func: &ComplexLossFunc,
@@ -161,47 +190,12 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok(mean)
   }
 
-  pub fn snr(&self, 
-    data: &Dataset<T, T>,
-  ) -> Result<T::Precision, LossCalcError> {
-    
-    let mut snr_vals = Vec::new();
-
-    let (input_chunks, target_chunks) = data.points_as_iter();
-    for (input, _) in input_chunks.zip(target_chunks) {
-      let prediction = self
-        .forward(input)
-        .unwrap();
-
-      let pred_slice = prediction.as_slice();
-      let pred_len = T::Precision::usize_to_real(pred_slice.len());
-      let sum = pred_slice.iter().fold(T::Precision::default(), |acc, elm| {
-        let norm = elm.norm_sq();
-        acc + norm
-      });
-
-      let mean = sum / pred_len;
-
-      let sum_sq = pred_slice.iter().fold(T::Precision::default(), |acc, elm| {
-        let norm = elm.norm_sq();
-
-        acc + (norm - mean) * (norm - mean)
-      });
-
-      let std = sum_sq / pred_len;
-
-      snr_vals.push(mean / std);
-    }
-
-    let snr_mean = snr_vals
-      .into_iter()
-      .fold(T::Precision::default(), |acc, elm| { 
-        acc + elm
-    });
-
-    Ok(snr_mean)
-  }
-
+  /// Returns the accuracy of a network when faced with a batch of data based on 
+  /// maximum absolute value.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `data` - batch of data to calculate the accuracy with.
   pub fn max_pred_test(&self, data: &Dataset<T, T>) -> T::Precision {
     let (input_chunks, target_chunks) = data.points_as_iter();
     let batch_len = target_chunks.len();
@@ -237,6 +231,13 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     T::Precision::usize_to_real(acc) / T::Precision::usize_to_real(batch_len)
   }
 
+  /// Optimizes a CVNN with the fully complex back-propagation algorithm for 
+  /// gradient-based otpimization.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `data` - batch of data to calculate the gradients with.
+  /// * `loss_func` - type of loss function to optimize.
   pub fn gradient_opt(&mut self, data: Dataset<T, T>, loss_func: &ComplexLossFunc, lr: T) -> Result<(), ForwardError> {
     let n_layers = self.layers.len();
     if n_layers <= 1 { return Err(ForwardError::MissingLayers) }
@@ -334,10 +335,8 @@ impl<T: Complex + BasicOperations<T>> CNetwork<T> {
     Ok(())
   }
 
-  pub fn split_gradient_opt(&mut self) {
-    unimplemented!()
-  }
-
+  /// Multiple valued neurons method of optimization. 
+  /// Non-gradient based approach that is not yet fully implemented.
   pub fn mvn_opt(&mut self) {
     unimplemented!()
   }

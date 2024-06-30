@@ -2,7 +2,7 @@ use crate::{act::ComplexActFunc, err::{GradientError, LayerForwardError, LayerIn
 use crate::math::matrix::SliceOps;
 use super::{CLayer, ComplexDerivatives};
 
-/// Layer that computes only padded convolution.
+/// Layer that computes pure convolution (no pad or strides).
 #[derive(Debug)]
 pub struct ConvCLayer<T> {
   input_features_len: usize,
@@ -14,15 +14,22 @@ pub struct ConvCLayer<T> {
 }
 
 impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
+  /// Checks if the layer was not initialize. 
+  /// 
+  /// # Notes
+  /// 
+  /// This function will soon be deleted.
   pub fn is_empty(&self) -> bool {
     if self.kernels.get_shape() == &[0, 0] { true }
     else { false }
   }
 
+  /// Says if the layer propagates derivatives, returning a boolean.
   pub fn propagates(&self) -> bool {
     true
   }
 
+  /// Calculates the number of parameters involved in the Layer
   pub fn params_len(&self) -> (usize, usize) {
     let mut kernel_params: usize = 0;
     for kernel in self.kernels.get_body().iter() {
@@ -35,16 +42,27 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     (kernel_params, bias_params)
   }
 
-  /// Technically just gives the shape that the input features should have.
-  /// It does not matter how many features you give.
+  /// Gives the input shape of the layer
   pub fn get_input_shape(&self) -> IOShape {
     IOShape::Matrix(self.input_features_len)
   }
 
+  /// Gives the output shape of the layer
   pub fn get_output_shape(&self) -> IOShape {
     IOShape::Matrix(self.kernels.get_shape()[0])
   }
 
+  /// Creates a convolutional layer and returns it initialized.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `input_shape` - an [`IOShape`] related to input shape of the layer.
+  /// * `filters_len` - number of filters in the layer.
+  /// * `kernel_size` - two dimensional size of the kernels (filters). Depth is automatically calculated
+  /// based on the [`IOShape`].
+  /// * `func` - the [`ComplexActFunc`] to be used in the layer.
+  /// * `kernel_method` - method for intiating the kernel values.
+  /// * `seed` - seed for random number generation.
   pub fn init(
     input_shape: IOShape,
     filters_len: usize,
@@ -87,6 +105,11 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     }
   }
 
+  /// Returns a [`Result`] for the [`IOType<T>`] related to the prediction of the layer.
+  /// Error handling is not yet finished.
+  /// 
+  /// # Arguments
+  /// * `input_type` - a reference to a [`IOType<T>`] representing the input features of the layer.
   pub fn forward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       IOType::Matrix(input) => {
@@ -137,6 +160,12 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     }
   }
 
+  /// Return a [`Result`] for the derivatives and conjugate derivatives of the layer.
+  /// 
+  /// # Arguments
+  /// * `previous_act` - a reference to a [`IOType<T>`] representing the input features of the layer.
+  /// * `dlda` - gradients from an upper layer.
+  /// * `dlda_conj` - conjugate gradients from an upper layer.
   pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     match previous_act {
       IOType::Matrix(input) => {
@@ -271,6 +300,12 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     }
   }
 
+  /// Adjusts the parameters of the layer with negative conjugate.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `dldw` - adjustments on the weights.
+  /// * `dldb` - adjustments on the biases.
   pub fn neg_conj_adjustment(&mut self, dldw: Vec<T>, dldb: Vec<T>) -> Result<(), GradientError> {
     let dldw_size = dldw.len();
     let dldb_size = dldb.len();
@@ -299,6 +334,7 @@ impl<T: Complex + BasicOperations<T>> ConvCLayer<T> {
     Ok(())
   }
 
+  /// Wraps the convolutional layer into the general [`CLayer`] interface.
   pub fn wrap(self) -> CLayer<T> {
     CLayer::Convolutional(self)
   }

@@ -7,6 +7,7 @@ use crate::err::GradientError;
 
 use super::{CLayer, ComplexDerivatives, LayerForwardError, LayerInitError};
 
+/// Layer that computes weighted sum.
 #[derive(Debug)]
 pub struct DenseCLayer<T> {
   weights: Matrix<T>,
@@ -18,6 +19,11 @@ pub struct DenseCLayer<T> {
 /* the implementations are almost the same tho */
 /* all layers should have more or less the same implementations */
 impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
+  /// Checks if the layer was not initialize. 
+  /// 
+  /// # Notes
+  /// 
+  /// This function will soon be deleted.
   pub fn is_empty(&self) -> bool {
     if (self.weights.get_shape() == [0_usize, 0]) || (self.biases.len() == 0) {
       true
@@ -26,25 +32,38 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     }
   }
 
+  /// Says if the layer propagates derivatives, returning a boolean.
   pub fn propagates(&self) -> bool {
     true
   }
 
+  /// Calculates the number of parameters involved in the Layer
   pub fn params_len(&self) -> (usize, usize) {
     let shape = self.weights.get_shape();
 
     (shape[0] * shape[1], self.biases.len())
   }
 
+  /// Gives the input shape of the layer
   pub fn get_input_shape(&self) -> IOShape {
     let weight_shape = self.weights.get_shape();
     IOShape::Scalar(weight_shape[1])
   }
 
+  /// Gives the output shape of the layer
   pub fn get_output_shape(&self) -> IOShape {
     IOShape::Scalar(self.biases.len())
   }
 
+  /// Creates a dense layer and returns it initialized.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `input_shape` - an [`IOShape`] related to input shape of the layer.
+  /// * `units` - number of units of the dense layer.
+  /// * `func` - the [`ComplexActFunc`] to be used in the layer.
+  /// * `method` - method for intiating the weights.
+  /// * `seed` - seed for random number generation.
   pub fn init(
     input_shape: IOShape, 
     units: usize, 
@@ -77,6 +96,11 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     }
   }
 
+  /// Returns a [`Result`] for the [`IOType<T>`] related to the prediction of the layer.
+  /// Error handling is not yet finished.
+  /// 
+  /// # Arguments
+  /// * `input_type` - a reference to a [`IOType<T>`] representing the input features of the layer.
   pub fn forward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     match input_type {
       /* dense layer should receive a vector */
@@ -101,6 +125,12 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     }
   }
 
+  /// Return a [`Result`] for the derivatives and conjugate derivatives of the layer.
+  /// 
+  /// # Arguments
+  /// * `previous_act` - a reference to a [`IOType<T>`] representing the input features of the layer.
+  /// * `dlda` - gradients from an upper layer.
+  /// * `dlda_conj` - conjugate gradients from an upper layer.
   pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     /* check dimensions of every matrix and vector */
 
@@ -184,6 +214,12 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     }
   }
 
+  /// Adjusts the parameters of the layer with negative conjugate.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `dldw` - adjustments on the weights.
+  /// * `dldb` - adjustments on the biases.
   pub fn neg_conj_adjustment(&mut self, dldw: Vec<T>, dldb: Vec<T>) -> Result<(), GradientError> {
     let dldw_size = dldw.len();
     let dldb_size = dldb.len();
@@ -213,6 +249,7 @@ impl<T: Complex + BasicOperations<T>> DenseCLayer<T> {
     Ok(())
   }
 
+  /// Wraps the dense layer into the general [`CLayer`] interface.
   pub fn wrap(self) -> CLayer<T> {
     CLayer::Dense(self)
   }

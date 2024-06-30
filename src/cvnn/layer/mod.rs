@@ -15,7 +15,8 @@ pub mod flatten;
 
 pub type ComplexDerivatives<T> = (Vec<T>, Vec<T>, Vec<T>, Vec<T>);
 
-/// Just a general interface for a [`Network<T>`] that allows for a static personaliztion.
+/// General static interface for a given layer to be inserted in a [`Network<T>`].
+/// Every layer should contain the wrap method to converted into this type.
 #[derive(Debug)]
 pub enum CLayer<T> {
   Dense(DenseCLayer<T>),
@@ -29,7 +30,10 @@ unsafe impl<T: Sync> Sync for CLayer<T> {}
 
 impl<T: Complex + BasicOperations<T>> CLayer<T> {
   /// Method that checks if the layer was already initialized.
-  /// Its logic has room for improvement.
+  /// 
+  /// # Notes
+  /// 
+  /// Will soon be deleted since it is not needed.
   pub fn is_empty(&self) -> bool {
     match self {
       CLayer::Dense(l) => { l.is_empty() },
@@ -39,6 +43,7 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
+  /// Checks if the layer option propagates derivatives, returning a boolean. 
   pub fn propagates(&self) -> bool {
     match self {
       CLayer::Dense(l) => { l.propagates() },
@@ -48,6 +53,7 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
+  /// Gives the input shape of the layer option
   pub fn get_input_shape(&self) -> IOShape {
     match self {
       CLayer::Dense(l) => { l.get_input_shape() },
@@ -57,6 +63,7 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
+  /// Gives the output shape of the layer option
   pub fn get_output_shape(&self) -> IOShape {
     match self {
       CLayer::Dense(l) => { l.get_output_shape() },
@@ -66,6 +73,7 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
+  /// Calculates the number of parameters involved in the Layer.
   pub fn params_len(&self) -> (usize, usize) {
     match self {
       CLayer::Dense(l) => { l.params_len() },
@@ -75,6 +83,11 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
+  /// Return a [`Result`] for the [`IOType<T>`] related to the prediction of the layer option.
+  /// Error handling is not yet finished.
+  /// 
+  /// # Arguments
+  /// * `input_type` - a reference to a [`IOType<T>`] representing the input features of the layer.
   pub fn foward(&self, input_type: &IOType<T>) -> Result<IOType<T>, LayerForwardError> {
     /* deconstruct what type of layer it is */
     match self {
@@ -85,6 +98,12 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
+  /// Return a [`Result`] for the derivatives and conjugate derivatives of the layer option.
+  /// 
+  /// # Arguments
+  /// * `previous_act` - a reference to a [`IOType<T>`] representing the input features of the layer.
+  /// * `dlda` - gradients from an upper layer.
+  /// * `dlda_conj` - conjugate gradients from an upper layer.
   pub fn compute_derivatives(&self, previous_act: &IOType<T>, dlda: Vec<T>, dlda_conj: Vec<T>) -> Result<ComplexDerivatives<T>, GradientError> {
     match self {
       CLayer::Dense(l) => { l.compute_derivatives(previous_act, dlda, dlda_conj) },
@@ -94,6 +113,12 @@ impl<T: Complex + BasicOperations<T>> CLayer<T> {
     }
   }
 
+  /// Adjusts the parameters of the option layer with negative conjugate.
+  /// 
+  /// # Arguments
+  /// 
+  /// * `dldw` - adjustments on the weights.
+  /// * `dldb` - adjustments on the biases.  
   pub fn neg_conj_adjustment(&mut self, dldw: Vec<T>, dldb: Vec<T>) -> Result<(), GradientError> {
     match self {
       CLayer::Dense(l) => { l.neg_conj_adjustment(dldw, dldb) },

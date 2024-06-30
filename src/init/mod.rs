@@ -1,5 +1,6 @@
 use crate::math::Complex;
 
+/// List of initialization methods that can be applied to the initialization of a layer.
 pub enum InitMethod {
   /// Takes a scale param
   Uniform(usize),
@@ -14,6 +15,7 @@ pub enum InitMethod {
 }
 
 impl InitMethod {
+  /// Generates a random number according to a distribution defined in the enumeration [`InitMethod`].
   pub fn gen<T: Complex>(&self, seed: &mut u128) -> T {
     match self {
       Self::Uniform(scale) => {
@@ -35,6 +37,7 @@ impl InitMethod {
   }
 }
 
+/// Ways for generating a prediction for classification models. For now it is just one-hot-encoding.
 pub enum PredictModel {
   Sparse
 }
