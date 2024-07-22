@@ -339,7 +339,7 @@ fn class_pipeline(init_seed_val: u128, seed: &mut u128) {
   let yellow = "\x1b[33m";
   let underline = "\x1b[4m";
 
-  let (network_id, mut network) = _get_2conv_layer_cvcnn(seed);
+  let (network_id, mut network) = _get_fully_connected_cvnn(seed);
   println!("Created the Network.");
 
   let batch_size = 100;
