@@ -111,7 +111,7 @@ use renplex::math::cfloat::Cf32;
 use renplex::opt::ComplexLossFunction;
 
 // define loss function
-let loss_func = ComplexLossFuntion::Conventional;
+let loss_func = ComplexLossFuntion::MeanSquare;
 // history of loss function values
 let loss_vals = Vec::new();
 // define a learning rate
