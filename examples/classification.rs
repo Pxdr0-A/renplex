@@ -351,9 +351,9 @@ fn class_pipeline(init_seed_val: u128, seed: &mut u128) {
 
   /* lr
   Dense : 1.50 or 2.00
-  Convo : 0.75 or 1.00
+  Convo : 7500e-4_f32
   */
-  let r = 7500e-4_f32;
+  let r = 10000e-4_f32;
   let phase = 0.0 * std::f32::consts::PI / 100.0;
   let lr_re = r * phase.cos();
   let lr_im = r * phase.sin();
