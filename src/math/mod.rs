@@ -18,6 +18,7 @@ use self::random::{lcgf32, lcgf64};
 pub mod matrix;
 pub mod random;
 pub mod cfloat;
+pub mod ffi;
 
 
 pub trait BasicOperations<T>: AddAssign + SubAssign + MulAssign + DivAssign + Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Div<Output=T> + PartialOrd + Default + Display + Debug + Copy + Send + Sync + 'static {}
