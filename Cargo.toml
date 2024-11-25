@@ -18,6 +18,9 @@ path = "src/lib.rs"
 
 [dependencies]
 rayon = "1.10"
+num-complex = "0.4.6"
+num-traits = "0.2.19"
+rand = "0.8.5"
 
 [build-dependencies]
 cc = "1.0"
