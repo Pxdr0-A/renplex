@@ -28,51 +28,8 @@ where
 
 #[derive(Debug, Clone)]
 pub struct StaticMatrix<const LEN: usize> {
-    array: [CPrec; LEN],
-    shape: Shape,
-}
-
-impl<const LEN: usize> Matrix for StaticMatrix<LEN> {
-    fn zeros(shape: Shape) -> Self {
-        Self {
-            array: [CPrec::ZERO; LEN],
-            shape,
-        }
-    }
-
-    fn ones(shape: Shape) -> Self {
-        Self {
-            array: [CPrec::ONE; LEN],
-            shape,
-        }
-    }
-
-    fn ident(shape: (usize, usize)) -> Self {
-        let mut src = Self::zeros(shape);
-        let srcsp = src.get_shape();
-        let srcbd = src.get_mut_body();
-        for i in 0..(srcsp.0) {
-            srcbd[i * srcsp.1 + i] += CPrec::ONE;
-        }
-
-        src
-    }
-
-    fn prandom(_shape: Shape, _thread: &mut ThreadRng) -> Self {
-        unimplemented!()
-    }
-
-    fn get_shape(&self) -> Shape {
-        unimplemented!()
-    }
-
-    fn get_body(&self) -> &[CPrec] {
-        unimplemented!()
-    }
-
-    fn get_mut_body(&mut self) -> &mut [CPrec] {
-        unimplemented!()
-    }
+    _array: [CPrec; LEN],
+    _shape: Shape,
 }
 
 #[macro_export]
