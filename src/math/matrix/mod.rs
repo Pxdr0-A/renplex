@@ -1,13 +1,13 @@
 use super::CPrec;
 use rand::rngs::ThreadRng;
 
-pub type Shape = (usize, usize);
+pub type Shape = Vec<usize>;
 
-pub trait Matrix
+pub trait Tensor
 where
     Self: Sized + Clone,
 {
-    // Base Implementations
+    // Initializations
 
     fn zeros(shape: Shape) -> Self;
 
@@ -17,17 +17,19 @@ where
 
     fn prandom(shape: Shape, thread: &mut ThreadRng) -> Self;
 
-    fn get_shape(&self) -> Shape;
+    // Core Properties of the Tensor
+
+    fn get_shape(&self) -> &[CPrec];
 
     fn get_body(&self) -> &[CPrec];
 
     fn get_mut_body(&mut self) -> &mut [CPrec];
 
-    // Derived Implementations
+    // Operations
 }
 
 #[derive(Debug, Clone)]
-pub struct StaticMatrix<const LEN: usize> {
+pub struct StaticTensor<const LEN: usize> {
     _array: [CPrec; LEN],
     _shape: Shape,
 }
