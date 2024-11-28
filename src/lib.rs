@@ -1,4 +1,3 @@
-pub mod io;
 pub mod math;
 
 pub trait Module {
@@ -11,18 +10,7 @@ pub trait Module {
 
     fn new() -> Self;
 
-    fn forward(&self, input: io::Input<'a, DIMINP>) -> io::Output<'a, DIMOUT>;
+    fn forward(&self);
 
-    fn backward(&self, output: io::Output<'a, DIMINP>) -> io::Input<'a, DIMOUT>;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+    fn backward(&self);
 }
