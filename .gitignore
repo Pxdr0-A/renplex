@@ -1,3 +1,6 @@
+/.vscode
+/.idea
+
 /target
 /Cargo.lock
 /refs
@@ -7,7 +10,6 @@
 /out
 /minist
 /sig_rec
-/tensorflow
 
 test.csv
 train.csv
