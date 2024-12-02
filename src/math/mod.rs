@@ -5,4 +5,10 @@ use num_complex::Complex;
 pub type Prec = f32;
 pub type CPrec = Complex<Prec>;
 
-mod aocl {}
+mod aocl {
+    extern "C" {}
+}
+
+mod mkl {
+    extern "C" {}
+}
