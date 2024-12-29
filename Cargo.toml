@@ -1,0 +1,16 @@
+[workspace]
+members = ["renplex_core", "renplex_derive"]
+
+[package]
+name = "renplex"
+version = "0.1.1"
+edition = "2021"
+authors = ["Pedro Alves <pedromfa98@gmail.com>"]
+description = "A framework for modeling complexed-valued neural networks."
+repository = "https://github.com/Pxdr0-A/renplex.git"
+keywords = ["neural-networks", "library"]
+
+[dependencies]
+renplex_core = { path = "renplex_core" }
+renplex_derive = { path = "renplex_derive" }
+rand = "0.8.5"

@@ -1,0 +1,7 @@
+/.vscode
+/.idea
+
+/notes.txt
+
+/target
+/Cargo.lock
