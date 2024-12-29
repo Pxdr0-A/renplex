@@ -1,0 +1,12 @@
+[package]
+name = "renplex_derive"
+version = "0.1.0"
+edition = "2021"
+authors = ["Pedro Alves <pedromfa98@gmail.com>"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "2.0"
+quote = "1.0"
