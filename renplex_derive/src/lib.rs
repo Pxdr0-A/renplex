@@ -39,6 +39,10 @@ fn impl_supermodule_macro(ast: &syn::DeriveInput) -> TokenStream {
 
     // pre-processing token streams for the implementation
 
+    // field identifiers
+    let fields = field_idents.iter().map(|field| {
+        quote! { #field }
+    });
     // init method arguments
     let init_args = field_idents.iter().map(|field| {
         let arg_name = field;
@@ -50,8 +54,13 @@ fn impl_supermodule_macro(ast: &syn::DeriveInput) -> TokenStream {
     // implement functionalities
     let gen = quote! {
         impl #name {
-            pub fn init(#(#init_args),*) {
-                println!("Initialized supermodule.")
+            pub fn init(#(#init_args),*) -> Self {
+                // if the static tensor sizes do not align, than it will probabily not compile (in forward)
+                Self {
+                    #(#fields: Module::init(#fields)),*
+                }
+                // when the network is initialized, check shape agreement between io's
+                // how do you do this with activation functions
             }
         }
     };
