@@ -1,24 +1,20 @@
-// std and dependencies imports
 use std::{collections::HashMap, fmt::Debug};
-
+// std and dependencies imports
 // definition of internal mods
 
 pub mod tensor {
     use num_complex::Complex;
     use std::fmt::Debug;
 
+    // useful type
+    pub type Shape = Vec<usize>;
+    pub type ShapeSlice<'a> = &'a [usize];
+
     mod aocl {
         extern "C" {}
     }
 
-    mod mkl {
-        extern "C" {}
-    }
-
-    // useful type
-    pub type Shape = Vec<usize>;
-
-    // native operations with scalar precision maped to complex
+    // native operations with scalar precision mapped to complex
     pub trait Precision
     where
         Self: Debug + Copy + Clone + Default,
@@ -27,8 +23,6 @@ pub mod tensor {
         // Taking the type, and wrapping it up in the complex number
         fn operation(lhs: &[Complex<Self>], rhs: &[Complex<Self>]);
     }
-
-    // impl Precision for f16 {}
 
     impl Precision for f32 {
         fn operation(_lhs: &[Complex<Self>], _rhs: &[Complex<Self>]) {
@@ -42,8 +36,6 @@ pub mod tensor {
         }
     }
 
-    // impl Precision for f128 {}
-
     // tensor definitions, operations, etc.
     pub trait Tensor
     where
@@ -56,6 +48,7 @@ pub mod tensor {
 
         // Core Properties of the Tensor
         // shape, body, etc.
+        fn shape(&self) -> ShapeSlice;
 
         // Further Initializations based on zeros
 
@@ -80,6 +73,10 @@ pub mod tensor {
                 _shape: Vec::new(),
             }
         }
+
+        fn shape(&self) -> ShapeSlice {
+            self._shape.as_slice()
+        }
     }
 
     #[derive(Debug, Clone)]
@@ -96,6 +93,10 @@ pub mod tensor {
                 _array: [Complex::default(); LEN],
                 _shape: Vec::new(),
             }
+        }
+
+        fn shape(&self) -> ShapeSlice {
+            self._shape.as_slice()
         }
     }
 }
@@ -122,7 +123,7 @@ pub mod optimization {
 }
 
 // imports that come from internal modules
-use tensor::Tensor;
+use tensor::{ShapeSlice, Tensor};
 
 // this is only useful when you want to go from dyn to static and vice-versa
 pub trait Module
@@ -134,11 +135,23 @@ where
 
     fn init(args: HashMap<String, String>) -> Self;
 
+    fn inpsp(&self) -> ShapeSlice {
+        unimplemented!()
+    }
+
+    fn outsp(&self) -> ShapeSlice {
+        unimplemented!()
+    }
+
     fn forward(&self, input: &Self::Input) -> Self::Output;
 
     fn backward(&self, input: Self::Input) -> Self::Output;
 
     fn update(&mut self, input: &Self::Input, grad: &Self::Output);
+}
+
+pub fn connectivity<M1: Module, M2: Module>(_m1: M1, _m2: M2) -> bool {
+    unimplemented!()
 }
 
 pub mod module {
@@ -192,6 +205,7 @@ pub mod activation {
     }
 
     impl<T: Tensor> Module for Tanh<T> {
+        // Maybe use phantom data
         type Input = T;
         type Output = T;
 
