@@ -125,7 +125,7 @@ pub mod optimization {
 // imports that come from internal modules
 use tensor::{ShapeSlice, Tensor};
 
-// this is only useful when you want to go from dyn to static and vice-versa
+// useful for stuff that changes the shape of the input data
 pub trait Module
 where
     Self: Debug,
@@ -135,6 +135,10 @@ where
 
     fn init(args: HashMap<String, String>) -> Self;
 
+    fn forward(&self, input: &Self::Input) -> Self::Output;
+
+    fn backward(&self, input: Self::Input, grad: &Self::Output) -> Self::Output;
+
     fn inpsp(&self) -> ShapeSlice {
         unimplemented!()
     }
@@ -142,12 +146,13 @@ where
     fn outsp(&self) -> ShapeSlice {
         unimplemented!()
     }
+}
 
-    fn forward(&self, input: &Self::Input) -> Self::Output;
-
-    fn backward(&self, input: Self::Input) -> Self::Output;
-
-    fn update(&mut self, input: &Self::Input, grad: &Self::Output);
+// useful for stuff that does not change the input shape
+pub trait Activation
+where
+    Self: Debug,
+{
 }
 
 pub fn connectivity<M1: Module, M2: Module>(_m1: M1, _m2: M2) -> bool {
@@ -184,48 +189,13 @@ pub mod module {
             Tensor::new(Vec::new())
         }
 
-        fn backward(&self, _input: Self::Input) -> Self::Output {
-            unimplemented!()
-        }
-
-        fn update(&mut self, _input: &Self::Input, _grad: &Self::Output) {
+        fn backward(&self, _input: Self::Input, _grad: &Self::Output) -> Self::Output {
             unimplemented!()
         }
     }
 }
 
 pub mod activation {
-    use std::{collections::HashMap, marker::PhantomData};
-
-    use crate::{tensor::Tensor, Module};
-
     #[derive(Debug)]
-    pub struct Tanh<T: Tensor> {
-        _tensorio: PhantomData<T>,
-    }
-
-    impl<T: Tensor> Module for Tanh<T> {
-        // Maybe use phantom data
-        type Input = T;
-        type Output = T;
-
-        fn init(_args: HashMap<String, String>) -> Self {
-            Self {
-                _tensorio: PhantomData,
-            }
-        }
-
-        fn forward(&self, _input: &Self::Input) -> Self::Output {
-            println!("Tanh Activation");
-            Tensor::new(Vec::new())
-        }
-
-        fn backward(&self, _input: Self::Input) -> Self::Output {
-            unimplemented!()
-        }
-
-        fn update(&mut self, _input: &Self::Input, _grad: &Self::Output) {
-            unimplemented!()
-        }
-    }
+    pub struct Tanh {}
 }
