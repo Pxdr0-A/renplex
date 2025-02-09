@@ -123,7 +123,38 @@ pub mod optimization {
 }
 
 // imports that come from internal modules
-use tensor::{ShapeSlice, Tensor};
+use tensor::{DynTensor, Precision, ShapeSlice, Tensor};
+
+// maybe a DynModule and a StaticModule
+// each one has a precision type that implements Precision trait
+// and also input and output tensors
+// statics have the addition of two constants for the sizes
+
+pub trait DynModule
+where
+    Self: Debug,
+{
+    type Prec: Precision;
+    type Input: Tensor;
+    type Output: Tensor;
+
+    fn init(args: HashMap<String, String>) -> Self;
+
+    // see if this is the best way
+    // slices are enough for activations and also maybe here
+    // you only need slice and a shape (or vec and shape)
+    fn forward(&self, input: DynTensor<Self::Prec>) -> Self::Output;
+
+    fn backward(&mut self, input: Self::Input, grad: &Self::Output) -> Self::Output;
+
+    fn inpsp(&self) -> ShapeSlice {
+        unimplemented!()
+    }
+
+    fn outsp(&self) -> ShapeSlice {
+        unimplemented!()
+    }
+}
 
 // useful for stuff that changes the shape of the input data
 pub trait Module
@@ -137,7 +168,7 @@ where
 
     fn forward(&self, input: &Self::Input) -> Self::Output;
 
-    fn backward(&self, input: Self::Input, grad: &Self::Output) -> Self::Output;
+    fn backward(&mut self, input: Self::Input, grad: &Self::Output) -> Self::Output;
 
     fn inpsp(&self) -> ShapeSlice {
         unimplemented!()
@@ -149,6 +180,7 @@ where
 }
 
 // useful for stuff that does not change the input shape
+// can be trained if needed, just does not change the shape
 pub trait Activation
 where
     Self: Debug,
@@ -189,7 +221,7 @@ pub mod module {
             Tensor::new(Vec::new())
         }
 
-        fn backward(&self, _input: Self::Input, _grad: &Self::Output) -> Self::Output {
+        fn backward(&mut self, _input: Self::Input, _grad: &Self::Output) -> Self::Output {
             unimplemented!()
         }
     }
