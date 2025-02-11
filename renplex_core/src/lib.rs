@@ -123,7 +123,7 @@ pub mod optimization {
 }
 
 // imports that come from internal modules
-use tensor::{DynTensor, Precision, ShapeSlice, Tensor};
+use tensor::{DynTensor, Precision, ShapeSlice, StaticTensor, Tensor};
 
 // maybe a DynModule and a StaticModule
 // each one has a precision type that implements Precision trait
@@ -135,17 +135,44 @@ where
     Self: Debug,
 {
     type Prec: Precision;
-    type Input: Tensor;
-    type Output: Tensor;
 
     fn init(args: HashMap<String, String>) -> Self;
 
-    // see if this is the best way
-    // slices are enough for activations and also maybe here
-    // you only need slice and a shape (or vec and shape)
-    fn forward(&self, input: DynTensor<Self::Prec>) -> Self::Output;
+    fn forward(&self, input: DynTensor<Self::Prec>) -> DynTensor<Self::Prec>;
 
-    fn backward(&mut self, input: Self::Input, grad: &Self::Output) -> Self::Output;
+    fn backward(
+        &mut self,
+        input: DynTensor<Self::Prec>,
+        grad: DynTensor<Self::Prec>,
+    ) -> DynTensor<Self::Prec>;
+
+    fn inpsp(&self) -> ShapeSlice {
+        unimplemented!()
+    }
+
+    fn outsp(&self) -> ShapeSlice {
+        unimplemented!()
+    }
+}
+
+pub trait StaticModule<const LENI: usize, const LENO: usize>
+where
+    Self: Debug,
+{
+    type Prec: Precision;
+
+    fn init(args: HashMap<String, String>) -> Self;
+
+    fn forward(
+        &self,
+        input: StaticTensor<Self::Prec, { LENI }>,
+    ) -> StaticTensor<Self::Prec, { LENO }>;
+
+    fn backward(
+        &mut self,
+        input: StaticTensor<Self::Prec, { LENI }>,
+        grad: StaticTensor<Self::Prec, { LENO }>,
+    ) -> StaticTensor<Self::Prec, { LENI }>;
 
     fn inpsp(&self) -> ShapeSlice {
         unimplemented!()
@@ -179,19 +206,7 @@ where
     }
 }
 
-// useful for stuff that does not change the input shape
-// can be trained if needed, just does not change the shape
-pub trait Activation
-where
-    Self: Debug,
-{
-}
-
-pub fn connectivity<M1: Module, M2: Module>(_m1: M1, _m2: M2) -> bool {
-    unimplemented!()
-}
-
-pub mod module {
+pub mod modules {
     use crate::{tensor::Tensor, Module};
     use std::{collections::HashMap, marker::PhantomData};
 
@@ -227,7 +242,7 @@ pub mod module {
     }
 }
 
-pub mod activation {
+pub mod activations {
     #[derive(Debug)]
     pub struct Tanh {}
 }

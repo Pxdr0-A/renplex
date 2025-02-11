@@ -62,6 +62,8 @@ fn impl_supermodule_macro(ast: &syn::DeriveInput) -> TokenStream {
                 // when the network is initialized, check shape agreement between io's
                 // how do you do this with activation functions
             }
+
+            // one method for activating each layer?
         }
     };
 
