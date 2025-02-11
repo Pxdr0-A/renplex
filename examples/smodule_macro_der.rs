@@ -1,5 +1,5 @@
 use renplex_core::Module;
-use renplex_core::{module::Linear, tensor::StaticTensor};
+use renplex_core::{modules::Linear, tensor::StaticTensor};
 use renplex_derive::SuperModuleMacro;
 use std::collections::HashMap;
 
