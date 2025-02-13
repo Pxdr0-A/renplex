@@ -41,7 +41,10 @@ pub mod tensor {
     where
         Self: Sized + Clone + Debug,
     {
+        // probabily do not need precision here
         type Prec: Precision;
+        const LEN: usize;
+
         // Initialization: just zeros.
         // Try to do further initializations after core props.
         fn new(shape: Shape) -> Self;
@@ -66,6 +69,7 @@ pub mod tensor {
 
     impl<T: Precision> Tensor for DynTensor<T> {
         type Prec = T;
+        const LEN: usize = 0;
 
         fn new(_shape: Shape) -> Self {
             Self {
@@ -87,6 +91,7 @@ pub mod tensor {
 
     impl<T: Precision, const LEN: usize> Tensor for StaticTensor<T, LEN> {
         type Prec = T;
+        const LEN: usize = LEN;
 
         fn new(_shape: Shape) -> Self {
             Self {
@@ -123,79 +128,23 @@ pub mod optimization {
 }
 
 // imports that come from internal modules
-use tensor::{DynTensor, Precision, ShapeSlice, StaticTensor, Tensor};
+use tensor::{Precision, ShapeSlice, Tensor};
 
 // maybe a DynModule and a StaticModule
 // each one has a precision type that implements Precision trait
 // and also input and output tensors
 // statics have the addition of two constants for the sizes
 
-pub trait DynModule
-where
-    Self: Debug,
-{
+pub trait Module {
     type Prec: Precision;
-
-    fn init(args: HashMap<String, String>) -> Self;
-
-    fn forward(&self, input: DynTensor<Self::Prec>) -> DynTensor<Self::Prec>;
-
-    fn backward(
-        &mut self,
-        input: DynTensor<Self::Prec>,
-        grad: DynTensor<Self::Prec>,
-    ) -> DynTensor<Self::Prec>;
-
-    fn inpsp(&self) -> ShapeSlice {
-        unimplemented!()
-    }
-
-    fn outsp(&self) -> ShapeSlice {
-        unimplemented!()
-    }
-}
-
-pub trait StaticModule<const LENI: usize, const LENO: usize>
-where
-    Self: Debug,
-{
-    type Prec: Precision;
-
-    fn init(args: HashMap<String, String>) -> Self;
-
-    fn forward(
-        &self,
-        input: StaticTensor<Self::Prec, { LENI }>,
-    ) -> StaticTensor<Self::Prec, { LENO }>;
-
-    fn backward(
-        &mut self,
-        input: StaticTensor<Self::Prec, { LENI }>,
-        grad: StaticTensor<Self::Prec, { LENO }>,
-    ) -> StaticTensor<Self::Prec, { LENI }>;
-
-    fn inpsp(&self) -> ShapeSlice {
-        unimplemented!()
-    }
-
-    fn outsp(&self) -> ShapeSlice {
-        unimplemented!()
-    }
-}
-
-// useful for stuff that changes the shape of the input data
-pub trait Module
-where
-    Self: Debug,
-{
     type Input: Tensor;
     type Output: Tensor;
 
     fn init(args: HashMap<String, String>) -> Self;
 
-    fn forward(&self, input: &Self::Input) -> Self::Output;
+    fn forward(&self, input: Self::Input) -> Self::Output;
 
-    fn backward(&mut self, input: Self::Input, grad: &Self::Output) -> Self::Output;
+    fn backward(&mut self, input: Self::Input, grad: Self::Output) -> Self::Input;
 
     fn inpsp(&self) -> ShapeSlice {
         unimplemented!()
@@ -206,43 +155,120 @@ where
     }
 }
 
-pub mod modules {
-    use crate::{tensor::Tensor, Module};
-    use std::{collections::HashMap, marker::PhantomData};
+// maybe Dyn and Static module are not a bad idea
 
-    #[derive(Debug)]
-    pub struct Linear<TW: Tensor, TB: Tensor, TI: Tensor, TO: Tensor> {
-        _weights: TW,
-        _bias: TB,
-        _tensorin: PhantomData<TI>,
-        _tensorout: PhantomData<TO>,
+pub mod modules {
+    use crate::{
+        tensor::{DynTensor, Precision, StaticTensor, Tensor},
+        Module,
+    };
+
+    pub struct DynLinear<P: Precision> {
+        _weights: DynTensor<P>,
+        _bias: DynTensor<P>,
     }
 
-    impl<TW: Tensor, TB: Tensor, TI: Tensor, TO: Tensor> Module for Linear<TW, TB, TI, TO> {
-        type Input = TI;
-        type Output = TO;
+    impl<P: Precision> Module for DynLinear<P> {
+        type Prec = P;
+        // template for a dynamic layer
+        type Input = DynTensor<P>;
+        type Output = DynTensor<P>;
 
-        fn init(_args: HashMap<String, String>) -> Self {
-            Self {
-                _weights: Tensor::new(Vec::new()),
-                _bias: Tensor::new(Vec::new()),
-                _tensorin: PhantomData,
-                _tensorout: PhantomData,
-            }
+        fn init(args: std::collections::HashMap<String, String>) -> Self {
+            unimplemented!()
         }
 
-        fn forward(&self, _input: &Self::Input) -> Self::Output {
-            println!("Linear pass");
-            Tensor::new(Vec::new())
+        fn forward(&self, input: Self::Input) -> Self::Output {
+            unimplemented!()
         }
 
-        fn backward(&mut self, _input: Self::Input, _grad: &Self::Output) -> Self::Output {
+        fn backward(&mut self, input: Self::Input, grad: Self::Output) -> Self::Input {
+            unimplemented!()
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct StaticLinear<
+        P: Precision,
+        const LENW: usize,
+        const LENB: usize,
+        const LENI: usize,
+        const LENO: usize,
+    > {
+        _weights: StaticTensor<P, LENW>,
+        _bias: StaticTensor<P, LENB>,
+    }
+
+    impl<
+            P: Precision,
+            const LENW: usize,
+            const LENB: usize,
+            const LENI: usize,
+            const LENO: usize,
+        > Module for StaticLinear<P, LENW, LENB, LENI, LENO>
+    {
+        type Prec = P;
+        type Input = StaticTensor<P, LENI>;
+        type Output = StaticTensor<P, LENO>;
+
+        fn init(args: std::collections::HashMap<String, String>) -> Self {
+            unimplemented!()
+        }
+
+        fn forward(&self, input: Self::Input) -> Self::Output {
+            unimplemented!()
+        }
+
+        fn backward(
+            &mut self,
+            input: StaticTensor<Self::Prec, LENI>,
+            grad: StaticTensor<Self::Prec, LENO>,
+        ) -> StaticTensor<Self::Prec, LENI> {
             unimplemented!()
         }
     }
 }
 
+// stuff that does not change the input dims
+// only has the problem if it is the first one on the supermodule
+pub trait Activation
+where
+    Self: Debug,
+{
+    // this is a problem! it needs input and output type, otherwise, derive macro
+    // cannot define input and output of the network
+    fn init(args: HashMap<String, String>) -> Self;
+
+    fn forward<T: Tensor>(&self, input: T) -> T;
+
+    fn backward<T: Tensor>(&mut self, input: T, grad: T) -> T;
+
+    fn inpsp(&self) -> ShapeSlice {
+        unimplemented!()
+    }
+
+    fn outsp(&self) -> ShapeSlice {
+        unimplemented!()
+    }
+}
+
 pub mod activations {
+    use crate::{tensor::Tensor, Activation};
+
     #[derive(Debug)]
     pub struct Tanh {}
+
+    impl Activation for Tanh {
+        fn init(_args: std::collections::HashMap<String, String>) -> Self {
+            unimplemented!()
+        }
+
+        fn forward<T: Tensor>(&self, _input: T) -> T {
+            unimplemented!()
+        }
+
+        fn backward<T: Tensor>(&mut self, _input: T, _grad: T) -> T {
+            unimplemented!()
+        }
+    }
 }
