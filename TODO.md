@@ -7,7 +7,8 @@
 * [ ] - Create Aliases for the types. Static and Dyn Linear for instance.
 * [ ] - Find a strategy to do the intercept.
   * [ ] - One method for activating each module until the desired one.
-* [ ] - Propagating slices?
+* [x] - Propagating slices?
+  * [ ] - Maybe a tensor slice struct, this way you only need to define output tensor of the module because he is going to receive a slice.
 * [x] - Activation fucntions as closures?! (No!)
 * [ ] - Define the input type of the network?
   * [ ] - Is it really necessary to define input and output type of the network?
