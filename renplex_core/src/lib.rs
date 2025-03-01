@@ -1,10 +1,11 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::collections::HashMap;
+
+use tensor::Tensor;
 // std and dependencies imports
 // definition of internal mods
 
 pub mod tensor {
-    use num_complex::Complex;
-    use std::fmt::Debug;
+    use num_complex::{Complex32, Complex64};
 
     // useful type
     pub type Shape = Vec<usize>;
@@ -14,94 +15,58 @@ pub mod tensor {
         extern "C" {}
     }
 
-    // native operations with scalar precision mapped to complex
-    pub trait Precision
-    where
-        Self: Debug + Copy + Clone + Default,
-    {
-        // Relevant linear algebra routines
-        // Taking the type, and wrapping it up in the complex number
-        fn operation(lhs: &[Complex<Self>], rhs: &[Complex<Self>]);
+    pub trait ComplexRoutines {
+        fn matmul<T1: Tensor, T2: Tensor, T3: Tensor>(lhs: &T1, rhs: &T2) -> T3;
+
+        fn tanh<T: Tensor>(t: &T) -> T;
     }
 
-    impl Precision for f32 {
-        fn operation(_lhs: &[Complex<Self>], _rhs: &[Complex<Self>]) {
+    impl ComplexRoutines for Complex32 {
+        fn matmul<T1: Tensor, T2: Tensor, T3: Tensor>(lhs: &T1, rhs: &T2) -> T3 {
+            unimplemented!()
+        }
+
+        fn tanh<T: Tensor>(t: &T) -> T {
             unimplemented!()
         }
     }
 
-    impl Precision for f64 {
-        fn operation(_lhs: &[Complex<Self>], _rhs: &[Complex<Self>]) {
+    impl ComplexRoutines for Complex64 {
+        fn matmul<T1: Tensor, T2: Tensor, T3: Tensor>(lhs: &T1, rhs: &T2) -> T3 {
+            unimplemented!()
+        }
+
+        fn tanh<T: Tensor>(t: &T) -> T {
             unimplemented!()
         }
     }
 
     // tensor definitions, operations, etc.
-    pub trait Tensor
-    where
-        Self: Sized + Clone + Debug,
-    {
-        // probabily do not need precision here
-        type Prec: Precision;
-        const LEN: usize;
+    pub trait Tensor {
+        type C: ComplexRoutines;
 
-        // Initialization: just zeros.
-        // Try to do further initializations after core props.
-        fn new(shape: Shape) -> Self;
+        // probabily do not need precision here
+        // Initialization
+        fn new(_shape: Shape) -> Self;
 
         // Core Properties of the Tensor
-        // shape, body, etc.
-        fn shape(&self) -> ShapeSlice;
+        fn core_ref(&self) -> (&[Self::C], &[usize]);
+    }
 
-        // Further Initializations based on zeros
+    pub struct StaticTensor<C: ComplexRoutines, const LEN: usize> {
+        _array: [C; LEN],
+        _shape: Shape,
+    }
 
-        // Operations
-        fn matmul(&self) {
+    impl<C: ComplexRoutines, const LEN: usize> Tensor for StaticTensor<C, LEN> {
+        type C = C;
+
+        fn new(_shape: Shape) -> Self {
             unimplemented!()
         }
-    }
 
-    #[derive(Debug, Clone)]
-    pub struct DynTensor<T: Precision> {
-        _array: Vec<Complex<T>>,
-        _shape: Shape,
-    }
-
-    impl<T: Precision> Tensor for DynTensor<T> {
-        type Prec = T;
-        const LEN: usize = 0;
-
-        fn new(_shape: Shape) -> Self {
-            Self {
-                _array: Vec::new(),
-                _shape: Vec::new(),
-            }
-        }
-
-        fn shape(&self) -> ShapeSlice {
-            self._shape.as_slice()
-        }
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct StaticTensor<T: Precision, const LEN: usize> {
-        _array: [Complex<T>; LEN],
-        _shape: Shape,
-    }
-
-    impl<T: Precision, const LEN: usize> Tensor for StaticTensor<T, LEN> {
-        type Prec = T;
-        const LEN: usize = LEN;
-
-        fn new(_shape: Shape) -> Self {
-            Self {
-                _array: [Complex::default(); LEN],
-                _shape: Vec::new(),
-            }
-        }
-
-        fn shape(&self) -> ShapeSlice {
-            self._shape.as_slice()
+        fn core_ref(&self) -> (&[C], &[usize]) {
+            (self._array.as_slice(), self._shape.as_slice())
         }
     }
 }
@@ -109,166 +74,35 @@ pub mod tensor {
 mod dataset {}
 
 pub mod init {
-    #[derive(Debug)]
-    pub enum Intialization {
-        None,
-        Square,
-    }
+    pub trait Initialization {}
 }
-
-pub mod optimization {
-    pub trait Loss {
-        type Input;
-        type Output;
-
-        fn compute(input: Self::Input, target: Self::Output) -> Self::Output;
-
-        fn derivative(input: Self::Input, target: Self::Output) -> Self::Output;
-    }
-}
-
-// imports that come from internal modules
-use tensor::{Precision, ShapeSlice, Tensor};
 
 // maybe a DynModule and a StaticModule
 // each one has a precision type that implements Precision trait
 // and also input and output tensors
 // statics have the addition of two constants for the sizes
-
 pub trait Module {
-    type Prec: Precision;
-    type Input: Tensor;
     type Output: Tensor;
+    type Weight: Tensor;
+    type Bias: Tensor;
 
     fn init(args: HashMap<String, String>) -> Self;
 
-    fn forward(&self, input: Self::Input) -> Self::Output;
+    fn forward<T: Tensor>(&self, input: &T) -> Self::Output;
 
-    fn backward(&mut self, input: Self::Input, grad: Self::Output) -> Self::Input;
+    fn backward<T: Tensor>(&self, grad: &Self::Output, input: &T) -> T;
 
-    fn inpsp(&self) -> ShapeSlice {
-        unimplemented!()
-    }
+    fn gradient<T: Tensor>(&self, grad: &Self::Output, input: &T) -> (Self::Weight, Self::Bias);
+}
 
-    fn outsp(&self) -> ShapeSlice {
-        unimplemented!()
+pub mod optimization {
+    use crate::{tensor::Tensor, Module};
+
+    pub trait Optimizer {
+        fn step<M: Module, W: Tensor, B: Tensor>(&mut self, module: &mut M, gradw: &W, gradb: &B);
     }
 }
 
-// maybe Dyn and Static module are not a bad idea
+pub mod modules {}
 
-pub mod modules {
-    use crate::{
-        tensor::{DynTensor, Precision, StaticTensor, Tensor},
-        Module,
-    };
-
-    pub struct DynLinear<P: Precision> {
-        _weights: DynTensor<P>,
-        _bias: DynTensor<P>,
-    }
-
-    impl<P: Precision> Module for DynLinear<P> {
-        type Prec = P;
-        // template for a dynamic layer
-        type Input = DynTensor<P>;
-        type Output = DynTensor<P>;
-
-        fn init(args: std::collections::HashMap<String, String>) -> Self {
-            unimplemented!()
-        }
-
-        fn forward(&self, input: Self::Input) -> Self::Output {
-            unimplemented!()
-        }
-
-        fn backward(&mut self, input: Self::Input, grad: Self::Output) -> Self::Input {
-            unimplemented!()
-        }
-    }
-
-    #[derive(Debug)]
-    pub struct StaticLinear<
-        P: Precision,
-        const LENW: usize,
-        const LENB: usize,
-        const LENI: usize,
-        const LENO: usize,
-    > {
-        _weights: StaticTensor<P, LENW>,
-        _bias: StaticTensor<P, LENB>,
-    }
-
-    impl<
-            P: Precision,
-            const LENW: usize,
-            const LENB: usize,
-            const LENI: usize,
-            const LENO: usize,
-        > Module for StaticLinear<P, LENW, LENB, LENI, LENO>
-    {
-        type Prec = P;
-        type Input = StaticTensor<P, LENI>;
-        type Output = StaticTensor<P, LENO>;
-
-        fn init(args: std::collections::HashMap<String, String>) -> Self {
-            unimplemented!()
-        }
-
-        fn forward(&self, input: Self::Input) -> Self::Output {
-            unimplemented!()
-        }
-
-        fn backward(
-            &mut self,
-            input: StaticTensor<Self::Prec, LENI>,
-            grad: StaticTensor<Self::Prec, LENO>,
-        ) -> StaticTensor<Self::Prec, LENI> {
-            unimplemented!()
-        }
-    }
-}
-
-// stuff that does not change the input dims
-// only has the problem if it is the first one on the supermodule
-pub trait Activation
-where
-    Self: Debug,
-{
-    // this is a problem! it needs input and output type, otherwise, derive macro
-    // cannot define input and output of the network
-    fn init(args: HashMap<String, String>) -> Self;
-
-    fn forward<T: Tensor>(&self, input: T) -> T;
-
-    fn backward<T: Tensor>(&mut self, input: T, grad: T) -> T;
-
-    fn inpsp(&self) -> ShapeSlice {
-        unimplemented!()
-    }
-
-    fn outsp(&self) -> ShapeSlice {
-        unimplemented!()
-    }
-}
-
-pub mod activations {
-    use crate::{tensor::Tensor, Activation};
-
-    #[derive(Debug)]
-    pub struct Tanh {}
-
-    impl Activation for Tanh {
-        fn init(_args: std::collections::HashMap<String, String>) -> Self {
-            unimplemented!()
-        }
-
-        fn forward<T: Tensor>(&self, _input: T) -> T {
-            unimplemented!()
-        }
-
-        fn backward<T: Tensor>(&mut self, _input: T, _grad: T) -> T {
-            unimplemented!()
-        }
-    }
-}
+pub mod activations {}
