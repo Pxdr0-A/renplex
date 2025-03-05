@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
-use tensor::Tensor;
+use num_complex::Complex32;
+use tensor::{StaticTensor, Tensor};
 // std and dependencies imports
 // definition of internal mods
 
@@ -71,28 +72,112 @@ pub mod tensor {
     }
 }
 
-mod dataset {}
+pub trait Module {
+    type Input: Tensor;
+    type Output: Tensor;
+    type Weight: Tensor;
 
-pub mod init {
-    pub trait Initialization {}
+    fn init(args: HashMap<String, String>) -> Self;
+
+    fn get_params(&self) -> (&Self::Weight, &Self::Output);
+
+    fn get_mut_params(&mut self) -> (&mut Self::Weight, &mut Self::Output);
+
+    fn get_ff(&self) -> impl Fn(&Self::Input, &Self::Weight, &Self::Output) -> Self::Output;
+
+    fn get_fdx(
+        &self,
+    ) -> impl Fn(&Self::Output, &Self::Input, &Self::Weight, &Self::Output) -> Self::Input;
+
+    fn get_fdw(
+        &self,
+    ) -> impl Fn(&Self::Output, &Self::Input, &Self::Weight, &Self::Output) -> (Self::Weight, Self::Output);
+
+    fn forward(&self, input: &Self::Input) -> Self::Output {
+        let forward_func = self.get_ff();
+        let (weights, bias) = self.get_params();
+
+        forward_func(input, weights, bias)
+    }
+
+    fn backward(&self, grad: &Self::Output, input: &Self::Input) -> Self::Input {
+        unimplemented!()
+    }
+
+    fn gradient(&self, grad: &Self::Output, input: &Self::Input) -> (Self::Weight, Self::Output) {
+        unimplemented!()
+    }
+}
+
+pub struct ModuleLogic<FF, FDx, FDw, TI, TO, TW>
+where
+    TI: Tensor,
+    TO: Tensor,
+    TW: Tensor,
+    FF: Fn(&TI, &TW, &TO) -> TO,
+    FDx: Fn(&TO, &TI, &TW, &TO) -> TI,
+    FDw: Fn(&TO, &TI, &TW, &TO) -> (TW, TO),
+{
+    funcf: FF,
+    funcdx: FDx,
+    funcdw: FDw,
+    weights: TW,
+    bias: TO,
+    _phantomi: PhantomData<TI>,
+}
+
+// and then a module with activation
+
+impl<FF, FDx, FDw, TI, TO, TW> Module for ModuleLogic<FF, FDx, FDw, TI, TO, TW>
+where
+    TI: Tensor,
+    TO: Tensor,
+    TW: Tensor,
+    FF: Fn(&TI, &TW, &TO) -> TO,
+    FDx: Fn(&TO, &TI, &TW, &TO) -> TI,
+    FDw: Fn(&TO, &TI, &TW, &TO) -> (TW, TO),
+{
+    type Input = TI;
+    type Output = TO;
+    type Weight = TW;
+
+    fn init(args: HashMap<String, String>) -> Self {
+        unimplemented!()
+    }
+
+    fn get_params(&self) -> (&Self::Weight, &Self::Output) {
+        (&self.weights, &self.bias)
+    }
+
+    fn get_mut_params(&mut self) -> (&mut Self::Weight, &mut Self::Output) {
+        (&mut self.weights, &mut self.bias)
+    }
+
+    fn get_ff(&self) -> impl Fn(&TI, &Self::Weight, &Self::Output) -> Self::Output {
+        &self.funcf
+    }
+
+    fn get_fdx(
+        &self,
+    ) -> impl Fn(&Self::Output, &Self::Input, &Self::Weight, &Self::Output) -> Self::Input {
+        &self.funcdx
+    }
+
+    fn get_fdw(
+        &self,
+    ) -> impl Fn(&Self::Output, &Self::Input, &Self::Weight, &Self::Output) -> (Self::Weight, Self::Output)
+    {
+        &self.funcdw
+    }
 }
 
 // maybe a DynModule and a StaticModule
 // each one has a precision type that implements Precision trait
 // and also input and output tensors
 // statics have the addition of two constants for the sizes
-pub trait Module {
-    type Output: Tensor;
-    type Weight: Tensor;
-    type Bias: Tensor;
 
-    fn init(args: HashMap<String, String>) -> Self;
-
-    fn forward<T: Tensor>(&self, input: &T) -> Self::Output;
-
-    fn backward<T: Tensor>(&self, grad: &Self::Output, input: &T) -> T;
-
-    fn gradient<T: Tensor>(&self, grad: &Self::Output, input: &T) -> (Self::Weight, Self::Bias);
+pub mod init {
+    pub trait Initialization {}
 }
 
 pub mod optimization {
@@ -105,4 +190,15 @@ pub mod optimization {
 
 pub mod modules {}
 
-pub mod activations {}
+pub mod activations {
+    use crate::tensor::Tensor;
+
+    // just to add directly to a module
+    pub trait Activation {
+        fn compute<T: Tensor>(input: &mut T);
+
+        fn derivative<T: Tensor>(input: &mut T);
+    }
+}
+
+mod dataset {}
