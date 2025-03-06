@@ -80,7 +80,7 @@ pub trait ModuleCore {
     // for the derivatives and so on
 }
 
-pub struct LinearCore {}
+pub struct LinearCore;
 
 impl ModuleCore for LinearCore {
     fn compute<TW: Tensor, TO: Tensor, TI: Tensor>(weights: &TW, bias: &TO, input: &TI) -> TO {
@@ -89,8 +89,8 @@ impl ModuleCore for LinearCore {
 }
 
 pub trait Module {
-    type Output: Tensor;
     type Weight: Tensor;
+    type Output: Tensor;
 
     fn forward<T: Tensor>(&self, input: &T) -> Self::Output;
 
@@ -99,7 +99,7 @@ pub trait Module {
     fn gradient<T: Tensor>(&self, grad: &Self::Output, input: &T) -> (Self::Weight, Self::Output);
 }
 
-pub struct PlainLayer<C, TW, TO>
+pub struct GeneralModule<C, TW, TO>
 where
     C: ModuleCore,
     TW: Tensor,
@@ -111,31 +111,31 @@ where
 }
 
 pub type StaticLinear<C, const LENW: usize, const LENO: usize> =
-    PlainLayer<LinearCore, StaticTensor<C, LENW>, StaticTensor<C, LENO>>;
+    GeneralModule<LinearCore, StaticTensor<C, LENW>, StaticTensor<C, LENO>>;
 
 // define here more types
-pub struct Layer<C, TW, TO>
+pub struct GeneralLayer<C, TW, TO>
 where
     C: ModuleCore,
     TW: Tensor,
     TO: Tensor,
 {
-    plain_layer: PlainLayer<C, TW, TO>,
+    plain_layer: GeneralModule<C, TW, TO>,
     activation: PhantomData<TW>,
 }
 
-impl<C, TW, TO> Module for PlainLayer<C, TW, TO>
+impl<C, TW, TO> Module for GeneralModule<C, TW, TO>
 where
     C: ModuleCore,
     TW: Tensor,
     TO: Tensor,
 {
+    // This one seems to be needed but I do not know about the others?
     type Weight = TW;
     type Output = TO;
 
     fn forward<T: Tensor>(&self, input: &T) -> Self::Output {
         let (weights, bias) = (&self.weights, &self.bias);
-
         C::compute(weights, bias, input)
     }
 
@@ -148,23 +148,7 @@ where
     }
 }
 
-// pub struct Layer<FF, FDx, FDw, TI, TO, TW>
-// where
-//     TI: Tensor,
-//     TO: Tensor,
-//     TW: Tensor,
-//     FF: Fn(&TI, &TW, &TO) -> TO,
-//     FDx: Fn(&TO, &TI, &TW, &TO) -> TI,
-//     FDw: Fn(&TO, &TI, &TW, &TO) -> (TW, TO),
-// {
-//     plain_layer: PlainLayer<FF, FDx, FDw, TI, TO, TW>,
-//     activation: PhantomData<TO>,
-// }
-
-// maybe a DynModule and a StaticModule
-// each one has a precision type that implements Precision trait
-// and also input and output tensors
-// statics have the addition of two constants for the sizes
+// TACKLE THIS NOW!!
 
 pub mod init {
     pub trait Initialization {}
@@ -181,49 +165,45 @@ pub mod optimization {
 pub mod modules {}
 
 pub mod activations {
-    use std::marker::PhantomData;
-
     use crate::tensor::Tensor;
 
-    pub struct Activation<FF, FD, TI, P>
-    where
-        TI: Tensor,
-        P: Tensor,
-        FF: Fn(&P, &mut TI),
-        FD: Fn(&P, &mut TI),
-    {
-        funcf: FF,
-        funcdx: FD,
-        params: P,
-        _phantomi: PhantomData<TI>,
-    }
-
-    // just to add directly to a module
-    pub trait ChildModule {
-        // here the input is ok to stay
-        type Input: Tensor;
-        type Params: Tensor;
-
-        fn get_params(&self) -> &Self::Params;
-
+    pub trait Activation {
         fn update_params(&mut self);
 
-        fn get_ff(&self) -> impl Fn(&Self::Params, &mut Self::Input);
+        fn compute<T: Tensor>(&self, input: &mut T);
 
-        fn get_fd(&self) -> impl Fn(&Self::Params, &mut Self::Input);
+        fn derivative<T: Tensor>(&self, input: &mut T);
+    }
 
-        // requires mut self because it migh require the params of the activation
-        // and might mutate them like the dropout
-        fn compute(&mut self, input: &mut Self::Input) {
-            self.update_params();
+    pub struct Tanh;
 
-            let ff = self.get_ff();
-            let params = self.get_params();
-
-            ff(params, input)
+    impl Activation for Tanh {
+        fn update_params(&mut self) {
+            unimplemented!()
         }
 
-        // requires self to get activations params
+        fn compute<T: Tensor>(&self, input: &mut T) {
+            unimplemented!()
+        }
+
+        fn derivative<T: Tensor>(&self, input: &mut T) {
+            unimplemented!()
+        }
+    }
+
+    pub struct Dropout<P> {
+        parameters: P,
+    }
+
+    impl<P> Activation for Dropout<P> {
+        fn update_params(&mut self) {
+            unimplemented!()
+        }
+
+        fn compute<T: Tensor>(&self, input: &mut T) {
+            unimplemented!()
+        }
+
         fn derivative<T: Tensor>(&self, input: &mut T) {
             unimplemented!()
         }
