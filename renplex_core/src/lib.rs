@@ -1,7 +1,7 @@
 use std::{collections::HashMap, marker::PhantomData};
 
 use num_complex::Complex32;
-use tensor::{StaticTensor, Tensor};
+use tensor::{ComplexRoutines, StaticTensor, Tensor};
 // std and dependencies imports
 // definition of internal mods
 
@@ -72,104 +72,94 @@ pub mod tensor {
     }
 }
 
+// generic functions for defining forward passes like Linear or Convolutional
+// might not be a bad idea to have another generic type for the bias
+pub trait ModuleCore {
+    fn compute<TW: Tensor, TO: Tensor, TI: Tensor>(weights: &TW, bias: &TO, input: &TI) -> TO;
+
+    // for the derivatives and so on
+}
+
+pub struct LinearCore {}
+
+impl ModuleCore for LinearCore {
+    fn compute<TW: Tensor, TO: Tensor, TI: Tensor>(weights: &TW, bias: &TO, input: &TI) -> TO {
+        unimplemented!()
+    }
+}
+
 pub trait Module {
-    type Input: Tensor;
     type Output: Tensor;
     type Weight: Tensor;
 
-    fn init(args: HashMap<String, String>) -> Self;
+    fn forward<T: Tensor>(&self, input: &T) -> Self::Output;
 
-    fn get_params(&self) -> (&Self::Weight, &Self::Output);
+    fn backward<T: Tensor>(&self, grad: &Self::Output, input: &T) -> T;
 
-    fn get_mut_params(&mut self) -> (&mut Self::Weight, &mut Self::Output);
-
-    fn get_ff(&self) -> impl Fn(&Self::Input, &Self::Weight, &Self::Output) -> Self::Output;
-
-    fn get_fdx(
-        &self,
-    ) -> impl Fn(&Self::Output, &Self::Input, &Self::Weight, &Self::Output) -> Self::Input;
-
-    fn get_fdw(
-        &self,
-    ) -> impl Fn(&Self::Output, &Self::Input, &Self::Weight, &Self::Output) -> (Self::Weight, Self::Output);
-
-    fn forward(&self, input: &Self::Input) -> Self::Output {
-        let forward_func = self.get_ff();
-        let (weights, bias) = self.get_params();
-
-        forward_func(input, weights, bias)
-    }
-
-    fn backward(&self, grad: &Self::Output, input: &Self::Input) -> Self::Input {
-        unimplemented!()
-    }
-
-    fn gradient(&self, grad: &Self::Output, input: &Self::Input) -> (Self::Weight, Self::Output) {
-        unimplemented!()
-    }
+    fn gradient<T: Tensor>(&self, grad: &Self::Output, input: &T) -> (Self::Weight, Self::Output);
 }
 
-pub struct ModuleLogic<FF, FDx, FDw, TI, TO, TW>
+pub struct PlainLayer<C, TW, TO>
 where
-    TI: Tensor,
-    TO: Tensor,
+    C: ModuleCore,
     TW: Tensor,
-    FF: Fn(&TI, &TW, &TO) -> TO,
-    FDx: Fn(&TO, &TI, &TW, &TO) -> TI,
-    FDw: Fn(&TO, &TI, &TW, &TO) -> (TW, TO),
+    TO: Tensor,
 {
-    funcf: FF,
-    funcdx: FDx,
-    funcdw: FDw,
+    core: C,
     weights: TW,
     bias: TO,
-    _phantomi: PhantomData<TI>,
 }
 
-// and then a module with activation
+pub type StaticLinear<C, const LENW: usize, const LENO: usize> =
+    PlainLayer<LinearCore, StaticTensor<C, LENW>, StaticTensor<C, LENO>>;
 
-impl<FF, FDx, FDw, TI, TO, TW> Module for ModuleLogic<FF, FDx, FDw, TI, TO, TW>
+// define here more types
+pub struct Layer<C, TW, TO>
 where
-    TI: Tensor,
-    TO: Tensor,
+    C: ModuleCore,
     TW: Tensor,
-    FF: Fn(&TI, &TW, &TO) -> TO,
-    FDx: Fn(&TO, &TI, &TW, &TO) -> TI,
-    FDw: Fn(&TO, &TI, &TW, &TO) -> (TW, TO),
+    TO: Tensor,
 {
-    type Input = TI;
-    type Output = TO;
-    type Weight = TW;
+    plain_layer: PlainLayer<C, TW, TO>,
+    activation: PhantomData<TW>,
+}
 
-    fn init(args: HashMap<String, String>) -> Self {
+impl<C, TW, TO> Module for PlainLayer<C, TW, TO>
+where
+    C: ModuleCore,
+    TW: Tensor,
+    TO: Tensor,
+{
+    type Weight = TW;
+    type Output = TO;
+
+    fn forward<T: Tensor>(&self, input: &T) -> Self::Output {
+        let (weights, bias) = (&self.weights, &self.bias);
+
+        C::compute(weights, bias, input)
+    }
+
+    fn backward<T: Tensor>(&self, grad: &Self::Output, input: &T) -> T {
         unimplemented!()
     }
 
-    fn get_params(&self) -> (&Self::Weight, &Self::Output) {
-        (&self.weights, &self.bias)
-    }
-
-    fn get_mut_params(&mut self) -> (&mut Self::Weight, &mut Self::Output) {
-        (&mut self.weights, &mut self.bias)
-    }
-
-    fn get_ff(&self) -> impl Fn(&TI, &Self::Weight, &Self::Output) -> Self::Output {
-        &self.funcf
-    }
-
-    fn get_fdx(
-        &self,
-    ) -> impl Fn(&Self::Output, &Self::Input, &Self::Weight, &Self::Output) -> Self::Input {
-        &self.funcdx
-    }
-
-    fn get_fdw(
-        &self,
-    ) -> impl Fn(&Self::Output, &Self::Input, &Self::Weight, &Self::Output) -> (Self::Weight, Self::Output)
-    {
-        &self.funcdw
+    fn gradient<T: Tensor>(&self, grad: &Self::Output, input: &T) -> (Self::Weight, Self::Output) {
+        unimplemented!()
     }
 }
+
+// pub struct Layer<FF, FDx, FDw, TI, TO, TW>
+// where
+//     TI: Tensor,
+//     TO: Tensor,
+//     TW: Tensor,
+//     FF: Fn(&TI, &TW, &TO) -> TO,
+//     FDx: Fn(&TO, &TI, &TW, &TO) -> TI,
+//     FDw: Fn(&TO, &TI, &TW, &TO) -> (TW, TO),
+// {
+//     plain_layer: PlainLayer<FF, FDx, FDw, TI, TO, TW>,
+//     activation: PhantomData<TO>,
+// }
 
 // maybe a DynModule and a StaticModule
 // each one has a precision type that implements Precision trait
@@ -191,13 +181,52 @@ pub mod optimization {
 pub mod modules {}
 
 pub mod activations {
+    use std::marker::PhantomData;
+
     use crate::tensor::Tensor;
 
-    // just to add directly to a module
-    pub trait Activation {
-        fn compute<T: Tensor>(input: &mut T);
+    pub struct Activation<FF, FD, TI, P>
+    where
+        TI: Tensor,
+        P: Tensor,
+        FF: Fn(&P, &mut TI),
+        FD: Fn(&P, &mut TI),
+    {
+        funcf: FF,
+        funcdx: FD,
+        params: P,
+        _phantomi: PhantomData<TI>,
+    }
 
-        fn derivative<T: Tensor>(input: &mut T);
+    // just to add directly to a module
+    pub trait ChildModule {
+        // here the input is ok to stay
+        type Input: Tensor;
+        type Params: Tensor;
+
+        fn get_params(&self) -> &Self::Params;
+
+        fn update_params(&mut self);
+
+        fn get_ff(&self) -> impl Fn(&Self::Params, &mut Self::Input);
+
+        fn get_fd(&self) -> impl Fn(&Self::Params, &mut Self::Input);
+
+        // requires mut self because it migh require the params of the activation
+        // and might mutate them like the dropout
+        fn compute(&mut self, input: &mut Self::Input) {
+            self.update_params();
+
+            let ff = self.get_ff();
+            let params = self.get_params();
+
+            ff(params, input)
+        }
+
+        // requires self to get activations params
+        fn derivative<T: Tensor>(&self, input: &mut T) {
+            unimplemented!()
+        }
     }
 }
 
