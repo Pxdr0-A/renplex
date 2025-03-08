@@ -1,6 +1,7 @@
 use std::{collections::HashMap, marker::PhantomData};
 
 use activations::Activation;
+use init::StandardInit;
 use num_complex::Complex32;
 use tensor::{ComplexRoutines, StaticTensor, Tensor};
 // std and dependencies imports
@@ -74,9 +75,11 @@ pub mod tensor {
 }
 
 type InitArgs = HashMap<&'static str, &'static str>;
-// generic functions for defining forward passes like Linear or Convolutional
-// might not be a bad idea to have another generic type for the bias
-pub trait ModuleCore {
+
+// generic functions for defining forward passes like Linear, Convolutional, ...
+pub trait StandardCore {
+    // put here a generic for standard initialization
+    // plan what will happen next
     fn init<TW: Tensor, TB: Tensor>(args: &InitArgs) -> (TW, TB);
 
     fn compute<TW: Tensor, TB: Tensor, TI: Tensor, TO: Tensor>(
@@ -90,7 +93,7 @@ pub trait ModuleCore {
 
 pub struct LinearCore;
 
-impl ModuleCore for LinearCore {
+impl StandardCore for LinearCore {
     fn init<TW: Tensor, TB: Tensor>(args: &InitArgs) -> (TW, TB) {
         unimplemented!()
     }
@@ -109,10 +112,9 @@ pub trait Module {
     type Bias: Tensor;
     type Output: Tensor;
 
-    // not right?! MAYBE EQUIVALENT BUT INSTED OF MODULECORE, INITILIZATION TRAIT WITH GENERIC
-    // THE INITIALIZATION CANNOT RECEIVE THE ARGS BECAUSE IT DOES NOT DISTINGUISH LAYERS
-    // THEN, INITIALIZATION TYPE NEEDS TO BE ACCESSED BY THE MODULE CORE
     fn init(args: &InitArgs) -> Self;
+
+    fn get_mut_params(&mut self) -> (&mut Self::Weight, &mut Self::Bias);
 
     fn forward<T: Tensor>(&self, input: &T) -> Self::Output;
 
@@ -121,9 +123,10 @@ pub trait Module {
     fn gradient<T: Tensor>(&self, grad: &Self::Output, input: &T) -> (Self::Weight, Self::Bias);
 }
 
-pub struct GeneralModule<C, TW, TB, TO>
+// layer with a core that only accepts standard initialization
+pub struct StandardModule<C, TW, TB, TO>
 where
-    C: ModuleCore,
+    C: StandardCore,
     TW: Tensor,
     TB: Tensor,
     TO: Tensor,
@@ -134,14 +137,13 @@ where
     output: PhantomData<TO>,
 }
 
-impl<C, TW, TB, TO> Module for GeneralModule<C, TW, TB, TO>
+impl<C, TW, TB, TO> Module for StandardModule<C, TW, TB, TO>
 where
-    C: ModuleCore,
+    C: StandardCore,
     TW: Tensor,
     TB: Tensor,
     TO: Tensor,
 {
-    // This one seems to be needed but I do not know about the others?
     type Weight = TW;
     type Bias = TB;
     type Output = TO;
@@ -155,6 +157,10 @@ where
             bias,
             output: PhantomData,
         }
+    }
+
+    fn get_mut_params(&mut self) -> (&mut Self::Weight, &mut Self::Bias) {
+        unimplemented!()
     }
 
     fn forward<T: Tensor>(&self, input: &T) -> Self::Output {
@@ -171,35 +177,91 @@ where
     }
 }
 
-// THE WAY LAYERS ARE INITIALIZED DEPENDS ON THE MODULECORE (or maybe not)! MAYBE IT WILL TAKE CARE OF THAT.
-// HOWEVER, Module can still have the init!
-// initialization will receive some args and return the tensors.
-// BIAS MIGHT NEED ITS OWN TYPE!!! TRY THAT!!!
-
 pub type StaticLinear<C, const LENW: usize, const LENB: usize, const LENO: usize> =
-    GeneralModule<LinearCore, StaticTensor<C, LENW>, StaticTensor<C, LENB>, StaticTensor<C, LENO>>;
+    StandardModule<LinearCore, StaticTensor<C, LENW>, StaticTensor<C, LENB>, StaticTensor<C, LENO>>;
 
 // define here more types
-pub struct GeneralLayer<C, A, TW, TB, TO>
+pub struct StandardLayer<C, A, TW, TB, TO>
 where
-    C: ModuleCore,
+    C: StandardCore,
     A: Activation,
     TW: Tensor,
     TB: Tensor,
     TO: Tensor,
 {
-    plain_layer: GeneralModule<C, TW, TB, TO>,
+    plain_layer: StandardModule<C, TW, TB, TO>,
     activation: A,
 }
 
-// TACKLE THIS NOW!!
+impl<C, A, TW, TB, TO> Module for StandardLayer<C, A, TW, TB, TO>
+where
+    C: StandardCore,
+    A: Activation,
+    TW: Tensor,
+    TB: Tensor,
+    TO: Tensor,
+{
+    type Weight = TW;
+    type Bias = TB;
+    type Output = TO;
+
+    fn init(args: &InitArgs) -> Self {
+        unimplemented!()
+    }
+
+    fn get_mut_params(&mut self) -> (&mut Self::Weight, &mut Self::Bias) {
+        unimplemented!()
+    }
+
+    fn forward<T: Tensor>(&self, input: &T) -> Self::Output {
+        unimplemented!()
+    }
+
+    fn backward<T: Tensor>(&self, grad: &Self::Output, input: &T) -> T {
+        unimplemented!()
+    }
+
+    fn gradient<T: Tensor>(&self, grad: &Self::Output, input: &T) -> (Self::Weight, Self::Bias) {
+        unimplemented!()
+    }
+}
 
 pub mod init {
-    pub trait Initialization {}
+    use crate::tensor::Tensor;
+
+    pub trait StandardInit {
+        fn generate<T: Tensor>(ni: usize, no: usize) -> T;
+    }
+
+    pub struct UniformXG;
+
+    impl StandardInit for UniformXG {
+        fn generate<T: Tensor>(ni: usize, no: usize) -> T {
+            unimplemented!()
+        }
+    }
+
+    pub struct NormalXG;
+
+    impl StandardInit for NormalXG {
+        fn generate<T: Tensor>(ni: usize, no: usize) -> T {
+            unimplemented!()
+        }
+    }
+
+    pub struct NormalHK;
+
+    impl StandardInit for NormalHK {
+        fn generate<T: Tensor>(ni: usize, no: usize) -> T {
+            unimplemented!()
+        }
+    }
 }
 
 pub mod optimization {
     use crate::{tensor::Tensor, Module};
+
+    pub trait Loss {}
 
     // I think this is alright
     pub trait Optimizer {
@@ -213,6 +275,7 @@ pub mod activations {
     use crate::{tensor::Tensor, InitArgs};
 
     pub trait Activation {
+        // initialization arguments are passed on from parent module
         fn init(args: &InitArgs) -> Self;
 
         fn update_params(&mut self);
@@ -264,7 +327,7 @@ pub mod activations {
     }
 
     pub struct Dropout<A: Activation> {
-        pre_act: A,
+        act: A,
         config: Vec<usize>,
         prob: f32,
     }
