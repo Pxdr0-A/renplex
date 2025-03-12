@@ -1,48 +1,16 @@
 use std::{collections::HashMap, marker::PhantomData};
 
 use activations::Activation;
-use init::StandardInit;
-use num_complex::Complex32;
-use tensor::{ComplexRoutines, StaticTensor, Tensor};
+use tensor::{StaticTensor, Tensor};
 // std and dependencies imports
 // definition of internal mods
 
 pub mod tensor {
-    use num_complex::{Complex32, Complex64};
+    use routines::ComplexRoutines;
 
     // useful type
     pub type Shape = Vec<usize>;
     pub type ShapeSlice<'a> = &'a [usize];
-
-    mod aocl {
-        extern "C" {}
-    }
-
-    pub trait ComplexRoutines {
-        fn matmul<T1: Tensor, T2: Tensor, T3: Tensor>(lhs: &T1, rhs: &T2) -> T3;
-
-        fn tanh<T: Tensor>(t: &T) -> T;
-    }
-
-    impl ComplexRoutines for Complex32 {
-        fn matmul<T1: Tensor, T2: Tensor, T3: Tensor>(lhs: &T1, rhs: &T2) -> T3 {
-            unimplemented!()
-        }
-
-        fn tanh<T: Tensor>(t: &T) -> T {
-            unimplemented!()
-        }
-    }
-
-    impl ComplexRoutines for Complex64 {
-        fn matmul<T1: Tensor, T2: Tensor, T3: Tensor>(lhs: &T1, rhs: &T2) -> T3 {
-            unimplemented!()
-        }
-
-        fn tanh<T: Tensor>(t: &T) -> T {
-            unimplemented!()
-        }
-    }
 
     // tensor definitions, operations, etc.
     pub trait Tensor {
@@ -70,6 +38,34 @@ pub mod tensor {
 
         fn core_ref(&self) -> (&[Self::C], &[usize]) {
             (self._array.as_slice(), self._shape.as_slice())
+        }
+    }
+
+    mod routines {
+        use num_complex::{Complex32, Complex64};
+
+        use super::Tensor;
+
+        mod raw {
+            extern "C" {}
+        }
+
+        pub trait ComplexRoutines {
+            fn matmul<T1: Tensor, T2: Tensor, T3: Tensor>(lhs: &T1, rhs: &T2) -> T3;
+        }
+
+        // find a way to copy the logic from one to the other ((16) -> 32 -> 64 -> (128))
+        // macro that passes the routines?
+        impl ComplexRoutines for Complex32 {
+            fn matmul<T1: Tensor, T2: Tensor, T3: Tensor>(lhs: &T1, rhs: &T2) -> T3 {
+                unimplemented!()
+            }
+        }
+
+        impl ComplexRoutines for Complex64 {
+            fn matmul<T1: Tensor, T2: Tensor, T3: Tensor>(lhs: &T1, rhs: &T2) -> T3 {
+                unimplemented!()
+            }
         }
     }
 }

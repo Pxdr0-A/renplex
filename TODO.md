@@ -7,3 +7,5 @@
 [ ] - Decide on generic param for initialization.
   [ ] - Standard init should probabily go on StandardCore trait as a generic param in the func
 [ ] - Work on Optimization
+[ ] - Macro for defining routines dependent on harware?
+  [ ] - Find a way to copy the routine logic from one to the other ((16) -> 32 -> 64 -> (128))
