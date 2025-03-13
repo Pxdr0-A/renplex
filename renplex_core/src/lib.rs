@@ -1,6 +1,7 @@
 use std::{collections::HashMap, marker::PhantomData};
 
 use activations::Activation;
+use init::StandardInit;
 use tensor::{StaticTensor, Tensor};
 // std and dependencies imports
 // definition of internal mods
@@ -72,11 +73,9 @@ pub mod tensor {
 
 type InitArgs = HashMap<&'static str, &'static str>;
 
-// generic functions for defining forward passes like Linear, Convolutional, ...
+// generic functions like Linear, Convolutional, ... that involve a standard initialization based on input and output feature numbers
 pub trait StandardCore {
-    // put here a generic for standard initialization
-    // plan what will happen next
-    fn init<TW: Tensor, TB: Tensor>(args: &InitArgs) -> (TW, TB);
+    fn io_features(args: &InitArgs) -> (usize, usize);
 
     fn compute<TW: Tensor, TB: Tensor, TI: Tensor, TO: Tensor>(
         weights: &TW,
@@ -90,7 +89,7 @@ pub trait StandardCore {
 pub struct LinearCore;
 
 impl StandardCore for LinearCore {
-    fn init<TW: Tensor, TB: Tensor>(args: &InitArgs) -> (TW, TB) {
+    fn io_features(args: &InitArgs) -> (usize, usize) {
         unimplemented!()
     }
 
@@ -107,6 +106,7 @@ pub trait Module {
     type Weight: Tensor;
     type Bias: Tensor;
     type Output: Tensor;
+    type Init;
 
     fn init(args: &InitArgs) -> Self;
 
@@ -120,22 +120,25 @@ pub trait Module {
 }
 
 // layer with a core that only accepts standard initialization
-pub struct StandardModule<C, TW, TB, TO>
+pub struct StandardModule<SC, SI, TW, TB, TO>
 where
-    C: StandardCore,
+    SC: StandardCore,
+    SI: StandardInit,
     TW: Tensor,
     TB: Tensor,
     TO: Tensor,
 {
-    core: PhantomData<C>,
+    core: PhantomData<SC>,
+    standard_init: PhantomData<SI>,
     weights: TW,
     bias: TB,
     output: PhantomData<TO>,
 }
 
-impl<C, TW, TB, TO> Module for StandardModule<C, TW, TB, TO>
+impl<SC, SI, TW, TB, TO> Module for StandardModule<SC, SI, TW, TB, TO>
 where
-    C: StandardCore,
+    SC: StandardCore,
+    SI: StandardInit,
     TW: Tensor,
     TB: Tensor,
     TO: Tensor,
@@ -143,12 +146,17 @@ where
     type Weight = TW;
     type Bias = TB;
     type Output = TO;
+    type Init = SI;
+    // Initialization should enter here as a generic
 
     fn init(args: &InitArgs) -> Self {
-        let (weights, bias) = C::init(args);
+        let (ni, no) = SC::io_features(args);
+        let weights = SI::generate(ni, no);
+        let bias = Self::Bias::new(vec![no]);
 
         Self {
             core: PhantomData,
+            standard_init: PhantomData,
             weights,
             bias,
             output: PhantomData,
@@ -161,7 +169,7 @@ where
 
     fn forward<T: Tensor>(&self, input: &T) -> Self::Output {
         let (weights, bias) = (&self.weights, &self.bias);
-        C::compute(weights, bias, input)
+        SC::compute(weights, bias, input)
     }
 
     fn backward<T: Tensor>(&self, grad: &Self::Output, input: &T) -> T {
@@ -173,25 +181,33 @@ where
     }
 }
 
-pub type StaticLinear<C, const LENW: usize, const LENB: usize, const LENO: usize> =
-    StandardModule<LinearCore, StaticTensor<C, LENW>, StaticTensor<C, LENB>, StaticTensor<C, LENO>>;
+pub type StaticLinear<C, SI, const LENW: usize, const LENB: usize, const LENO: usize> =
+    StandardModule<
+        LinearCore,
+        SI,
+        StaticTensor<C, LENW>,
+        StaticTensor<C, LENB>,
+        StaticTensor<C, LENO>,
+    >;
 
 // define here more types
-pub struct StandardLayer<C, A, TW, TB, TO>
+pub struct StandardLayer<SC, SI, A, TW, TB, TO>
 where
-    C: StandardCore,
+    SC: StandardCore,
+    SI: StandardInit,
     A: Activation,
     TW: Tensor,
     TB: Tensor,
     TO: Tensor,
 {
-    plain_layer: StandardModule<C, TW, TB, TO>,
+    plain_layer: StandardModule<SC, SI, TW, TB, TO>,
     activation: A,
 }
 
-impl<C, A, TW, TB, TO> Module for StandardLayer<C, A, TW, TB, TO>
+impl<SC, SI, A, TW, TB, TO> Module for StandardLayer<SC, SI, A, TW, TB, TO>
 where
-    C: StandardCore,
+    SC: StandardCore,
+    SI: StandardInit,
     A: Activation,
     TW: Tensor,
     TB: Tensor,
@@ -200,6 +216,7 @@ where
     type Weight = TW;
     type Bias = TB;
     type Output = TO;
+    type Init = SI;
 
     fn init(args: &InitArgs) -> Self {
         unimplemented!()
