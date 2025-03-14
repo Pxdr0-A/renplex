@@ -13,4 +13,6 @@ keywords = ["neural-networks", "library"]
 [dependencies]
 renplex_core = { path = "renplex_core" }
 renplex_derive = { path = "renplex_derive" }
+num-complex = "0.4.6"
+num-traits = "0.2.19"
 rand = "0.8.5"
