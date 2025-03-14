@@ -1,11 +1,10 @@
 # Important Tasks
 
-[x] - How to implement dropout with current setup
-[x] - How to remove the input and make it generic
-[x] - Develop ativation core analogous to module core
-[ ] - Work on Initialization
-[ ] - Decide on generic param for initialization.
-  [ ] - Standard init should probabily go on StandardCore trait as a generic param in the func
-[ ] - Work on Optimization
+[x] - Work on Optimization.
+[x] - Review loss function.
+[x] - Review the module structure.
+[ ] - Make an example without the macro
+[ ] - The super module derive macro should be developed accordingly to new arch
+[ ] - Make an example with the macro
 [ ] - Macro for defining routines dependent on harware?
   [ ] - Find a way to copy the routine logic from one to the other ((16) -> 32 -> 64 -> (128))
