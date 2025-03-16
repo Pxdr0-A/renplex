@@ -1,8 +1,29 @@
 use std::collections::HashMap;
+
+use optimization::{Loss, Optimizer};
+use tensor::{routines::ComplexRoutine, Tensor};
 // std and dependencies imports
 // definition of internal mods
 
-type InitArgs = HashMap<&'static str, &'static str>;
+pub type InitArgs = HashMap<&'static str, &'static str>;
+
+pub trait Network {
+    type Precision: ComplexRoutine;
+    type Output: Tensor<Self::Precision>;
+    type LossFunc: Loss;
+    type Opt: Optimizer;
+
+    fn init(args: &InitArgs) -> Self;
+
+    fn predict<T: Tensor<Self::Precision>>(&self, input: &T) -> Self::Output;
+
+    fn train<T: Tensor<Self::Precision>>(
+        &mut self,
+        input: &T,
+        target: &Self::Output,
+        opt: &mut Self::Opt,
+    );
+}
 
 pub mod tensor {
     use routines::ComplexRoutine;
@@ -476,28 +497,26 @@ pub mod optimization {
     // i do not think there are parametrized losses whose parameter types
     // need to be synced with the data
     pub trait Loss {
-        fn forward<C: ComplexRoutine, T: Tensor<C>>(input: &T) -> T;
+        fn forward<C: ComplexRoutine, T: Tensor<C>>(input: &T, target: &T) -> T;
 
-        fn backward<C: ComplexRoutine, T: Tensor<C>>(input: &T) -> T;
+        fn backward<C: ComplexRoutine, T: Tensor<C>>(input: &T, target: &T) -> T;
     }
 
-    // You should be able to just say MSE
-    // Maybe it is possible without the pahntom data
     pub struct MSE;
 
     impl Loss for MSE {
-        fn forward<C: ComplexRoutine, T: Tensor<C>>(input: &T) -> T {
+        fn forward<C: ComplexRoutine, T: Tensor<C>>(input: &T, target: &T) -> T {
             unimplemented!()
         }
 
-        fn backward<C: ComplexRoutine, T: Tensor<C>>(input: &T) -> T {
+        fn backward<C: ComplexRoutine, T: Tensor<C>>(input: &T, target: &T) -> T {
             unimplemented!()
         }
     }
 
     pub trait Optimizer {
         // needs this because the parameters inside the optimizer need to sync with the precision type of the data
-        // this is equivalent to the module trait
+        // this is sort of equivalent to the module trait however it seems to need here a generic type
         type Precision: ComplexRoutine;
 
         fn init(args: &InitArgs) -> Self;
@@ -511,8 +530,8 @@ pub mod optimization {
         );
     }
 
-    pub struct CSGD<CP: ComplexRoutine> {
-        lr: CP,
+    pub struct CSGD<C: ComplexRoutine> {
+        lr: C,
     }
 
     impl<C: ComplexRoutine> Optimizer for CSGD<C> {
