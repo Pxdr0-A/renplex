@@ -4,15 +4,16 @@ use renplex_core::{
     init::UniformXG,
     modules::{Module, StaticLinearLayer, StaticLinearModule},
     optimization::{Loss, Optimizer, CSGD, MSE},
-    tensor::Tensor,
+    tensor::{StaticTensor, Tensor},
     InitArgs, Network,
 };
 
 fn main() {
     type Precision = Complex32;
+    type MyLossFunc = MSE;
+    type MyOptimizer = CSGD<Precision>;
+
     type Initializer = UniformXG;
-    type LossFunc = MSE;
-    type Opt = CSGD<Precision>;
 
     const LENW1: usize = 64 * 32;
     type Layer1 = StaticLinearLayer<Precision, Initializer, Tanh, LENW1, 64, 64>;
@@ -25,8 +26,8 @@ fn main() {
     impl Network for MyNetwork {
         type Precision = Precision;
         type Output = <Layer2 as Module>::Output;
-        type LossFunc = LossFunc;
-        type Opt = Opt;
+        type LossFunc = MyLossFunc;
+        type Opt = MyOptimizer;
 
         fn init(args: &InitArgs) -> Self {
             let layer1 = Layer1::init(args);
@@ -66,4 +67,15 @@ fn main() {
             opt.step(weights, bias, &layer1_gradw, &layer1_gradb);
         }
     }
+
+    let mut my_network = MyNetwork::init(&InitArgs::default());
+
+    let input = StaticTensor::<Precision, 32>::new(Vec::new());
+    let _pred1 = my_network.predict(&input);
+
+    let target = StaticTensor::<Precision, 128>::new(Vec::new());
+    let mut opt = MyOptimizer::init(&InitArgs::default());
+    my_network.train(&input, &target, &mut opt);
+
+    let _pred2 = my_network.predict(&input);
 }
