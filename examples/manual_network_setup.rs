@@ -8,23 +8,28 @@ use renplex_core::optimization::{Loss, Optimizer, CSGD, MSE};
 use renplex_core::tensor::{StaticTensor, Tensor};
 
 fn main() {
+    type Precision = Complex32;
+    type Initializer = UniformXG;
+
     const LENW1: usize = 64 * 32;
     let mut layer1 =
-        StaticLinearLayer::<Complex32, UniformXG, Tanh, LENW1, 64, 64>::init(&HashMap::new());
+        StaticLinearLayer::<Precision, Initializer, Tanh, LENW1, 64, 64>::init(&HashMap::new());
 
     const LENW2: usize = 128 * 64;
     let mut layer2 =
-        StaticLinearModule::<Complex32, UniformXG, LENW2, 128, 128>::init(&HashMap::new());
+        StaticLinearModule::<Precision, Initializer, LENW2, 128, 128>::init(&HashMap::new());
 
     // forward pass
-    let input = StaticTensor::<Complex32, 32>::new(Vec::new());
+    let input = StaticTensor::<Precision, 32>::new(Vec::new());
     let out1 = layer1.forward(&input);
     let out2 = layer2.forward(&out1);
-    let _loss_vals = MSE::forward(&out2);
+
+    let target = StaticTensor::<Precision, 128>::new(Vec::new());
+    let _loss_vals = MSE::forward(&out2, &target);
 
     // backward pass
-    let mut opt = CSGD::<Complex32>::init(&HashMap::new());
-    let loss_gradx = MSE::backward(&out2);
+    let mut opt = CSGD::<Precision>::init(&HashMap::new());
+    let loss_gradx = MSE::backward(&out2, &target);
 
     let layer2_gradx = layer2.backward(&out1, &loss_gradx);
     let (layer2_gradw, layer2_gradb) = layer2.gradient(&out1, &loss_gradx);
