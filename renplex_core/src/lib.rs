@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use optimization::{Loss, Optimizer};
 use tensor::{routines::ComplexRoutine, Tensor};
-// std and dependencies imports
-// definition of internal mods
 
 pub type InitArgs = HashMap<&'static str, &'static str>;
 
