@@ -1,5 +1,7 @@
 # CVNN library in Rust!
 
+This was a project done in the context of a master thesis. This library is not scalable, has very unefficient linear algebra and computing techniques. For that reason this repository will be archived.
+
 ## Overview
 
 A library built with Rust capable of modeling complex-valued neural networks.
